@@ -127,7 +127,7 @@ const Landing = () => {
                 <h3 className="text-xl font-bold text-foreground mb-3">Visa Enquiry</h3>
                 <p className="text-muted-foreground mb-6">Check visa rules & get help for any destination.</p>
                 <Button asChild className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700">
-                  <Link to="/tools">
+                  <Link to="/tools?tab=services">
                     Check Visa
                     <ArrowRight className="ml-2 w-4 h-4" />
                   </Link>

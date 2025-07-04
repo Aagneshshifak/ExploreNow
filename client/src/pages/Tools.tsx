@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExpensesTracker from "@/components/tools/ExpensesTracker";
@@ -15,6 +15,16 @@ import MoodBasedPlanner from "@/components/tools/MoodBasedPlanner";
 
 const Tools = () => {
   const [activeTab, setActiveTab] = useState("expenses");
+
+  // Handle URL parameters to switch to specific tab
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam && ['expenses', 'discovery', 'personal', 'services'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
 
   const toolCategories = [
     {
