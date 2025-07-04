@@ -1,0 +1,91 @@
+ExploreNow — Complete Backend Prompt for Replit (Node.js + Express + MongoDB)
+
+---
+
+🔍 Goal:
+> Build the complete backend for the ExploreNow tourism platform using Node.js + Express and MongoDB (Mongoose).
+> It will handle all required APIs to support the UI prompts previously given. Use dummy data or mock files where needed.
+
+---
+
+🔧 Project Structure Suggestion:
+explorenow-backend/
+├── server.js
+├── config/
+│   └── db.js
+├── routes/
+│   ├── auth.routes.js
+│   ├── hotel.routes.js
+│   ├── trip.routes.js
+│   ├── admin.routes.js
+│   ├── tools.routes.js
+│   ├── wallet.routes.js
+├── controllers/
+│   └── (one controller per route)
+├── models/
+│   └── (User.js, Hotel.js, Trip.js, etc)
+├── middleware/
+│   └── auth.js
+├── uploads/
+└── .env
+
+---
+
+📡 API Endpoints
+
+1. 🔐 Auth API (User/Admin)
+Route: /api/auth
+POST   /register    - User/Admin registration
+POST   /login       - Login + JWT token
+
+2. 🏨 Hotels API
+Route: /api/hotels
+GET    /            - Get all hotels (optional filter)
+GET    /price-range - Get hotels within price range
+POST   /            - Add hotel (admin only)
+
+3. 🌐 Trip Planner API
+Route: /api/trips
+GET    /packages    - Get list of travel packages
+POST   /add         - Add a selected trip to user's cart
+GET    /mytrips     - Get user's saved trips
+
+4. ⚖️ Admin API
+Route: /api/admin
+GET    /dashboard   - Get site analytics
+GET    /users       - List of registered users
+PUT    /approve/:id - Approve/reject trip packages
+
+5. 🔧 Tools API
+Route: /api/tools
+
+Expenses Tracker:
+POST /expenses-tracker - Input: { from, to, mode, travelers, addons } → Output: estimated cost breakdown
+
+Expenses Differentiator:
+POST /expenses-diff - Input: two routes or two modes → Output: comparison of cost and time
+
+Visa Wizard:
+POST /visa-check - Input: nationality + destination → Output: visa status, documents needed
+
+Mood-Based Quiz:
+GET /mood-quiz/:result - Input: mood string → Output: suggested destinations
+
+Trip Compass:
+GET /trip-cards - Output: swipeable destination cards
+
+Crowd Heatmaps:
+GET /crowd/:city - Output: crowd level and trending places
+
+6. 💼 Wallet API
+Route: /api/wallet
+POST   /upload         - Upload travel document (PDF/image)
+GET    /files/:user    - Get all uploaded files by user
+DELETE /remove/:id     - Delete a specific file
+GET    /upcoming/:id   - Get user's upcoming trip summary
+
+7. 🔐 Configuration
+- Use JWT for auth-protected routes (wallet, trips, admin)
+- Use Multer for file uploads
+- Connect to MongoDB Atlas or local MongoDB instance
+- Store uploaded files in /uploads/ or use base64

@@ -1,0 +1,116 @@
+{
+  "hotels": [
+    {
+      "id": "h1",
+      "name": "Taj Lake Palace",
+      "location": "Udaipur, Rajasthan",
+      "price_per_night": 18500,
+      "rating": 4.9,
+      "amenities": [
+        "Wi-Fi",
+        "Breakfast",
+        "Pool",
+        "AC"
+      ],
+      "image": "https://example.com/images/taj_lake_palace.jpg"
+    },
+    {
+      "id": "h2",
+      "name": "Backwater Retreat",
+      "location": "Alleppey, Kerala",
+      "price_per_night": 8500,
+      "rating": 4.7,
+      "amenities": [
+        "Wi-Fi",
+        "Parking",
+        "Gym"
+      ],
+      "image": "https://example.com/images/backwater_retreat.jpg"
+    }
+  ],
+  "visa_requirements": {
+    "Indian_to_Italy": {
+      "visa_required": true,
+      "documents_needed": [
+        "Passport",
+        "Photos",
+        "Bank Statement",
+        "Travel Insurance"
+      ],
+      "processing_time": "15 working days"
+    },
+    "Indian_to_Malaysia": {
+      "visa_required": true,
+      "documents_needed": [
+        "Passport",
+        "Visa Form",
+        "Hotel Booking"
+      ],
+      "processing_time": "3-5 working days"
+    }
+  },
+  "moods": {
+    "Relax": {
+      "destinations": [
+        "Goa",
+        "Manali",
+        "Coorg"
+      ],
+      "playlists": [
+        "Chill Vibes",
+        "Sunset Lounge"
+      ],
+      "food_spots": [
+        "Beach Caf\u00e9",
+        "Hilltop Viewpoint Restaurant"
+      ]
+    },
+    "Thrill": {
+      "destinations": [
+        "Rishikesh",
+        "Leh",
+        "Auli"
+      ],
+      "activities": [
+        "River Rafting",
+        "Skiing",
+        "ATV Safari"
+      ]
+    }
+  },
+  "smart_trip_composer": {
+    "input": {
+      "origin": "Delhi",
+      "budget": "15000",
+      "duration": "3 days",
+      "interest": "Nature"
+    },
+    "output": {
+      "trip_plan": [
+        {
+          "day": 1,
+          "place": "Mussoorie",
+          "activities": [
+            "Waterfall Visit",
+            "Local Market Walk"
+          ]
+        },
+        {
+          "day": 2,
+          "place": "Dhanaulti",
+          "activities": [
+            "Eco Park",
+            "Campfire"
+          ]
+        },
+        {
+          "day": 3,
+          "place": "Return to Delhi",
+          "activities": [
+            "Souvenir Shopping"
+          ]
+        }
+      ]
+    }
+  }
+}
