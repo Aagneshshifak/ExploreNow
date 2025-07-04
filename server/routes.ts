@@ -10,7 +10,7 @@ import {
 } from "@shared/schema";
 import { cacheControl, memoryCache } from "./middleware/cache";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<Express> {
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
@@ -277,6 +277,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  return app;
 }

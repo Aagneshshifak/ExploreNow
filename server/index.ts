@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import compression from "compression";
 import { performanceMonitor, addPerformanceEndpoint } from "./middleware/performance";
+import { createServer } from "http";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(performanceMonitor.track());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Log API responses and duration
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -56,7 +58,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  await registerRoutes(app);
   
   // Add performance monitoring endpoint
   addPerformanceEndpoint(app);
@@ -69,6 +71,9 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // Create HTTP server
+  const server = createServer(app);
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
@@ -78,14 +83,12 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // ALWAYS serve the app on port 8080
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 8080;
   server.listen({
     port,
-    host: "127.0.0.1",
-    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
   });
