@@ -68,9 +68,9 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Plan Your Trip */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-blue-50/50 border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl bg-gradient-to-br from-white to-blue-50/50 border-0 shadow-lg">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                   <Compass className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3">Plan Your Trip</h3>
@@ -85,9 +85,9 @@ const Landing = () => {
             </Card>
 
             {/* Explore Hotels */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-orange-50/50 border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl bg-gradient-to-br from-white to-orange-50/50 border-0 shadow-lg">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                   <Hotel className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3">Hotels & Stays</h3>
@@ -102,9 +102,9 @@ const Landing = () => {
             </Card>
 
             {/* Travel Tools */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-green-50/50 border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl bg-gradient-to-br from-white to-green-50/50 border-0 shadow-lg">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                   <MapPin className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3">Smart Tools</h3>
@@ -119,9 +119,9 @@ const Landing = () => {
             </Card>
 
             {/* Travel Services */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl bg-gradient-to-br from-white to-purple-50/50 border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl bg-gradient-to-br from-white to-purple-50/50 border-0 shadow-lg">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                   <FileCheck className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-3">Visa Enquiry</h3>
@@ -198,7 +198,7 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Kerala Backwaters */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl overflow-hidden bg-white border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl overflow-hidden bg-white border-0 shadow-lg">
               <div className="relative h-48">
                 <OptimizedImage
                   src={keralaImage}
@@ -234,7 +234,7 @@ const Landing = () => {
             </Card>
 
             {/* Ladakh Adventures */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl overflow-hidden bg-white border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl overflow-hidden bg-white border-0 shadow-lg">
               <div className="relative h-48">
                 <OptimizedImage
                   src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4"
@@ -270,7 +270,7 @@ const Landing = () => {
             </Card>
 
             {/* Goa Beaches */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl overflow-hidden bg-white border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl overflow-hidden bg-white border-0 shadow-lg">
               <div className="relative h-48">
                 <OptimizedImage
                   src="https://images.unsplash.com/photo-1512343879784-a960bf40e7f2"
@@ -306,7 +306,7 @@ const Landing = () => {
             </Card>
 
             {/* Rajasthan Heritage */}
-            <Card className="group hover:scale-105 transition-all duration-300 hover:shadow-2xl overflow-hidden bg-white border-0 shadow-lg">
+            <Card className="group hover:scale-105 transition-transform duration-200 hover:shadow-xl overflow-hidden bg-white border-0 shadow-lg">
               <div className="relative h-48">
                 <OptimizedImage
                   src="https://images.unsplash.com/photo-1587135941948-670b381f08ce"
