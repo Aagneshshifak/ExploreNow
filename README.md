@@ -1,73 +1,117 @@
-# Welcome to your Lovable project
+# 🌍 ExploreNow – Travel Discovery & Booking Platform
 
-## Project info
+ExploreNow is a full-stack travel booking and exploration platform that helps travelers discover curated trips, book top-rated hotels, and use smart AI-powered tools like trip recommendations, local tourist guides, and language translation — all within a seamless user experience.
 
-**URL**: https://lovable.dev/projects/fbbc7818-1361-4b6b-a76e-25330d2aeda3
+![ExploreNow Preview](https://your-preview-image-link-if-any.com)
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## ✨ Features
 
-**Use Lovable**
+### 🔐 Authentication
+- JWT-based login/signup with secure access/refresh tokens
+- Role-based access (Traveler/Admin)
+- Separate login/signup pages for Admin and Users
+- Google & Facebook social login options
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/fbbc7818-1361-4b6b-a76e-25330d2aeda3) and start prompting.
+### 🏠 Home Interface
+- Fully responsive UI with pure black/white monochrome design
+- Hero section with CTA: “Plan. Book. Explore.”
+- Featured Destinations, Top Hotels, Testimonials
+- Sticky header with dark/light toggle, language selector
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🧰 Traveler Tools
+- ✅ **Trip Recommender** – Suggests trips based on user budget, interests, and duration
+- ✅ **Local Explorer** – Provides popular tourist spots based on location and preference
+- ✅ **Text Translator** – Helps travelers communicate across languages
+- ✅ **Expense Estimator** – Estimates total trip budget
+- ✅ **Tourist & Crowd Map** – Shows crowded areas for better planning
 
-**Use your preferred IDE**
+### 🧑‍💼 Admin Dashboard
+- Protected dashboard for uploading trips & hotels
+- Admin CRUD operations (add, edit, delete)
+- Upload images, set prices, descriptions, ratings
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🛠️ Tech Stack
 
-Follow these steps:
+| Frontend | Backend | Database | Deployment |
+|----------|---------|----------|------------|
+| React (Vite) + Tailwind CSS | Node.js + Express.js | PostgreSQL (via Prisma) | Render, Replit, Cursor |
+| React Router DOM | RESTful APIs | Prisma ORM | GitHub CI/CD |
+| JWT, Bcrypt, Multer | Role Middleware | Cloudinary (optional) | |
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 📂 Project Structure
 
-# Step 3: Install the necessary dependencies.
-npm i
+ExploreNow/
+├── frontend/               # React-based frontend
+│   ├── components/
+│   ├── pages/
+│   └── tools/              # Trip Recommender, Translator, Explorer, etc.
+├── backend/                # Express.js backend
+│   ├── controllers/
+│   ├── routes/
+│   ├── middlewares/
+│   ├── services/
+│   └── prisma/
+│       └── schema.prisma
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+---
+
+## 🚀 Getting Started
+
+### 📦 Install Dependencies
+
+bash
+cd frontend
+npm install
+
+cd ../backend
+npm install
+
+🛠️ Setup Environment Variables
+
+Create .env in backend/ with:
+
+DATABASE_URL=your_postgres_db_url
+JWT_SECRET=your_jwt_secret
+
+🧪 Run Locally
+
+# Frontend
+cd frontend
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+# Backend
+cd backend
+npm run dev
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+🧠 AI Integrations
+	•	🔎 Open-source models (Hugging Face) for:
+	•	Text Translation
+	•	Trip Recommendation (via keyword/interest matching)
+	•	No OpenAI dependency (100% free)
+	•	Can be hosted separately or integrated via API
 
-**Use GitHub Codespaces**
+⸻
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+✅ Future Enhancements
+	•	✈️ Booking payment integration (Stripe/Razorpay)
+	•	📊 Admin analytics dashboard
+	•	🧠 LLM-based dynamic itinerary planning
+	•	🔍 Real-time crowd & weather insights
 
-## What technologies are used for this project?
+⸻
 
-This project is built with:
+🙌 Contributing
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Contributions are welcome! Open issues, suggest features, or submit pull requests.
 
-## How can I deploy this project?
+⸻
 
-Simply open [Lovable](https://lovable.dev/projects/fbbc7818-1361-4b6b-a76e-25330d2aeda3) and click on Share -> Publish.
+📜 License
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is licensed under the MIT License.
