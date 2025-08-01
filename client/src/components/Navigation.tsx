@@ -93,33 +93,35 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
               </Link>
             ))}
             
-            {/* Submit Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-sm font-medium text-muted-foreground hover:text-primary">
-                  <Plus className="w-4 h-4" />
-                  <span>Submit</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass border border-border/50 bg-background/95 backdrop-blur-lg">
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/submit-hotel" className="flex items-center space-x-2">
-                    <span>Submit Hotel</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/submit-trip" className="flex items-center space-x-2">
-                    <span>Submit Trip Package</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/tools/compass" className="flex items-center space-x-2">
-                    <span>Create Trip Plan</span>
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Submit Dropdown - Admin Only */}
+            {user?.role === 'admin' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-sm font-medium text-muted-foreground hover:text-primary">
+                    <Plus className="w-4 h-4" />
+                    <span>Submit</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass border border-border/50 bg-background/95 backdrop-blur-lg">
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/submit-hotel" className="flex items-center space-x-2">
+                      <span>Submit Hotel</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/submit-trip" className="flex items-center space-x-2">
+                      <span>Submit Trip Package</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/tools/compass" className="flex items-center space-x-2">
+                      <span>Create Trip Plan</span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Desktop Actions */}
@@ -198,31 +200,33 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
                   </Link>
                 ))}
                 
-                {/* Mobile Submit Section */}
-                <div className="pt-2 border-t border-border/50">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2 px-2">SUBMIT</p>
-                  <Link
-                    to="/submit-hotel"
-                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Submit Hotel
-                  </Link>
-                  <Link
-                    to="/submit-trip"
-                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Submit Trip Package
-                  </Link>
-                  <Link
-                    to="/tools/compass"
-                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Create Trip Plan
-                  </Link>
-                </div>
+                {/* Mobile Submit Section - Admin Only */}
+                {user?.role === 'admin' && (
+                  <div className="pt-2 border-t border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 px-2">SUBMIT</p>
+                    <Link
+                      to="/submit-hotel"
+                      className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Submit Hotel
+                    </Link>
+                    <Link
+                      to="/submit-trip"
+                      className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Submit Trip Package
+                    </Link>
+                    <Link
+                      to="/tools/compass"
+                      className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors block px-2 py-1"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Create Trip Plan
+                    </Link>
+                  </div>
+                )}
 
                 {/* Mobile Admin Section */}
                 <div className="pt-2 border-t border-border/50">
