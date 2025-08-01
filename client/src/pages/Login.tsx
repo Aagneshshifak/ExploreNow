@@ -142,8 +142,8 @@ export default function Login() {
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground mb-2">Demo Accounts:</p>
               <div className="space-y-1 text-xs">
-                <p><strong>User:</strong> user@example.com / password</p>
-                <p><strong>Admin:</strong> admin@example.com / password</p>
+                <p><strong>User:</strong> user@explorenow.com / user123</p>
+                <p><strong>Admin:</strong> admin@explorenow.com / admin123</p>
               </div>
             </div>
           </CardContent>

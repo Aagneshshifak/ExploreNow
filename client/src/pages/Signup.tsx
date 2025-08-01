@@ -18,7 +18,7 @@ export default function Signup() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { register } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -44,8 +44,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      await login(formData.email, formData.password);
+      await register(formData.name, formData.email, formData.password);
       
       toast({
         title: "Welcome to ExploreNow!",
@@ -55,7 +54,7 @@ export default function Signup() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create account. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create account. Please try again.",
         variant: "destructive",
       });
     } finally {
