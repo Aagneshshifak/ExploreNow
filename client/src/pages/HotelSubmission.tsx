@@ -6,11 +6,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, X, Image as ImageIcon, Hotel, MapPin, DollarSign, Star, FileText } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Navigate } from 'react-router-dom';
+import { Upload, X, Image as ImageIcon, Hotel, MapPin, DollarSign, Star, FileText, AlertCircle } from 'lucide-react';
 
 const HotelSubmission = () => {
   const { toast } = useToast();
+  const { user, isLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Redirect non-admin users
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/unauthorized" replace />;
+  }
   
   const [formData, setFormData] = useState({
     hotelName: '',
@@ -114,29 +133,49 @@ const HotelSubmission = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Hotel Submitted Successfully!",
-        description: "Your hotel has been submitted for review. We'll notify you once it's approved.",
+      const response = await fetch('/api/hotels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: formData.hotelName,
+          location: formData.location,
+          price: parseFloat(formData.pricePerNight),
+          description: formData.description,
+          amenities: formData.amenities.split(',').map(a => a.trim()),
+          rating: 4.5, // Default rating
+          imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800'
+        }),
       });
+
+      const data = await response.json();
       
-      // Reset form
-      setFormData({
-        hotelName: '',
-        location: '',
-        pricePerNight: '',
-        amenities: '',
-        description: '',
-        userId: '',
-      });
-      setImages([]);
+      if (data.success) {
+        toast({
+          title: "Hotel Created Successfully!",
+          description: "The hotel has been added to the platform.",
+        });
+        
+        // Reset form
+        setFormData({
+          hotelName: '',
+          location: '',
+          pricePerNight: '',
+          amenities: '',
+          description: '',
+          userId: '',
+        });
+        setImages([]);
+      } else {
+        throw new Error(data.message || 'Failed to create hotel');
+      }
       
     } catch (error) {
       toast({
         title: "Submission Failed",
-        description: "There was an error submitting your hotel. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error creating the hotel. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -177,7 +216,7 @@ const HotelSubmission = () => {
               Hotel Submission Form
             </CardTitle>
             <CardDescription>
-              Submit your hotel for listing on ExploreNow. All submissions are reviewed before going live.
+              Create a new hotel listing for ExploreNow. Only admin users can add hotels to the platform.
             </CardDescription>
           </CardHeader>
           

@@ -33,6 +33,7 @@ import TripRecommender from "./pages/TripRecommender";
 import LocalExplorer from "./pages/LocalExplorer";
 import AdminUploadDashboard from "./pages/AdminUploadDashboard";
 import SearchFilter from "./pages/SearchFilter";
+import Profile from "./pages/Profile";
 
 
 const queryClient = new QueryClient();
@@ -118,12 +119,24 @@ const App = () => {
                             <AdminDashboard />
                           </ProtectedRoute>
                         } />
-                        <Route path="/submit-hotel" element={<HotelSubmission />} />
-                        <Route path="/submit-trip" element={<TripSubmission />} />
+                        <Route path="/submit-hotel" element={
+                          <ProtectedRoute requireAuth={true} requiredRole="admin">
+                            <HotelSubmission />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/submit-trip" element={
+                          <ProtectedRoute requireAuth={true} requiredRole="admin">
+                            <TripSubmission />
+                          </ProtectedRoute>
+                        } />
                         <Route path="/trips" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Trips Coming Soon</h1></div>} />
                         <Route path="/hotels" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Hotels Coming Soon</h1></div>} />
                         <Route path="/about" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div>} />
-                        <Route path="/profile" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Profile Coming Soon</h1></div>} />
+                        <Route path="/profile" element={
+                          <ProtectedRoute requireAuth={true}>
+                            <Profile />
+                          </ProtectedRoute>
+                        } />
                         <Route path="/settings" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Settings Coming Soon</h1></div>} />
                         <Route path="/unauthorized" element={<Unauthorized />} />
                         <Route path="*" element={<NotFound />} />

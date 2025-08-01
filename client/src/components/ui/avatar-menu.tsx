@@ -13,11 +13,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AvatarMenuProps {
   user?: {
+    id: number;
     name: string;
     email: string;
-    avatar?: string;
-    role?: 'user' | 'admin';
-  };
+    role: 'user' | 'admin';
+  } | null;
   onLogout?: () => void;
 }
 
@@ -51,7 +51,6 @@ export function AvatarMenu({ user, onLogout }: AvatarMenuProps) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatar} alt={user.name} />
             <AvatarFallback className="text-xs">
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
