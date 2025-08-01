@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users, trips, hotels } from "@shared/schema";
 import bcrypt from "bcryptjs";
@@ -6,26 +7,46 @@ export async function seedDatabase() {
   console.log("🌱 Seeding database...");
   
   try {
-    // Create admin user
-    const adminPassword = await bcrypt.hash("admin123", 12);
-    const admin = await db.insert(users).values({
-      name: "Admin User",
-      email: "admin@explorenow.com",
-      password: adminPassword,
-      role: "admin"
-    }).returning();
+    // Check if admin user already exists
+    const existingAdmin = await db.select().from(users).where(eq(users.email, "admin@explorenow.com")).limit(1);
     
-    // Create regular user
-    const userPassword = await bcrypt.hash("user123", 12);
-    const user = await db.insert(users).values({
-      name: "John Doe",
-      email: "user@explorenow.com", 
-      password: userPassword,
-      role: "user"
-    }).returning();
+    if (existingAdmin.length === 0) {
+      // Create admin user
+      const adminPassword = await bcrypt.hash("admin123", 12);
+      await db.insert(users).values({
+        name: "Admin User",
+        email: "admin@explorenow.com",
+        password: adminPassword,
+        role: "admin"
+      });
+      console.log("✅ Admin user created");
+    } else {
+      console.log("ℹ️ Admin user already exists");
+    }
     
-    // Seed trips
-    const sampleTrips = [
+    // Check if regular user already exists
+    const existingUser = await db.select().from(users).where(eq(users.email, "user@explorenow.com")).limit(1);
+    
+    if (existingUser.length === 0) {
+      // Create regular user
+      const userPassword = await bcrypt.hash("user123", 12);
+      await db.insert(users).values({
+        name: "John Doe",
+        email: "user@explorenow.com", 
+        password: userPassword,
+        role: "user"
+      });
+      console.log("✅ Regular user created");
+    } else {
+      console.log("ℹ️ Regular user already exists");
+    }
+    
+    // Check if trips already exist
+    const existingTrips = await db.select().from(trips).limit(1);
+    
+    if (existingTrips.length === 0) {
+      // Seed trips
+      const sampleTrips = [
       {
         title: "Tropical Paradise in Bali",
         location: "Bali, Indonesia",
@@ -58,12 +79,20 @@ export async function seedDatabase() {
         imageUrl: "https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800",
         duration: 12
       }
-    ];
+      ];
+      
+      await db.insert(trips).values(sampleTrips);
+      console.log("✅ Sample trips created");
+    } else {
+      console.log("ℹ️ Trips already exist");
+    }
     
-    await db.insert(trips).values(sampleTrips);
+    // Check if hotels already exist
+    const existingHotels = await db.select().from(hotels).limit(1);
     
-    // Seed hotels
-    const sampleHotels = [
+    if (existingHotels.length === 0) {
+      // Seed hotels
+      const sampleHotels = [
       {
         name: "Grand Palace Resort",
         location: "Bali, Indonesia",
@@ -109,13 +138,17 @@ export async function seedDatabase() {
         rating: "4.4",
         amenities: ["Pool", "Restaurant", "WiFi", "Terrace", "City Views"]
       }
-    ];
+      ];
+      
+      await db.insert(hotels).values(sampleHotels);
+      console.log("✅ Sample hotels created");
+    } else {
+      console.log("ℹ️ Hotels already exist");
+    }
     
-    await db.insert(hotels).values(sampleHotels);
-    
-    console.log("✅ Database seeded successfully!");
-    console.log("Admin login: admin@explorenow.com / admin123");
-    console.log("User login: user@explorenow.com / user123");
+    console.log("✅ Database seeding completed successfully!");
+    console.log("🔐 Admin login: admin@explorenow.com / admin123");
+    console.log("👤 User login: user@explorenow.com / user123");
     
   } catch (error) {
     console.error("❌ Error seeding database:", error);
