@@ -51,6 +51,21 @@ export const bookings = pgTable("bookings", {
   checkOut: timestamp("check_out"),
 });
 
+// Reviews table
+export const reviews = pgTable("reviews", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id),
+  tripId: text("trip_id").references(() => trips.id),
+  hotelId: text("hotel_id").references(() => hotels.id),
+  bookingId: text("booking_id").references(() => bookings.id),
+  type: text("type").notNull(), // "trip" or "hotel"
+  rating: integer("rating").notNull(), // 1-5 stars
+  title: text("title").notNull(),
+  comment: text("comment").notNull(),
+  isVerified: boolean("is_verified").default(false), // true if user actually booked
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -70,6 +85,12 @@ export const insertHotelSchema = createInsertSchema(hotels).omit({
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
   bookingDate: true,
+});
+
+export const insertReviewSchema = createInsertSchema(reviews).omit({
+  id: true,
+  createdAt: true,
+  isVerified: true,
 });
 
 // Auth schemas
@@ -98,6 +119,8 @@ export type InsertHotel = z.infer<typeof insertHotelSchema>;
 export type Hotel = typeof hotels.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type Review = typeof reviews.$inferSelect;
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type CurrencyConversionRequest = z.infer<typeof currencyConversionSchema>;

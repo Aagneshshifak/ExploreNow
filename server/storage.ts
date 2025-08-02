@@ -1,11 +1,12 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./db";
 import { 
-  users, trips, hotels, bookings,
+  users, trips, hotels, bookings, reviews,
   type User, type InsertUser,
   type Trip, type InsertTrip,
   type Hotel, type InsertHotel,
-  type Booking, type InsertBooking
+  type Booking, type InsertBooking,
+  type Review, type InsertReview
 } from "@shared/schema";
 
 export interface IStorage {
@@ -33,6 +34,12 @@ export interface IStorage {
   getUserBookings(userId: number): Promise<Booking[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   getBooking(id: number): Promise<Booking | undefined>;
+  
+  // Review methods
+  getReviews(type?: 'trip' | 'hotel', itemId?: string): Promise<Review[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  getUserReviews(userId: string): Promise<Review[]>;
+  getItemReviews(type: 'trip' | 'hotel', itemId: string): Promise<Review[]>;
   
   // Analytics methods
   getAnalytics(): Promise<{
@@ -194,6 +201,54 @@ export class DatabaseStorage implements IStorage {
   async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
     const result = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
     return result[0];
+  }
+
+  // Review methods
+  async getReviews(type?: 'trip' | 'hotel', itemId?: string): Promise<Review[]> {
+    if (type && itemId) {
+      if (type === 'trip') {
+        return await db.select().from(reviews)
+          .where(eq(reviews.tripId, itemId))
+          .orderBy(desc(reviews.createdAt));
+      } else {
+        return await db.select().from(reviews)
+          .where(eq(reviews.hotelId, itemId))
+          .orderBy(desc(reviews.createdAt));
+      }
+    } else if (type) {
+      return await db.select().from(reviews)
+        .where(eq(reviews.type, type))
+        .orderBy(desc(reviews.createdAt));
+    }
+    
+    return await db.select().from(reviews).orderBy(desc(reviews.createdAt));
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const reviewId = Math.random().toString(36).substring(2, 15);
+    const result = await db.insert(reviews).values({
+      ...review,
+      id: reviewId
+    }).returning();
+    return result[0];
+  }
+
+  async getUserReviews(userId: string): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(eq(reviews.userId, userId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getItemReviews(type: 'trip' | 'hotel', itemId: string): Promise<Review[]> {
+    if (type === 'trip') {
+      return await db.select().from(reviews)
+        .where(eq(reviews.tripId, itemId))
+        .orderBy(desc(reviews.createdAt));
+    } else {
+      return await db.select().from(reviews)
+        .where(eq(reviews.hotelId, itemId))
+        .orderBy(desc(reviews.createdAt));
+    }
   }
 
   // Analytics methods

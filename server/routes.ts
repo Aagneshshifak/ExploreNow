@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
+import { emailService } from "./services/emailService";
 import { 
   loginSchema, 
   registerSchema, 
@@ -51,6 +52,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         role: role || "user"
       });
+      
+      // Send welcome email
+      emailService.sendWelcomeEmail(email, name);
       
       // Generate token
       const token = generateToken(newUser);
@@ -431,6 +435,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const booking = await storage.createBooking(bookingData);
+      
+      // Send booking confirmation email
+      const bookedTrip = await storage.getTrip(tripId);
+      if (bookedTrip && req.user) {
+        emailService.sendBookingConfirmation(
+          req.user.email,
+          req.user.name,
+          {
+            type: 'trip',
+            itemName: bookedTrip.title,
+            totalPrice: booking.totalPrice,
+            checkIn: req.body.checkIn,
+            checkOut: req.body.checkOut,
+            bookingId: booking.id.toString()
+          }
+        );
+      }
+      
       res.status(201).json(createResponse(true, booking, "Trip booked successfully"));
     } catch (error) {
       console.error("Book trip error:", error);
@@ -466,6 +488,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const booking = await storage.createBooking(bookingData);
+      
+      // Send booking confirmation email
+      const bookedHotel = await storage.getHotel(hotelId);
+      if (bookedHotel && req.user) {
+        emailService.sendBookingConfirmation(
+          req.user.email,
+          req.user.name,
+          {
+            type: 'hotel',
+            itemName: bookedHotel.name,
+            totalPrice: booking.totalPrice,
+            checkIn,
+            checkOut,
+            bookingId: booking.id.toString()
+          }
+        );
+      }
+      
       res.status(201).json(createResponse(true, booking, "Hotel booked successfully"));
     } catch (error) {
       console.error("Book hotel error:", error);
@@ -494,6 +534,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Convert currency - GET /api/utils/convert-currency
   app.get("/api/utils/convert-currency", convertCurrency);
+  
+  // ============================================
+  // REVIEWS ROUTES
+  // ============================================
+  
+  // Get reviews - GET /api/reviews
+  app.get("/api/reviews", async (req, res) => {
+    try {
+      const { type, itemId } = req.query;
+      const reviews = await storage.getReviews(
+        type as 'trip' | 'hotel' | undefined,
+        itemId as string | undefined
+      );
+      res.json(createResponse(true, reviews, "Reviews retrieved successfully"));
+    } catch (error) {
+      console.error("Get reviews error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve reviews"));
+    }
+  });
+  
+  // Create review - POST /api/reviews (Auth required)
+  app.post("/api/reviews", requireUser, async (req, res) => {
+    try {
+      const { tripId, hotelId, type, rating, title, comment, bookingId } = req.body;
+      
+      // Validation
+      if (!type || !rating || !title || !comment) {
+        return res.status(400).json(createResponse(false, null, "Missing required fields"));
+      }
+      
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json(createResponse(false, null, "Rating must be between 1 and 5"));
+      }
+      
+      if (type === 'trip' && !tripId) {
+        return res.status(400).json(createResponse(false, null, "Trip ID is required for trip reviews"));
+      }
+      
+      if (type === 'hotel' && !hotelId) {
+        return res.status(400).json(createResponse(false, null, "Hotel ID is required for hotel reviews"));
+      }
+      
+      // Check if user has booked this item (for verified reviews)
+      let isVerified = false;
+      if (bookingId) {
+        const booking = await storage.getBooking(bookingId);
+        if (booking && booking.userId === req.user!.id && booking.status === 'confirmed') {
+          isVerified = true;
+        }
+      }
+      
+      const reviewData = {
+        userId: req.user!.id.toString(),
+        tripId: tripId || null,
+        hotelId: hotelId || null,
+        bookingId: bookingId || null,
+        type,
+        rating: parseInt(rating),
+        title,
+        comment,
+        isVerified,
+      };
+      
+      const review = await storage.createReview(reviewData);
+      res.status(201).json(createResponse(true, review, "Review created successfully"));
+    } catch (error) {
+      console.error("Create review error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to create review"));
+    }
+  });
+  
+  // Get user's reviews - GET /api/reviews/my (Auth required)
+  app.get("/api/reviews/my", requireUser, async (req, res) => {
+    try {
+      const reviews = await storage.getUserReviews(req.user!.id.toString());
+      res.json(createResponse(true, reviews, "User reviews retrieved successfully"));
+    } catch (error) {
+      console.error("Get user reviews error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve user reviews"));
+    }
+  });
   
   // ============================================
   // AI FEATURES - TRIP RECOMMENDATIONS & ROUTE PLANNING
