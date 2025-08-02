@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { LazyImage } from '@/components/LazyImage';
+import { PriceDisplay } from '@/components/ui/price-display';
 import heroBackground from '@/assets/hero-background.jpg';
 export default function Home() {
   const featuredDestinations = [{
@@ -12,7 +13,7 @@ export default function Home() {
     name: 'Santorini, Greece',
     description: 'Whitewashed villages and azure seas',
     image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&h=600&fit=crop',
-    price: 'From $2,890',
+    price: 2890,
     rating: 4.9,
     duration: '7 days'
   }, {
@@ -20,7 +21,7 @@ export default function Home() {
     name: 'Tokyo, Japan',
     description: 'Modern metropolis meets ancient tradition',
     image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop',
-    price: 'From $3,250',
+    price: 3250,
     rating: 4.8,
     duration: '10 days'
   }, {
@@ -28,7 +29,7 @@ export default function Home() {
     name: 'Swiss Alps',
     description: 'Majestic peaks and pristine landscapes',
     image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop',
-    price: 'From $4,120',
+    price: 4120,
     rating: 4.9,
     duration: '8 days'
   }];
@@ -37,7 +38,7 @@ export default function Home() {
     name: 'The Grand Palace',
     location: 'Paris, France',
     image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop',
-    price: '$450/night',
+    price: 450,
     rating: 4.8,
     amenities: ['Spa', 'Fine Dining', 'City Views']
   }, {
@@ -45,7 +46,7 @@ export default function Home() {
     name: 'Ocean Breeze Resort',
     location: 'Maldives',
     image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&h=600&fit=crop',
-    price: '$890/night',
+    price: 890,
     rating: 4.9,
     amenities: ['Private Beach', 'Water Villa', 'Diving']
   }, {
@@ -53,7 +54,7 @@ export default function Home() {
     name: 'Mountain Lodge',
     location: 'Colorado, USA',
     image: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&h=600&fit=crop',
-    price: '$320/night',
+    price: 320,
     rating: 4.7,
     amenities: ['Ski Access', 'Fireplace', 'Mountain Views']
   }];
@@ -303,9 +304,14 @@ export default function Home() {
                           <span>{destination.duration}</span>
                         </div>
                       </div>
-                      <span className="text-lg font-semibold text-foreground">
-                        {destination.price}
-                      </span>
+                      <div className="text-lg">
+                        <span className="text-sm text-muted-foreground">From </span>
+                        <PriceDisplay 
+                          price={destination.price} 
+                          originalCurrency="USD" 
+                          className="font-semibold" 
+                        />
+                      </div>
                     </div>
                     <Button asChild className="w-full bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="View destination details">
                       <Link to={`/trips/${destination.id}`}>View Details</Link>
@@ -383,9 +389,14 @@ export default function Home() {
                         </span>)}
                     </div>
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-lg font-semibold text-foreground">
-                        {hotel.price}
-                      </span>
+                      <div className="text-lg">
+                        <PriceDisplay 
+                          price={hotel.price} 
+                          originalCurrency="USD" 
+                          className="font-semibold" 
+                        />
+                        <span className="text-sm text-muted-foreground">/night</span>
+                      </div>
                     </div>
                     <Button asChild className="w-full bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Book hotel now">
                       <Link to={`/hotels/${hotel.id}`}>Book Now</Link>
