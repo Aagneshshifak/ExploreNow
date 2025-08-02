@@ -6,7 +6,15 @@ ExploreNow is a comprehensive travel booking platform built with a modern full-s
 
 The system is designed to handle trip planning, hotel booking, expense estimation, visa checking, and various travel utilities through an intuitive interface. It features role-based access control with separate user and admin experiences, comprehensive travel tools, and a responsive design system.
 
-**Recent Major Update (August 2025)**: The backend has been completely expanded with a comprehensive travel booking system including JWT authentication, role-based permissions, PostgreSQL database integration, currency conversion, and AI-ready endpoints.
+**Recent Major Update (August 2025)**: The backend has been completely expanded with a comprehensive travel booking system including JWT authentication, role-based permissions, PostgreSQL database integration, currency conversion, AI-ready endpoints, and booking analytics dashboard.
+
+**Latest Features (August 2025)**:
+- ✅ Real currency conversion API using exchangerate-api.com with live rates
+- ✅ Comprehensive booking history analytics with spending trends and charts  
+- ✅ Interactive user dashboard with booking data visualization using Recharts
+- ✅ AI-powered trip recommender with intelligent filtering by budget and interests
+- ✅ Route planner foundation for future trip optimization features
+- ✅ Sample booking data for testing analytics (4 bookings worth $4,149.98)
 
 ## User Preferences
 
