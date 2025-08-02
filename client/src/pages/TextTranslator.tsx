@@ -52,13 +52,16 @@ const TextTranslator = () => {
 
       const result = await response.json();
 
-      if (result.success) {
+      console.log('Translation result:', result);
+      
+      if (result.success && result.data && result.data.translated) {
         setOutputText(result.data.translated);
         toast({
           title: "Translation Complete",
           description: `Text translated to ${languages.find(l => l.code === toLanguage)?.name || toLanguage}`,
         });
       } else {
+        console.error('Translation result structure:', result);
         throw new Error(result.message || 'Translation failed');
       }
     } catch (error: any) {
@@ -190,12 +193,12 @@ const TextTranslator = () => {
               </Button>
 
               {/* Output Section */}
-              {outputText && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">
-                      Translation
-                    </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-foreground">
+                    Translation
+                  </label>
+                  {outputText && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -206,15 +209,16 @@ const TextTranslator = () => {
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       {copied ? "Copied" : "Copy"}
                     </Button>
-                  </div>
-                  <Textarea
-                    value={outputText}
-                    readOnly
-                    className="min-h-[120px] resize-none bg-muted"
-                    aria-label="Translated text"
-                  />
+                  )}
                 </div>
-              )}
+                <Textarea
+                  value={outputText}
+                  readOnly
+                  placeholder={isTranslating ? "Translating..." : "Translation will appear here"}
+                  className="min-h-[120px] resize-none bg-muted"
+                  aria-label="Translated text"
+                />
+              </div>
             </CardContent>
           </Card>
 
