@@ -1,9 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
-import { registerRoutes } from "./routes";
+import { createServer } from "http";
+// import { registerRoutes } from "./routes"; // Switched to Prisma
 import { setupVite, serveStatic, log } from "./vite";
-import { errorHandler } from "./middleware";
-import { seedDatabase } from "./seed";
+import { errorHandler } from "./middleware-prisma";
+// import { seedDatabase } from "./seed"; // Switched to Prisma
+import { seedDatabase } from "./prisma-seed-runner";
+import prismaRoutes from "./prisma-routes";
 
 const app = express();
 app.use(express.json());
@@ -41,7 +44,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  // const server = await registerRoutes(app); // Switched to Prisma
+  const server = createServer(app);
+  
+  // Use Prisma routes
+  app.use(prismaRoutes);
 
   // Seed database with sample data (only if empty)
   try {
