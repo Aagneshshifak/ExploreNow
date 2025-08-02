@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useLocation } from 'wouter';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
@@ -54,12 +54,13 @@ interface BookingReceipt {
 
 export default function BookingFlow() {
   const params = useParams();
-  const [location, navigate] = useLocation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const searchParams = new URLSearchParams(location.search || '');
   const itemType = searchParams.get('type') as 'trip' | 'hotel';
   const itemId = parseInt(params.id || '0');
   
