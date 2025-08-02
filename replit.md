@@ -26,6 +26,7 @@ ExploreNow is a comprehensive travel management web application that provides in
 - **Admin Routes**: `/api/admin/*` - analytics, all bookings (admin only)
 - **Utility Routes**: `/api/utils/*` - currency conversion with live exchange rates
 - **AI Routes**: `/api/ai/*` - trip recommendations and route planning
+- **Translation Routes**: `/api/translate` - LibreTranslate API integration for 8 supported languages
 
 ### Authentication & Authorization
 - JWT tokens with 24h expiration
@@ -60,6 +61,8 @@ ExploreNow is a comprehensive travel management web application that provides in
 - ✅ **BOOKING SYSTEM VERIFIED** - Full booking flow tested and working perfectly
 - ✅ **DETAILED BOOKING FLOW** - Added comprehensive booking endpoint `/api/bookings/detailed` with customer details
 - ✅ **BOOKING ROUTE INTEGRATION** - Added `/book/:id?type=trip/hotel` route to App.tsx with authentication protection
+- ✅ **CURRENCY CONVERSION SYSTEM** - Real-time multi-currency support (USD, EUR, GBP, INR, JPY, etc.) with context provider
+- ✅ **MULTI-LANGUAGE TRANSLATION API** - LibreTranslate integration supporting 8 languages (French, German, Hindi, Spanish, Russian, Chinese, Arabic, Portuguese)
 
 ## Seeded Data
 ### User Accounts

@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware-prisma";
 // import { seedDatabase } from "./seed"; // Switched to Prisma
 import { seedDatabase } from "./prisma-seed-runner";
 import prismaRoutes from "./prisma-routes";
+import translateRoutes from "./routes/translate";
 
 const app = express();
 
@@ -61,6 +62,9 @@ app.use((req, res, next) => {
   
   // Use Prisma routes
   app.use(prismaRoutes);
+  
+  // Use translation routes
+  app.use('/api', translateRoutes);
 
   // Seed database with sample data (only if empty)
   try {
