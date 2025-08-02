@@ -354,6 +354,41 @@ app.get("/api/bookings/history", requireUser, async (req, res) => {
   }
 });
 
+// Create a booking - POST /api/bookings (General booking endpoint)
+app.post("/api/bookings", requireUser, async (req, res) => {
+  try {
+    const { tripId, hotelId, type, amount, checkIn, checkOut } = req.body;
+    
+    if (!type || (type !== 'trip' && type !== 'hotel')) {
+      return res.status(400).json(createResponse(false, null, "Invalid booking type"));
+    }
+    
+    if (type === 'trip' && !tripId) {
+      return res.status(400).json(createResponse(false, null, "Trip ID is required for trip bookings"));
+    }
+    
+    if (type === 'hotel' && !hotelId) {
+      return res.status(400).json(createResponse(false, null, "Hotel ID is required for hotel bookings"));
+    }
+
+    const bookingData = {
+      userId: req.user!.id.toString(),
+      tripId: tripId || null,
+      hotelId: hotelId || null,
+      type,
+      amount: amount || 0,
+      checkIn: checkIn ? new Date(checkIn) : undefined,
+      checkOut: checkOut ? new Date(checkOut) : undefined,
+    };
+
+    const booking = await storage.createBooking(bookingData);
+    res.status(201).json(createResponse(true, booking, "Booking created successfully"));
+  } catch (error) {
+    console.error("Create booking error:", error);
+    res.status(500).json(createResponse(false, null, "Failed to create booking"));
+  }
+});
+
 // Book a trip - POST /api/bookings/trip/:tripId
 app.post("/api/bookings/trip/:tripId", requireUser, async (req, res) => {
   try {
@@ -445,6 +480,35 @@ app.get("/api/admin/bookings", requireAdmin, async (req, res) => {
   } catch (error) {
     console.error("Get all bookings error:", error);
     res.status(500).json(createResponse(false, null, "Failed to retrieve all bookings"));
+  }
+});
+
+// Get user booking analytics - GET /api/bookings/analytics
+app.get("/api/bookings/analytics", requireUser, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const bookings = await storage.getUserBookingsWithDetails(userId);
+    
+    // Calculate analytics
+    const totalSpent = bookings.reduce((sum: number, booking: any) => {
+      return sum + booking.amount;
+    }, 0);
+    
+    const bookingsByStatus = bookings.reduce((acc: Record<string, number>, booking: any) => {
+      acc[booking.status] = (acc[booking.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const analytics = {
+      totalBookings: bookings.length,
+      totalSpent: Math.round(totalSpent * 100) / 100,
+      bookingsByStatus,
+    };
+    
+    res.json(createResponse(true, analytics, "User analytics retrieved successfully"));
+  } catch (error) {
+    console.error("Get user analytics error:", error);
+    res.status(500).json(createResponse(false, null, "Failed to retrieve user analytics"));
   }
 });
 
