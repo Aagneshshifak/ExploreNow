@@ -40,6 +40,7 @@ import AITripRecommender from "./pages/AITripRecommender";
 import TripsList from "./pages/TripsList";
 import ExpenseConverter from "./pages/ExpenseConverter";
 import ReviewsPage from "./pages/ReviewsPage";
+import BookingFlow from "./pages/BookingFlow";
 
 
 const queryClient = new QueryClient();
@@ -140,6 +141,11 @@ const App = () => {
                         <Route path="/trips" element={<TripsList />} />
                         <Route path="/currency-converter" element={<ExpenseConverter />} />
                         <Route path="/reviews" element={<ReviewsPage />} />
+                        <Route path="/book/:id" element={
+                          <ProtectedRoute requireAuth={true}>
+                            <BookingFlow />
+                          </ProtectedRoute>
+                        } />
                         <Route path="/hotels" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Hotels Coming Soon</h1></div>} />
                         <Route path="/about" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div>} />
                         <Route path="/profile" element={

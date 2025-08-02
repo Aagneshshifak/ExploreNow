@@ -61,7 +61,7 @@ export default function BookingFlow() {
   
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
   const itemType = searchParams.get('type') as 'trip' | 'hotel';
-  const itemId = params.id;
+  const itemId = parseInt(params.id || '0');
   
   const [step, setStep] = useState(1);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({

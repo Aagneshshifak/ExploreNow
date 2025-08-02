@@ -512,6 +512,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to book hotel"));
     }
   });
+
+  // Detailed booking flow - POST /api/bookings/detailed
+  app.post("/api/bookings/detailed", requireUser, async (req, res) => {
+    try {
+      const { tripId, hotelId, type, checkInDate, checkOutDate, guests, customerDetails, amount } = req.body;
+      
+      // Validation
+      if (!type || (type !== 'trip' && type !== 'hotel')) {
+        return res.status(400).json(createResponse(false, null, "Invalid booking type"));
+      }
+      
+      if (type === 'trip' && !tripId) {
+        return res.status(400).json(createResponse(false, null, "Trip ID is required for trip bookings"));
+      }
+      
+      if (type === 'hotel' && !hotelId) {
+        return res.status(400).json(createResponse(false, null, "Hotel ID is required for hotel bookings"));
+      }
+      
+      if (!checkInDate || !checkOutDate) {
+        return res.status(400).json(createResponse(false, null, "Check-in and check-out dates are required"));
+      }
+      
+      if (!customerDetails || !customerDetails.customerName || !customerDetails.customerEmail) {
+        return res.status(400).json(createResponse(false, null, "Customer details are required"));
+      }
+      
+      // Verify item exists
+      if (type === 'trip') {
+        const trip = await storage.getTrip(tripId);
+        if (!trip) {
+          return res.status(404).json(createResponse(false, null, "Trip not found"));
+        }
+      } else {
+        const hotel = await storage.getHotel(hotelId);
+        if (!hotel) {
+          return res.status(404).json(createResponse(false, null, "Hotel not found"));
+        }
+      }
+      
+      const bookingData = {
+        userId: req.user!.id,
+        tripId: type === 'trip' ? tripId : null,
+        hotelId: type === 'hotel' ? hotelId : null,
+        type: type as 'trip' | 'hotel',
+        totalPrice: amount.toString(),
+        checkIn: new Date(checkInDate),
+        checkOut: new Date(checkOutDate),
+      };
+      
+      const booking = await storage.createBooking(bookingData);
+      
+      // Send booking confirmation email with detailed customer information
+      const itemName = type === 'trip' 
+        ? (await storage.getTrip(tripId))?.title || 'Trip'
+        : (await storage.getHotel(hotelId))?.name || 'Hotel';
+        
+      emailService.sendBookingConfirmation(
+        customerDetails.customerEmail,
+        customerDetails.customerName,
+        {
+          type,
+          itemName,
+          totalPrice: booking.totalPrice,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          bookingId: booking.id.toString()
+        }
+      );
+      
+      res.status(201).json(createResponse(true, booking, "Detailed booking created successfully"));
+    } catch (error) {
+      console.error("Detailed booking error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to create detailed booking"));
+    }
+  });
   
   // ============================================
   // ADMIN ANALYTICS ROUTES
