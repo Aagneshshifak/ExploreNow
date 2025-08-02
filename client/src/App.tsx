@@ -35,6 +35,7 @@ import AdminUploadDashboard from "./pages/AdminUploadDashboard";
 import SearchFilter from "./pages/SearchFilter";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
+import AITripRecommender from "./pages/AITripRecommender";
 
 
 const queryClient = new QueryClient();
@@ -141,6 +142,11 @@ const App = () => {
                         <Route path="/dashboard" element={
                           <ProtectedRoute requireAuth={true}>
                             <Dashboard />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/ai-recommender" element={
+                          <ProtectedRoute requireAuth={true}>
+                            <AITripRecommender />
                           </ProtectedRoute>
                         } />
                         <Route path="/settings" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Settings Coming Soon</h1></div>} />
