@@ -10,6 +10,7 @@ import Footer from './components/Footer';
 import { ScrollToTop } from './components/ui/scroll-to-top';
 import { AuthProvider } from './hooks/use-auth';
 import { ProtectedRoute } from './components/ui/protected-route';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -79,10 +80,11 @@ const App = () => {
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+          <CurrencyProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
             <div className="min-h-screen bg-background text-foreground">
               <Routes>
                 {/* Routes without navigation */}
@@ -175,7 +177,8 @@ const App = () => {
               </Routes>
             </div>
           </BrowserRouter>
-          </TooltipProvider>
+            </TooltipProvider>
+          </CurrencyProvider>
         </AuthProvider>
       </QueryClientProvider>
     </HelmetProvider>

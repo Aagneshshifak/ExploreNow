@@ -610,6 +610,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Convert currency - GET /api/utils/convert-currency
   app.get("/api/utils/convert-currency", convertCurrency);
+
+  // Get exchange rates - GET /api/utils/exchange-rates
+  app.get("/api/utils/exchange-rates", async (req, res) => {
+    try {
+      const { base = 'USD' } = req.query;
+      const baseCurrency = (base as string).toUpperCase();
+      
+      // Validate currency code
+      if (baseCurrency.length !== 3) {
+        return res.status(400).json(
+          createResponse(false, null, "Base currency must be a 3-letter code")
+        );
+      }
+
+      // Try to fetch live rates
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const apiUrl = `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`;
+        const response = await fetch(apiUrl, { 
+          signal: controller.signal,
+          headers: { 'User-Agent': 'ExploreNow-API/1.0' }
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          return res.json(
+            createResponse(true, {
+              base: baseCurrency,
+              rates: data.rates,
+              date: data.date || new Date().toISOString().split('T')[0],
+              source: "live"
+            }, "Exchange rates retrieved successfully")
+          );
+        }
+      } catch (fetchError) {
+        console.log("Live exchange rates API failed, using fallback:", fetchError);
+      }
+
+      // Fallback rates based on USD
+      const fallbackRates: Record<string, Record<string, number>> = {
+        'USD': {
+          'USD': 1.0, 'EUR': 0.85, 'GBP': 0.75, 'INR': 85.0, 'JPY': 110.0,
+          'CAD': 1.25, 'AUD': 1.40, 'CHF': 0.92, 'CNY': 7.2, 'KRW': 1300.0
+        },
+        'EUR': {
+          'USD': 1.18, 'EUR': 1.0, 'GBP': 0.88, 'INR': 100.0, 'JPY': 129.0,
+          'CAD': 1.47, 'AUD': 1.65, 'CHF': 1.08, 'CNY': 8.5, 'KRW': 1530.0
+        },
+        'INR': {
+          'USD': 0.012, 'EUR': 0.010, 'GBP': 0.009, 'INR': 1.0, 'JPY': 1.29,
+          'CAD': 0.015, 'AUD': 0.016, 'CHF': 0.011, 'CNY': 0.085, 'KRW': 15.3
+        }
+      };
+
+      const rates = fallbackRates[baseCurrency] || fallbackRates['USD'];
+      
+      res.json(
+        createResponse(true, {
+          base: baseCurrency,
+          rates,
+          date: new Date().toISOString().split('T')[0],
+          source: "fallback"
+        }, "Exchange rates retrieved successfully (fallback)")
+      );
+    } catch (error) {
+      console.error("Exchange rates error:", error);
+      res.status(500).json(
+        createResponse(false, null, "Failed to retrieve exchange rates")
+      );
+    }
+  });
   
   // ============================================
   // REVIEWS ROUTES

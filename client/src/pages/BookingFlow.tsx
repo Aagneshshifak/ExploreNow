@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { PriceDisplay } from '@/components/ui/price-display';
 // import { apiRequest } from '@/lib/queryClient';
 
 interface BookingDetails {
@@ -565,7 +566,10 @@ Thank you for booking with ExploreNow!
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Base Price:</span>
-                    <span>${item.price}/{itemType === 'trip' ? 'person' : 'night'}</span>
+                    <span>
+                      <PriceDisplay price={item.price} originalCurrency="USD" />
+                      /{itemType === 'trip' ? 'person' : 'night'}
+                    </span>
                   </div>
                   {bookingDetails.checkInDate && bookingDetails.checkOutDate && (
                     <>
@@ -580,7 +584,9 @@ Thank you for booking with ExploreNow!
                       <Separator />
                       <div className="flex justify-between font-medium">
                         <span>Total:</span>
-                        <span>${calculateTotal()}</span>
+                        <span>
+                          <PriceDisplay price={calculateTotal()} originalCurrency="USD" />
+                        </span>
                       </div>
                     </>
                   )}

@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AvatarMenu } from '@/components/ui/avatar-menu';
+import { CurrencySelector } from '@/components/ui/currency-selector';
 import { useAuth } from '@/hooks/use-auth';
 
 interface NavigationProps {
@@ -128,23 +129,8 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Language Selector */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center space-x-1">
-                  <Globe className="w-4 h-4" />
-                  <span className="text-sm">EN</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass border border-border/50 bg-background/95 backdrop-blur-lg">
-                {languages.map((lang) => (
-                  <DropdownMenuItem key={lang.code} className="cursor-pointer">
-                    {lang.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Currency Selector */}
+            <CurrencySelector variant="compact" />
 
             {/* Dark Mode Toggle */}
             <Button

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PriceDisplay } from '@/components/ui/price-display';
 import { useToast } from '@/hooks/use-toast';
 
 interface Trip {
@@ -232,16 +233,13 @@ export default function TripsList() {
 
                         {/* Price and Action */}
                         <div className="flex items-center justify-between pt-4 border-t">
-                          <div className="text-2xl font-bold text-primary">
-                            ${trip.price}
+                          <div className="text-2xl text-primary">
+                            <PriceDisplay price={trip.price} originalCurrency="USD" />
                           </div>
                           <Button 
                             size="sm"
                             onClick={() => {
-                              toast({
-                                title: "Booking Feature",
-                                description: "Trip booking functionality coming soon!",
-                              });
+                              window.location.href = `/book/${trip.id}?type=trip`;
                             }}
                           >
                             Book Now
