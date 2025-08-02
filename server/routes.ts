@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
+import { convertCurrency } from "./controllers/utils";
 import { 
   loginSchema, 
   registerSchema, 
@@ -440,55 +441,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CURRENCY CONVERSION UTILITY
   // ============================================
   
-  // Mock exchange rates for demonstration
-  const MOCK_EXCHANGE_RATES: { [key: string]: number } = {
-    USD: 1.0,      // Base currency
-    EUR: 0.85,     // 1 USD = 0.85 EUR
-    GBP: 0.73,     // 1 USD = 0.73 GBP
-    INR: 83.12,    // 1 USD = 83.12 INR
-    JPY: 149.50,   // 1 USD = 149.50 JPY
-    CAD: 1.25,     // 1 USD = 1.25 CAD
-    AUD: 1.52,     // 1 USD = 1.52 AUD
-  };
-  
-  // Convert currency - POST /api/utils/convert-currency
-  app.post("/api/utils/convert-currency", async (req, res) => {
-    try {
-      const validation = currencyConversionSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json(
-          createResponse(false, validation.error.errors, "Invalid conversion data")
-        );
-      }
-      
-      const { amount, from, to } = validation.data;
-      
-      // Check if currencies are supported
-      if (!MOCK_EXCHANGE_RATES[from] || !MOCK_EXCHANGE_RATES[to]) {
-        return res.status(400).json(
-          createResponse(false, null, "Unsupported currency code")
-        );
-      }
-      
-      // Convert: amount in 'from' currency -> USD -> 'to' currency
-      const usdAmount = amount / MOCK_EXCHANGE_RATES[from];
-      const convertedAmount = usdAmount * MOCK_EXCHANGE_RATES[to];
-      
-      const result = {
-        originalAmount: amount,
-        fromCurrency: from,
-        toCurrency: to,
-        convertedAmount: Math.round(convertedAmount * 100) / 100, // Round to 2 decimal places
-        exchangeRate: MOCK_EXCHANGE_RATES[to] / MOCK_EXCHANGE_RATES[from],
-        timestamp: new Date().toISOString(),
-      };
-      
-      res.json(createResponse(true, result, "Currency converted successfully"));
-    } catch (error) {
-      console.error("Currency conversion error:", error);
-      res.status(500).json(createResponse(false, null, "Currency conversion failed"));
-    }
-  });
+  // Convert currency - GET /api/utils/convert-currency
+  app.get("/api/utils/convert-currency", convertCurrency);
   
   // ============================================
   // AI FEATURES PLACEHOLDER
