@@ -354,6 +354,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to retrieve bookings"));
     }
   });
+
+  // Get user's booking history with analytics - GET /api/bookings/history
+  app.get("/api/bookings/history", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const bookings = await storage.getUserBookingsWithDetails(userId);
+      
+      // Calculate analytics
+      const totalSpent = bookings.reduce((sum: number, booking: any) => {
+        return sum + parseFloat(booking.totalPrice);
+      }, 0);
+      
+      const bookingsByStatus = bookings.reduce((acc: Record<string, number>, booking: any) => {
+        acc[booking.status] = (acc[booking.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const bookingsByType = bookings.reduce((acc: Record<string, number>, booking: any) => {
+        acc[booking.type] = (acc[booking.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Group bookings by month for chart data
+      const bookingsByMonth = bookings.reduce((acc: Record<string, { month: string; count: number; spent: number }>, booking: any) => {
+        const month = new Date(booking.bookingDate!).toISOString().slice(0, 7); // YYYY-MM
+        if (!acc[month]) {
+          acc[month] = { month, count: 0, spent: 0 };
+        }
+        acc[month].count += 1;
+        acc[month].spent += parseFloat(booking.totalPrice);
+        return acc;
+      }, {} as Record<string, { month: string; count: number; spent: number }>);
+      
+      const monthlyData = Object.values(bookingsByMonth).sort((a: { month: string }, b: { month: string }) => 
+        a.month.localeCompare(b.month)
+      );
+      
+      const analytics = {
+        totalBookings: bookings.length,
+        totalSpent: Math.round(totalSpent * 100) / 100,
+        bookingsByStatus,
+        bookingsByType,
+        monthlyData
+      };
+      
+      res.json(createResponse(true, { bookings, analytics }, "Booking history retrieved successfully"));
+    } catch (error) {
+      console.error("Get booking history error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve booking history"));
+    }
+  });
   
   // Book a trip - POST /api/bookings/trip/:tripId
   app.post("/api/bookings/trip/:tripId", requireUser, async (req, res) => {
@@ -445,12 +496,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/utils/convert-currency", convertCurrency);
   
   // ============================================
-  // AI FEATURES PLACEHOLDER
+  // AI FEATURES - TRIP RECOMMENDATIONS & ROUTE PLANNING
   // ============================================
   
-  // AI route placeholder - All /api/ai/* routes
+  // AI Trip Recommender - POST /api/ai/recommend
+  app.post("/api/ai/recommend", requireUser, async (req, res) => {
+    try {
+      const { budget, interests, duration, destination } = req.body;
+      
+      // Mock AI recommendations for now - can be replaced with OpenAI integration later
+      const mockRecommendations = [
+        {
+          id: 1,
+          name: "Shimla Snow Trails",
+          location: "Shimla, India",
+          cost: 200,
+          duration: "3 days",
+          tags: ["Snow", "Mountains", "Adventure"],
+          description: "Experience the magic of snow-capped mountains in Shimla with adventure activities.",
+          rating: 4.5,
+          includes: ["Hotel", "Meals", "Sightseeing"]
+        },
+        {
+          id: 2,
+          name: "Goa Beach Paradise",
+          location: "Goa, India",
+          cost: 150,
+          duration: "4 days",
+          tags: ["Beach", "Relaxation", "Nightlife"],
+          description: "Relax on pristine beaches with vibrant nightlife and water sports.",
+          rating: 4.3,
+          includes: ["Beach Resort", "Water Sports", "Local Cuisine"]
+        },
+        {
+          id: 3,
+          name: "Kerala Backwater Cruise",
+          location: "Kerala, India",
+          cost: 300,
+          duration: "5 days",
+          tags: ["Nature", "Backwaters", "Culture"],
+          description: "Discover the serene backwaters of Kerala with houseboat stays.",
+          rating: 4.7,
+          includes: ["Houseboat", "Traditional Meals", "Cultural Tours"]
+        },
+        {
+          id: 4,
+          name: "Rajasthan Heritage Tour",
+          location: "Rajasthan, India",
+          cost: 250,
+          duration: "6 days",
+          tags: ["Heritage", "Culture", "Architecture"],
+          description: "Explore magnificent palaces and forts in the royal state of Rajasthan.",
+          rating: 4.6,
+          includes: ["Heritage Hotels", "Palace Tours", "Cultural Shows"]
+        }
+      ];
+
+      // Filter recommendations based on budget and interests
+      let filteredRecommendations = mockRecommendations;
+      
+      if (budget) {
+        filteredRecommendations = filteredRecommendations.filter(trip => trip.cost <= budget);
+      }
+      
+      if (interests && interests.length > 0) {
+        filteredRecommendations = filteredRecommendations.filter(trip => 
+          trip.tags.some(tag => interests.some((interest: string) => 
+            tag.toLowerCase().includes(interest.toLowerCase()) || 
+            interest.toLowerCase().includes(tag.toLowerCase())
+          ))
+        );
+      }
+
+      // Sort by rating and cost
+      filteredRecommendations.sort((a, b) => b.rating - a.rating);
+
+      res.json(createResponse(true, {
+        trips: filteredRecommendations.slice(0, 6),
+        totalFound: filteredRecommendations.length,
+        searchCriteria: { budget, interests, duration, destination }
+      }, "Trip recommendations generated successfully"));
+    } catch (error) {
+      console.error("AI recommend error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to generate recommendations"));
+    }
+  });
+
+  // AI Route Planner - POST /api/ai/route-planner
+  app.post("/api/ai/route-planner", requireUser, async (req, res) => {
+    try {
+      const { destinations, startLocation, travelMode, duration } = req.body;
+      
+      // Mock route planning response - can be replaced with actual route optimization
+      const mockRoute = {
+        totalDistance: "1,250 km",
+        totalDuration: "15 hours driving",
+        estimatedCost: "$400",
+        route: destinations.map((dest: string, index: number) => ({
+          order: index + 1,
+          destination: dest,
+          arrivalTime: `Day ${index + 1}`,
+          stayDuration: "2 days",
+          activities: ["Sightseeing", "Local Cuisine", "Cultural Sites"],
+          estimatedCost: "$" + (50 + Math.floor(Math.random() * 100))
+        })),
+        recommendations: [
+          "Start early morning for better traffic conditions",
+          "Book accommodations in advance during peak season",
+          "Try local specialties at each destination",
+          "Keep emergency contacts and documents handy"
+        ]
+      };
+
+      res.json(createResponse(true, mockRoute, "Route planned successfully"));
+    } catch (error) {
+      console.error("Route planner error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to plan route"));
+    }
+  });
+
+  // AI placeholder for other future AI routes
   app.use("/api/ai/*", (req, res) => {
-    res.json(createResponse(true, null, "Coming Soon"));
+    res.json(createResponse(true, null, "AI Feature Coming Soon"));
   });
   
   const httpServer = createServer(app);

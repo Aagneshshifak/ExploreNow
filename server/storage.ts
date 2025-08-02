@@ -109,6 +109,8 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+
+
   // Booking methods
   async getAllBookings(): Promise<Booking[]> {
     return await db.select().from(bookings).orderBy(desc(bookings.bookingDate));
@@ -120,6 +122,64 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(bookings.bookingDate));
   }
 
+  async getUserBookingsWithDetails(userId: number): Promise<(Booking & { trip?: Trip; hotel?: Hotel })[]> {
+    const userBookings = await db.select({
+      id: bookings.id,
+      userId: bookings.userId,
+      tripId: bookings.tripId,
+      hotelId: bookings.hotelId,
+      type: bookings.type,
+      status: bookings.status,
+      totalPrice: bookings.totalPrice,
+      bookingDate: bookings.bookingDate,
+      checkIn: bookings.checkIn,
+      checkOut: bookings.checkOut,
+      tripTitle: trips.title,
+      tripLocation: trips.location,
+      hotelName: hotels.name,
+      hotelLocation: hotels.location,
+    })
+    .from(bookings)
+    .leftJoin(trips, eq(bookings.tripId, trips.id))
+    .leftJoin(hotels, eq(bookings.hotelId, hotels.id))
+    .where(eq(bookings.userId, userId))
+    .orderBy(desc(bookings.bookingDate));
+
+    return userBookings.map(booking => ({
+      id: booking.id,
+      userId: booking.userId,
+      tripId: booking.tripId,
+      hotelId: booking.hotelId,
+      type: booking.type,
+      status: booking.status,
+      totalPrice: booking.totalPrice,
+      bookingDate: booking.bookingDate,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      trip: booking.tripId ? {
+        id: booking.tripId,
+        title: booking.tripTitle!,
+        location: booking.tripLocation!,
+        description: null,
+        price: "0",
+        imageUrl: null,
+        duration: null,
+        createdAt: null,
+      } : undefined,
+      hotel: booking.hotelId ? {
+        id: booking.hotelId,
+        name: booking.hotelName!,
+        location: booking.hotelLocation!,
+        description: null,
+        price: "0",
+        imageUrl: null,
+        rating: null,
+        amenities: null,
+        createdAt: null,
+      } : undefined,
+    }));
+  }
+
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const result = await db.insert(bookings).values(booking).returning();
     return result[0];
@@ -127,6 +187,12 @@ export class DatabaseStorage implements IStorage {
 
   async getBooking(id: number): Promise<Booking | undefined> {
     const result = await db.select().from(bookings).where(eq(bookings.id, id)).limit(1);
+    return result[0];
+  }
+
+  // Update booking status
+  async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
+    const result = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
     return result[0];
   }
 

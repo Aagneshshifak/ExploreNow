@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Settings, LogOut, Crown } from 'lucide-react';
+import { User, Settings, LogOut, Crown, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -69,6 +69,12 @@ export function AvatarMenu({ user, onLogout }: AvatarMenuProps) {
           <Link to="/profile" className="cursor-pointer">
             <User className="mr-2 h-4 w-4" />
             Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/dashboard" className="cursor-pointer">
+            <Activity className="mr-2 h-4 w-4" />
+            Dashboard
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
