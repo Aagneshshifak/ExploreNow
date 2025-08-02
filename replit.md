@@ -24,7 +24,8 @@ ExploreNow is a comprehensive travel management web application that provides in
 - **Hotel Routes**: `/api/hotels/*` - CRUD operations (admin can create/edit, all can view)
 - **Booking Routes**: `/api/bookings/*` - user bookings, booking history with analytics
 - **Admin Routes**: `/api/admin/*` - analytics, all bookings (admin only)
-- **Utility Routes**: `/api/utils/*` - currency conversion, AI features
+- **Utility Routes**: `/api/utils/*` - currency conversion with live exchange rates
+- **AI Routes**: `/api/ai/*` - trip recommendations and route planning
 
 ### Authentication & Authorization
 - JWT tokens with 24h expiration
@@ -41,6 +42,10 @@ ExploreNow is a comprehensive travel management web application that provides in
 - ✅ Implemented seeding with sample data (admin/user accounts, trips, hotels, bookings)
 - ✅ Added booking analytics with monthly tracking and status breakdown
 - ✅ Set up database with PostgreSQL and pushed Prisma schema
+- ✅ Implemented currency conversion API with live exchange rates and fallback
+- ✅ Built AI trip recommendation system with budget/interest filtering
+- ✅ Added AI route planner with mock route optimization
+- ✅ Configured CORS for frontend compatibility
 - ✅ Verified all API endpoints working correctly
 
 ## Seeded Data

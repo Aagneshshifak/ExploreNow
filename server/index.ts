@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
+import cors from "cors";
 // import { registerRoutes } from "./routes"; // Switched to Prisma
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware-prisma";
@@ -9,6 +10,17 @@ import { seedDatabase } from "./prisma-seed-runner";
 import prismaRoutes from "./prisma-routes";
 
 const app = express();
+
+// CORS configuration for frontend compatibility
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://explorenow.vercel.app', 'https://*.vercel.app'] 
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
