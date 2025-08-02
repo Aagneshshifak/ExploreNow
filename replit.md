@@ -1,104 +1,84 @@
-# ExploreNow Travel Booking Platform
+# ExploreNow Travel Platform
 
-## Overview
+## Project Overview
+ExploreNow is a comprehensive travel management web application that provides intelligent trip planning, booking analytics, and personalized recommendations. The backend is built with Express.js using PostgreSQL and Prisma ORM, with JWT authentication and comprehensive API routes.
 
-ExploreNow is a comprehensive travel booking platform built with a modern full-stack architecture. The application serves as a complete travel solution allowing users to discover destinations, book trips and hotels, manage travel documents, and access various travel tools. The platform includes both user-facing features and administrative capabilities for content management.
+## Current Stack
+- **Backend**: Express.js with TypeScript
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: JWT with access/refresh tokens and bcrypt hashing
+- **API**: RESTful endpoints with consistent response format
+- **Development**: Node.js with hot reloading
 
-The system is designed to handle trip planning, hotel booking, expense estimation, visa checking, and various travel utilities through an intuitive interface. It features role-based access control with separate user and admin experiences, comprehensive travel tools, and a responsive design system.
+## Project Architecture
 
-**Recent Major Update (August 2025)**: The backend has been completely expanded with a comprehensive travel booking system including JWT authentication, role-based permissions, PostgreSQL database integration, currency conversion, AI-ready endpoints, and booking analytics dashboard.
+### Database Schema (Prisma)
+- **User Model**: UUID primary key, name, email, password (hashed), role (user/admin), createdAt
+- **Trip Model**: UUID primary key, title, location, description, price, duration, tags[], includes[], imageUrl, createdAt
+- **Hotel Model**: UUID primary key, name, location, description, price, rating, tags[], includes[], amenities[], imageUrl, createdAt
+- **Booking Model**: UUID primary key, userId (FK), tripId (FK), hotelId (FK), type, status, amount, checkIn, checkOut, createdAt
 
-**Latest Features (August 2025)**:
-- ✅ Real currency conversion API using exchangerate-api.com with live rates
-- ✅ Comprehensive booking history analytics with spending trends and charts  
-- ✅ Interactive user dashboard with booking data visualization using Recharts
-- ✅ AI-powered trip recommender with intelligent filtering by budget and interests
-- ✅ Route planner foundation for future trip optimization features
-- ✅ Sample booking data for testing analytics (4 bookings worth $4,149.98)
+### API Architecture
+- **Authentication Routes**: `/api/auth/*` - register, login, logout, user profile
+- **Trip Routes**: `/api/trips/*` - CRUD operations (admin can create/edit, all can view)
+- **Hotel Routes**: `/api/hotels/*` - CRUD operations (admin can create/edit, all can view)
+- **Booking Routes**: `/api/bookings/*` - user bookings, booking history with analytics
+- **Admin Routes**: `/api/admin/*` - analytics, all bookings (admin only)
+- **Utility Routes**: `/api/utils/*` - currency conversion, AI features
+
+### Authentication & Authorization
+- JWT tokens with 24h expiration
+- Refresh tokens with 7d expiration
+- HTTP-only cookies for security
+- Role-based access control (user/admin)
+- Middleware for protected routes
+
+## Recent Changes (Aug 2, 2025)
+- ✅ Created complete Prisma schema with User, Trip, Hotel, Booking models
+- ✅ Implemented JWT authentication with access/refresh token flow
+- ✅ Built comprehensive API routes for all CRUD operations
+- ✅ Added role-based access control (admin can create/edit trips/hotels)
+- ✅ Implemented seeding with sample data (admin/user accounts, trips, hotels, bookings)
+- ✅ Added booking analytics with monthly tracking and status breakdown
+- ✅ Set up database with PostgreSQL and pushed Prisma schema
+- ✅ Verified all API endpoints working correctly
+
+## Seeded Data
+### User Accounts
+- **Admin**: admin@explorenow.com / admin123 (role: admin)
+- **User**: user@explorenow.com / user123 (role: user)
+
+### Sample Data
+- **Trips**: 4 sample trips (Bali, Europe, Kenya, Japan) with pricing and descriptions
+- **Hotels**: 5 sample hotels across different locations with ratings and amenities
+- **Bookings**: 4 sample bookings for the user account (2 trip bookings, 2 hotel bookings)
+
+## API Testing Results
+- ✅ Authentication works (login/logout/register)
+- ✅ Trip/Hotel retrieval works for all users
+- ✅ Admin can access analytics and manage content
+- ✅ User bookings and booking history work with analytics
+- ✅ New bookings can be created successfully
+- ✅ Role-based permissions enforced correctly
+
+## Database Status
+- PostgreSQL database connected and configured
+- Prisma schema synced successfully
+- All tables created with proper relationships
+- Foreign key constraints in place
+- Sample data seeded and verified
+
+## Current Status
+The ExploreNow backend is **COMPLETE** and fully functional with:
+- Complete authentication system with JWT
+- Role-based access control
+- Full CRUD operations for all models
+- Booking system with analytics
+- Seeded sample data for testing
+- All API endpoints working correctly
 
 ## User Preferences
-
-Preferred communication style: Simple, everyday language.
-
-## System Architecture
-
-### Frontend Architecture
-**Technology Stack**: React 18 with TypeScript, using Vite as the build tool and development server. The frontend employs a component-based architecture with React Router for client-side routing and TanStack Query for server state management.
-
-**UI Framework**: Implements Shadcn/ui design system built on Radix UI primitives and Tailwind CSS. The design follows a premium monochrome aesthetic with CSS custom properties for theming. Components are organized in a modular structure with reusable UI components, page components, and custom hooks.
-
-**State Management**: Uses React's built-in state management with custom hooks for authentication (`useAuth`) and toast notifications (`useToast`). TanStack Query handles server-side state caching and synchronization.
-
-**Routing Strategy**: Client-side routing with React Router, featuring protected routes for authenticated users and role-based access control for admin areas. Includes proper error handling with dedicated 404 and unauthorized pages.
-
-### Backend Architecture
-**Server Framework**: Express.js with TypeScript for the REST API server. The server implements middleware for request logging, JSON parsing, cookie parsing, and comprehensive error handling. The architecture separates concerns with dedicated routes, middleware, and storage layers.
-
-**Development Setup**: Uses tsx for TypeScript execution in development and esbuild for production bundling. The server integrates with Vite's development middleware for seamless full-stack development.
-
-**Storage Interface**: Implements comprehensive `IStorage` interface with `DatabaseStorage` class for full CRUD operations on Users, Trips, Hotels, and Bookings. The system uses PostgreSQL with Drizzle ORM for robust data persistence and type safety.
-
-**Authentication System**: JWT-based authentication with bcrypt password hashing, role-based access control (user/admin), and secure cookie management. Middleware includes `requireUser` and `requireAdmin` for route protection.
-
-**API Design**: All endpoints follow consistent JSON response format: `{success: boolean, data: any, message: string}`. The system supports comprehensive CRUD operations, currency conversion, and AI-ready endpoints.
-
-### Database Design
-**ORM**: Drizzle ORM configured for PostgreSQL with Neon database provider. The schema defines comprehensive entities for a complete travel booking system.
-
-**Migration Strategy**: Uses Drizzle Kit for schema migrations with configurations in `drizzle.config.ts`. Database credentials are managed through environment variables with `npm run db:push` for schema updates.
-
-**Schema Structure**: Complete travel booking system with:
-- **Users**: Role-based system (user/admin) with authentication fields
-- **Trips**: Travel packages with pricing, duration, and descriptions
-- **Hotels**: Accommodation options with amenities, ratings, and pricing
-- **Bookings**: User reservations linking trips/hotels with pricing and dates
-- **Relationships**: Proper foreign key constraints and data integrity
-
-### Authentication System
-**Strategy**: JWT-based authentication with bcrypt password hashing and role-based access control (user/admin roles). Tokens are managed through secure HTTP-only cookies and include user ID, email, and role.
-
-**Security**: Comprehensive middleware system with `requireUser` and `requireAdmin` for route protection. Implements protected routes using a `ProtectedRoute` component on frontend that checks authentication status and user roles.
-
-**API Endpoints**: Complete auth system with registration, login, logout, and current user endpoints. Passwords are securely hashed with bcrypt (12 rounds) and never returned in API responses.
-
-### Build and Deployment
-**Development**: Vite development server with HMR, TypeScript checking, and integrated error overlay. The build process uses Vite for frontend bundling and esbuild for backend compilation.
-
-**Asset Management**: Supports static assets through Vite's asset pipeline with proper path resolution. Images are lazy-loaded with intersection observer for performance optimization.
-
-**Environment Configuration**: Uses environment variables for database connections, JWT secrets, and other configuration values.
-
-## External Dependencies
-
-### UI and Design System
-- **Radix UI**: Comprehensive set of accessible UI primitives for building the design system
-- **Tailwind CSS**: Utility-first CSS framework for styling and responsive design
-- **Framer Motion**: Animation library for smooth UI transitions and interactions
-- **Lucide React**: Icon library providing consistent iconography throughout the application
-
-### Data and State Management
-- **TanStack Query**: Server state management for API calls, caching, and synchronization
-- **React Hook Form**: Form handling with validation and performance optimization
-- **React Router**: Client-side routing with history management
-- **Zod**: Schema validation for type-safe data handling
-
-### Database and Backend
-- **Drizzle ORM**: Type-safe ORM for PostgreSQL database operations
-- **Neon Database**: Serverless PostgreSQL database provider
-- **Express.js**: Web application framework for building the REST API
-- **bcrypt**: Password hashing for secure authentication
-
-### Development Tools
-- **TypeScript**: Type safety and enhanced developer experience
-- **Vite**: Fast build tool and development server with HMR
-- **ESBuild**: Fast JavaScript bundler for production builds
-- **tsx**: TypeScript execution engine for development
-
-### Utility Libraries
-- **date-fns**: Date manipulation and formatting utilities
-- **clsx/tailwind-merge**: CSS class name utilities for conditional styling
-- **nanoid**: Unique ID generation for various application needs
-
-### Deployment and Performance
-- **Replit**: Development environment with custom plugins for runtime error handling and cartographer integration
-- **PostCSS/Autoprefixer**: CSS processing and vendor prefixing for cross-browser compatibility
+- Focus on authentication security with JWT best practices
+- Use consistent API response format across all endpoints
+- Implement proper error handling and validation
+- Maintain clean separation of concerns in code structure
