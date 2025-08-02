@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { 
@@ -114,6 +115,14 @@ export default function AITripRecommender() {
 
   return (
     <div className="min-h-screen bg-background py-16">
+      <Helmet>
+        <title>AI Trip Recommender - ExploreNow</title>
+        <meta name="description" content="Get personalized travel recommendations powered by AI. Find perfect trips based on your budget, interests, and preferences with ExploreNow's intelligent recommendation engine." />
+        <meta name="keywords" content="AI travel recommendations, personalized trips, travel AI, smart travel suggestions, trip planning AI, ExploreNow AI" />
+        <meta property="og:title" content="AI Trip Recommender - ExploreNow" />
+        <meta property="og:description" content="Get personalized travel recommendations powered by AI" />
+        <link rel="canonical" href="https://explorenow.replit.app/ai-recommender" />
+      </Helmet>
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

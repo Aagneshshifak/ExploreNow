@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { SEOHead } from '@/components/ui/seo-head';
 import { 
   MapPin, 
   DollarSign, 
@@ -92,6 +93,14 @@ export default function TripsList() {
 
   return (
     <div className="min-h-screen bg-background py-16">
+      <SEOHead
+        title="Browse Trips - ExploreNow"
+        description="Explore our curated collection of amazing trips and destinations. Find your perfect adventure with detailed itineraries, pricing, and verified reviews."
+        keywords="travel trips, vacation packages, trip booking, travel destinations, ExploreNow trips"
+        canonicalUrl="https://explorenow.replit.app/trips"
+        ogTitle="Browse Amazing Trips - ExploreNow"
+        ogDescription="Explore our curated collection of amazing trips and destinations worldwide"
+      />
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

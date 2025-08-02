@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { 
@@ -182,6 +183,14 @@ export default function ReviewsPage() {
 
   return (
     <div className="min-h-screen bg-background py-16">
+      <Helmet>
+        <title>Travel Reviews - ExploreNow</title>
+        <meta name="description" content="Read authentic travel reviews and share your experiences. Find verified reviews from real travelers for trips, hotels, and destinations on ExploreNow." />
+        <meta name="keywords" content="travel reviews, trip reviews, hotel reviews, verified reviews, travel experiences, ExploreNow reviews" />
+        <meta property="og:title" content="Travel Reviews - ExploreNow" />
+        <meta property="og:description" content="Read authentic travel reviews and share your experiences with the travel community" />
+        <link rel="canonical" href="https://explorenow.replit.app/reviews" />
+      </Helmet>
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <motion.div 

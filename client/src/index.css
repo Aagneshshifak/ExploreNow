@@ -223,6 +223,57 @@
   }
 }
 
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Mobile-first touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improved mobile typography */
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.5rem; }
+  
+  /* PWA safe areas for mobile devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Improved mobile forms */
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Touch-friendly mobile interactions */
+  .mobile-touch {
+    touch-action: manipulation;
+  }
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  /* Hide browser UI elements when in PWA mode */
+  .pwa-hidden {
+    display: none;
+  }
+  
+  /* Adjust navigation for PWA */
+  .nav-standalone {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
 @layer utilities {
   /* Custom Animations */
   .animate-fade-in {

@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Star, MapPin, Calendar, Users, Shield, Award, Globe, Quote, Plane, DollarSign, CheckCircle, Clock, HeadphonesIcon, CreditCard, Lock, Navigation, Calculator, FolderOpen, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -121,6 +122,16 @@ export default function Home() {
     rating: 5
   }];
   return <div className="min-h-screen">
+      <Helmet>
+        <title>ExploreNow - Discover Your Perfect Trip with AI-Powered Travel Recommendations</title>
+        <meta name="description" content="Plan your dream vacation with ExploreNow's AI-powered recommendations, real-time currency conversion, verified reviews, and intelligent travel tools. Discover trips, hotels, and experiences tailored just for you." />
+        <meta name="keywords" content="travel planning, AI recommendations, trip booking, hotel booking, currency converter, travel reviews, vacation planning, smart travel" />
+        <meta property="og:title" content="ExploreNow - Smart Travel Platform" />
+        <meta property="og:description" content="Discover, plan, and book your perfect trip with AI-powered recommendations and smart travel tools" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://explorenow.replit.app/" />
+        <link rel="canonical" href="https://explorenow.replit.app/" />
+      </Helmet>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden" style={{
       backgroundImage: `url(${heroBackground})`,
