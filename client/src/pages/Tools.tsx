@@ -28,6 +28,24 @@ interface Tool {
 
 const tools: Tool[] = [
   {
+    id: 'ai-trip-recommender',
+    title: 'AI Trip Recommender',
+    description: 'Get personalized trip recommendations using AI based on your budget and interests',
+    path: '/ai-recommender',
+    icon: Compass,
+    category: 'planning',
+    tag: 'AI Powered'
+  },
+  {
+    id: 'currency-converter',
+    title: 'Currency Converter',
+    description: 'Convert currencies with real-time exchange rates for accurate travel budgeting',
+    path: '/currency-converter',
+    icon: IndianRupee,
+    category: 'planning',
+    tag: 'Finance Tool'
+  },
+  {
     id: 'expense-estimator',
     title: 'Expense Estimator',
     description: 'Calculate and breakdown your trip costs with detailed budget planning tools',

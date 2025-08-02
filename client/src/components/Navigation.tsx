@@ -34,10 +34,10 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
   const navigationItems = [
     { name: 'Home', href: '/' },
     { name: 'AI Trips', href: '/ai-recommender' },
-    { name: 'Tools', href: '/tools' },
     { name: 'Trips', href: '/trips' },
+    { name: 'Currency', href: '/currency-converter' },
+    { name: 'Tools', href: '/tools' },
     { name: 'Hotels', href: '/hotels' },
-    { name: 'About', href: '/about' },
   ];
 
   const languages = [

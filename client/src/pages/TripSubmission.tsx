@@ -139,25 +139,48 @@ const TripSubmission = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Trip Package Created Successfully!",
-        description: "Your trip package has been submitted for review. We'll notify you once it's approved.",
+      // Create trip data for API
+      const tripData = {
+        title: formData.tripTitle,
+        location: formData.destination,
+        description: formData.summary,
+        price: parseFloat(formData.price),
+        duration: parseInt(formData.duration) || 7,
+        tags: formData.category ? [formData.category] : [],
+        includes: formData.inclusions.split(',').map(item => item.trim()).filter(item => item)
+      };
+
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(tripData),
       });
-      
-      // Reset form
-      setFormData({
-        tripTitle: '',
-        destination: '',
-        duration: '',
-        price: '',
-        category: '',
-        inclusions: '',
-        summary: '',
-      });
-      setImages([]);
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Trip Package Created Successfully!",
+          description: `${tripData.title} has been added to the platform.`,
+        });
+        
+        // Reset form
+        setFormData({
+          tripTitle: '',
+          destination: '',
+          duration: '',
+          price: '',
+          category: '',
+          inclusions: '',
+          summary: '',
+        });
+        setImages([]);
+      } else {
+        throw new Error(result.message || 'Failed to create trip');
+      }
       
     } catch (error) {
       toast({

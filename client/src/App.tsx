@@ -36,6 +36,8 @@ import SearchFilter from "./pages/SearchFilter";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
 import AITripRecommender from "./pages/AITripRecommender";
+import TripsList from "./pages/TripsList";
+import ExpenseConverter from "./pages/ExpenseConverter";
 
 
 const queryClient = new QueryClient();
@@ -131,7 +133,9 @@ const App = () => {
                             <TripSubmission />
                           </ProtectedRoute>
                         } />
-                        <Route path="/trips" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Trips Coming Soon</h1></div>} />
+                        <Route path="/ai-recommender" element={<AITripRecommender />} />
+                        <Route path="/trips" element={<TripsList />} />
+                        <Route path="/currency-converter" element={<ExpenseConverter />} />
                         <Route path="/hotels" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Hotels Coming Soon</h1></div>} />
                         <Route path="/about" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div>} />
                         <Route path="/profile" element={
