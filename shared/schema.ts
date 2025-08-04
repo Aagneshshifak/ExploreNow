@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("user"), // "user" or "admin"
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
 });
 
 // Trips table
@@ -19,9 +19,11 @@ export const trips = pgTable("trips", {
   location: text("location").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  imageUrl: text("image_url"),
+  imageUrl: text("imageUrl"),
   duration: integer("duration"), // in days
-  createdAt: timestamp("created_at").defaultNow(),
+  tags: text("tags").array(),
+  includes: text("includes").array(),
+  createdAt: timestamp("createdAt").defaultNow(),
 });
 
 // Hotels table
@@ -31,39 +33,41 @@ export const hotels = pgTable("hotels", {
   location: text("location").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(), // per night
-  imageUrl: text("image_url"),
+  imageUrl: text("imageUrl"),
   rating: decimal("rating", { precision: 2, scale: 1 }), // 0.0 to 5.0
+  tags: text("tags").array(),
+  includes: text("includes").array(),
   amenities: text("amenities").array(), // array of amenities
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
 });
 
-// Bookings table
+// Bookings table  
 export const bookings = pgTable("bookings", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  tripId: integer("trip_id").references(() => trips.id),
-  hotelId: integer("hotel_id").references(() => hotels.id),
+  id: text("id").primaryKey(), // UUID format
+  userId: integer("userId").notNull().references(() => users.id),
+  tripId: integer("tripId").references(() => trips.id),
+  hotelId: integer("hotelId").references(() => hotels.id),
   type: text("type").notNull(), // "trip" or "hotel"
   status: text("status").notNull().default("pending"), // "pending", "confirmed", "cancelled"
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  bookingDate: timestamp("booking_date").defaultNow(),
-  checkIn: timestamp("check_in"),
-  checkOut: timestamp("check_out"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  checkIn: timestamp("checkIn"),
+  checkOut: timestamp("checkOut"),
+  createdAt: timestamp("createdAt").defaultNow(),
 });
 
 // Reviews table
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  tripId: integer("trip_id").references(() => trips.id),
-  hotelId: integer("hotel_id").references(() => hotels.id),
-  bookingId: integer("booking_id").references(() => bookings.id),
+  userId: integer("userId").notNull().references(() => users.id),
+  tripId: integer("tripId").references(() => trips.id),
+  hotelId: integer("hotelId").references(() => hotels.id),
+  bookingId: text("bookingId").references(() => bookings.id),
   type: text("type").notNull(), // "trip" or "hotel"
   rating: integer("rating").notNull(), // 1-5 stars
   title: text("title").notNull(),
   comment: text("comment").notNull(),
-  isVerified: boolean("is_verified").default(false), // true if user actually booked
-  createdAt: timestamp("created_at").defaultNow(),
+  isVerified: boolean("isVerified").default(false), // true if user actually booked
+  createdAt: timestamp("createdAt").defaultNow(),
 });
 
 // Insert schemas
@@ -84,7 +88,7 @@ export const insertHotelSchema = createInsertSchema(hotels).omit({
 
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
-  bookingDate: true,
+  createdAt: true,
 });
 
 export const insertReviewSchema = createInsertSchema(reviews).omit({
