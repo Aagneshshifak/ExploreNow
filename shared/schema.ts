@@ -58,16 +58,16 @@ export const bookings = pgTable("bookings", {
 // Reviews table
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull().references(() => users.id),
-  tripId: integer("tripId").references(() => trips.id),
-  hotelId: integer("hotelId").references(() => hotels.id),
-  bookingId: text("bookingId").references(() => bookings.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  tripId: integer("trip_id").references(() => trips.id),
+  hotelId: integer("hotel_id").references(() => hotels.id),
+  bookingId: text("booking_id").references(() => bookings.id),
   type: text("type").notNull(), // "trip" or "hotel"
   rating: integer("rating").notNull(), // 1-5 stars
   title: text("title").notNull(),
   comment: text("comment").notNull(),
-  isVerified: boolean("isVerified").default(false), // true if user actually booked
-  createdAt: timestamp("createdAt").defaultNow(),
+  isVerified: boolean("is_verified").default(false), // true if user actually booked
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Insert schemas
