@@ -2,12 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import cors from "cors";
-// import { registerRoutes } from "./routes"; // Switched to Prisma
+import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { errorHandler } from "./middleware-prisma";
-// import { seedDatabase } from "./seed"; // Switched to Prisma
-import { seedDatabase } from "./prisma-seed-runner";
-import prismaRoutes from "./prisma-routes";
+import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
 
 const app = express();
@@ -57,21 +54,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // const server = await registerRoutes(app); // Switched to Prisma
-  const server = createServer(app);
-  
-  // Use Prisma routes
-  app.use(prismaRoutes);
+  const server = await registerRoutes(app);
   
   // Use translation routes
   app.use('/api', translateRoutes);
-
-  // Seed database with sample data (only if empty)
-  try {
-    await seedDatabase();
-  } catch (error) {
-    log("Database seeding skipped or failed - this is normal if data already exists");
-  }
 
   app.use(errorHandler);
 

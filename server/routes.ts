@@ -223,6 +223,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to update trip"));
     }
   });
+
+  // PATCH trip - PATCH /api/admin/trips/:id (Admin only)
+  app.patch("/api/admin/trips/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json(createResponse(false, null, "Invalid trip ID"));
+      }
+      
+      const validation = insertTripSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, validation.error.errors, "Invalid trip data")
+        );
+      }
+      
+      const trip = await storage.updateTrip(id, validation.data);
+      if (!trip) {
+        return res.status(404).json(createResponse(false, null, "Trip not found"));
+      }
+      
+      res.json(createResponse(true, trip, "Trip updated successfully"));
+    } catch (error) {
+      console.error("Update trip error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to update trip"));
+    }
+  });
   
   // Delete trip - DELETE /api/trips/:id (Admin only)
   app.delete("/api/trips/:id", requireAdmin, async (req, res) => {
@@ -299,6 +326,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Update hotel - PUT /api/hotels/:id (Admin only)
   app.put("/api/hotels/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json(createResponse(false, null, "Invalid hotel ID"));
+      }
+      
+      const validation = insertHotelSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, validation.error.errors, "Invalid hotel data")
+        );
+      }
+      
+      const hotel = await storage.updateHotel(id, validation.data);
+      if (!hotel) {
+        return res.status(404).json(createResponse(false, null, "Hotel not found"));
+      }
+      
+      res.json(createResponse(true, hotel, "Hotel updated successfully"));
+    } catch (error) {
+      console.error("Update hotel error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to update hotel"));
+    }
+  });
+
+  // PATCH hotel - PATCH /api/admin/hotels/:id (Admin only)
+  app.patch("/api/admin/hotels/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -590,9 +644,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // ============================================
-  // ADMIN ANALYTICS ROUTES
+  // ADMIN ROUTES
   // ============================================
   
+  // Get all bookings (Admin only) - GET /api/admin/bookings
+  app.get("/api/admin/bookings", requireAdmin, async (req, res) => {
+    try {
+      const bookings = await storage.getAllBookings();
+      res.json(createResponse(true, bookings, "All bookings retrieved successfully"));
+    } catch (error) {
+      console.error("Get all bookings error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve all bookings"));
+    }
+  });
+
   // Get analytics - GET /api/admin/analytics (Admin only)
   app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
     try {
@@ -601,6 +666,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get analytics error:", error);
       res.status(500).json(createResponse(false, null, "Failed to retrieve analytics"));
+    }
+  });
+
+  // User dashboard - GET /api/user/bookings (User only)
+  app.get("/api/user/bookings", requireUser, async (req, res) => {
+    try {
+      const bookings = await storage.getUserBookings(req.user!.id);
+      res.json(createResponse(true, bookings, "User bookings retrieved successfully"));
+    } catch (error) {
+      console.error("Get user bookings error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve user bookings"));
     }
   });
   
@@ -697,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { type, itemId } = req.query;
       const reviews = await storage.getReviews(
         type as 'trip' | 'hotel' | undefined,
-        itemId as string | undefined
+        itemId ? parseInt(itemId as string) : undefined
       );
       res.json(createResponse(true, reviews, "Reviews retrieved successfully"));
     } catch (error) {
@@ -738,7 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const reviewData = {
-        userId: req.user!.id.toString(),
+        userId: req.user!.id,
         tripId: tripId || null,
         hotelId: hotelId || null,
         bookingId: bookingId || null,
@@ -760,7 +836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's reviews - GET /api/reviews/my (Auth required)
   app.get("/api/reviews/my", requireUser, async (req, res) => {
     try {
-      const reviews = await storage.getUserReviews(req.user!.id.toString());
+      const reviews = await storage.getUserReviews(req.user!.id);
       res.json(createResponse(true, reviews, "User reviews retrieved successfully"));
     } catch (error) {
       console.error("Get user reviews error:", error);

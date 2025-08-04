@@ -36,10 +36,10 @@ export interface IStorage {
   getBooking(id: number): Promise<Booking | undefined>;
   
   // Review methods
-  getReviews(type?: 'trip' | 'hotel', itemId?: string): Promise<Review[]>;
+  getReviews(type?: 'trip' | 'hotel', itemId?: number): Promise<Review[]>;
   createReview(review: InsertReview): Promise<Review>;
-  getUserReviews(userId: string): Promise<Review[]>;
-  getItemReviews(type: 'trip' | 'hotel', itemId: string): Promise<Review[]>;
+  getUserReviews(userId: number): Promise<Review[]>;
+  getItemReviews(type: 'trip' | 'hotel', itemId: number): Promise<Review[]>;
   
   // Analytics methods
   getAnalytics(): Promise<{
@@ -204,7 +204,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Review methods
-  async getReviews(type?: 'trip' | 'hotel', itemId?: string): Promise<Review[]> {
+  async getReviews(type?: 'trip' | 'hotel', itemId?: number): Promise<Review[]> {
     if (type && itemId) {
       if (type === 'trip') {
         return await db.select().from(reviews)
@@ -225,21 +225,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createReview(review: InsertReview): Promise<Review> {
-    const reviewId = Math.random().toString(36).substring(2, 15);
-    const result = await db.insert(reviews).values({
-      ...review,
-      id: reviewId
-    }).returning();
+    const result = await db.insert(reviews).values(review).returning();
     return result[0];
   }
 
-  async getUserReviews(userId: string): Promise<Review[]> {
+  async getUserReviews(userId: number): Promise<Review[]> {
     return await db.select().from(reviews)
       .where(eq(reviews.userId, userId))
       .orderBy(desc(reviews.createdAt));
   }
 
-  async getItemReviews(type: 'trip' | 'hotel', itemId: string): Promise<Review[]> {
+  async getItemReviews(type: 'trip' | 'hotel', itemId: number): Promise<Review[]> {
     if (type === 'trip') {
       return await db.select().from(reviews)
         .where(eq(reviews.tripId, itemId))

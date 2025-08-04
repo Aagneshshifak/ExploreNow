@@ -53,11 +53,11 @@ export const bookings = pgTable("bookings", {
 
 // Reviews table
 export const reviews = pgTable("reviews", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
-  tripId: text("trip_id").references(() => trips.id),
-  hotelId: text("hotel_id").references(() => hotels.id),
-  bookingId: text("booking_id").references(() => bookings.id),
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  tripId: integer("trip_id").references(() => trips.id),
+  hotelId: integer("hotel_id").references(() => hotels.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
   type: text("type").notNull(), // "trip" or "hotel"
   rating: integer("rating").notNull(), // 1-5 stars
   title: text("title").notNull(),
