@@ -204,7 +204,7 @@ export default function TripsList() {
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1">
-                          {trip.tags.map((tag) => (
+                          {trip.tags?.map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs">
                               {tag}
                             </Badge>
@@ -212,7 +212,7 @@ export default function TripsList() {
                         </div>
 
                         {/* Includes */}
-                        {trip.includes.length > 0 && (
+                        {trip.includes && trip.includes.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="text-sm font-medium">Includes:</h4>
                             <ul className="text-xs text-muted-foreground space-y-1">

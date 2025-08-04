@@ -306,7 +306,7 @@ export default function AITripRecommender() {
 
                             {/* Tags */}
                             <div className="flex flex-wrap gap-1">
-                              {trip.tags.map((tag) => (
+                              {trip.tags?.map((tag) => (
                                 <Badge key={tag} variant="outline" className="text-xs">
                                   {tag}
                                 </Badge>
@@ -314,17 +314,19 @@ export default function AITripRecommender() {
                             </div>
 
                             {/* Includes */}
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-medium">Includes:</h4>
-                              <ul className="text-xs text-muted-foreground space-y-1">
-                                {trip.includes.map((item, index) => (
-                                  <li key={index} className="flex items-center space-x-1">
-                                    <span className="w-1 h-1 bg-primary rounded-full"></span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+                            {trip.includes && trip.includes.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium">Includes:</h4>
+                                <ul className="text-xs text-muted-foreground space-y-1">
+                                  {trip.includes.map((item, index) => (
+                                    <li key={index} className="flex items-center space-x-1">
+                                      <span className="w-1 h-1 bg-primary rounded-full"></span>
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
 
                             {/* Price and Action */}
                             <div className="flex items-center justify-between pt-4 border-t">

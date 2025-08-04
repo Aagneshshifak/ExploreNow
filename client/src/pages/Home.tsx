@@ -384,7 +384,7 @@ export default function Home() {
                       <span className="text-caption text-muted-foreground">{hotel.location}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {hotel.amenities.map(amenity => <span key={amenity} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg">
+                      {hotel.amenities?.map(amenity => <span key={amenity} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-lg">
                           {amenity}
                         </span>)}
                     </div>
