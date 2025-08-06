@@ -162,10 +162,11 @@ export const loginSchema = z.object({
   password: z.string().min(6),
 });
 
-export const registerSchema = insertUserSchema.extend({
+export const registerSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
   password: z.string().min(6),
-}).omit({
-  role: true, // Frontend doesn't send role, backend sets default
+  role: z.string().optional(), // Allow role to be sent but make it optional
 });
 
 // Currency conversion schema

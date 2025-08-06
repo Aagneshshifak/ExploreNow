@@ -496,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tripId: tripId,
         hotelId: null,
         type: "trip" as const,
-        totalPrice: trip.price,
+        amount: trip.price,
         checkIn: req.body.checkIn ? new Date(req.body.checkIn) : null,
         checkOut: req.body.checkOut ? new Date(req.body.checkOut) : null,
       };
@@ -512,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             type: 'trip',
             itemName: bookedTrip.title,
-            totalPrice: booking.totalPrice,
+            totalPrice: booking.amount,
             checkIn: req.body.checkIn,
             checkOut: req.body.checkOut,
             bookingId: booking.id.toString()
@@ -549,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tripId: null,
         hotelId: hotelId,
         type: "hotel" as const,
-        totalPrice: totalPrice.toString(),
+        amount: totalPrice.toString(),
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
       };
@@ -565,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             type: 'hotel',
             itemName: bookedHotel.name,
-            totalPrice: booking.totalPrice,
+            totalPrice: booking.amount,
             checkIn,
             checkOut,
             bookingId: booking.id.toString()
@@ -718,7 +718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tripId: type === 'trip' ? tripId : null,
         hotelId: type === 'hotel' ? hotelId : null,
         type: type as 'trip' | 'hotel',
-        totalPrice: amount.toString(),
+        amount: amount.toString(),
         checkIn: new Date(checkInDate),
         checkOut: new Date(checkOutDate),
       };
@@ -736,7 +736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           type,
           itemName,
-          totalPrice: booking.totalPrice,
+          totalPrice: booking.amount,
           checkIn: checkInDate,
           checkOut: checkOutDate,
           bookingId: booking.id.toString()
@@ -936,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               userId,
               tripId: trip.id,
               reason: `Matches preferences: ${validation.data.preferences.join(', ')}`,
-              score: Math.random() * 0.5 + 0.5, // Mock confidence score 0.5-1.0
+              score: (Math.random() * 0.5 + 0.5).toString(), // Mock confidence score 0.5-1.0
               preferences: validation.data.preferences,
             });
           } catch (suggestionError) {
