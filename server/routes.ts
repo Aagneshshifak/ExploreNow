@@ -53,8 +53,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: role || "user"
       });
       
-      // Send welcome email
-      emailService.sendWelcomeEmail(email, name);
+      // Send welcome email (non-blocking)
+      emailService.sendWelcomeEmail(email, name).catch((error) => {
+        console.log('Welcome email failed, but user registration successful:', error.message);
+      });
       
       // Generate token
       const token = generateToken(newUser);

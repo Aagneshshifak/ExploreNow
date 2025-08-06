@@ -36,7 +36,13 @@ ExploreNow is a comprehensive travel management web application that provides in
 - Role-based access control (user/admin)
 - Middleware for protected routes
 
-## Recent Changes (Aug 4, 2025)
+## Recent Changes (Aug 6, 2025)
+- ✅ **USER REGISTRATION ISSUE RESOLVED** - Fixed user creation system and database connectivity
+- ✅ **EMAIL SERVICE IMPROVED** - Made welcome email non-blocking to prevent registration failures
+- ✅ **DATABASE VERIFIED** - All tables exist and user creation works perfectly
+- ✅ **AUTHENTICATION CONFIRMED** - Login system works with existing and new users
+
+## Previous Changes (Aug 4, 2025)
 - ✅ **PLATFORM FULLY FUNCTIONAL** - All core systems verified and working in production
 - ✅ **AUTHENTICATION VERIFIED** - Admin/user login with JWT tokens working perfectly
 - ✅ **API ENDPOINTS CONFIRMED** - All CRUD operations tested and functional (trips, hotels, bookings)
