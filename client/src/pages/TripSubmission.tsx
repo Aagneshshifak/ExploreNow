@@ -1,493 +1,395 @@
-import React, { useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { Upload, X, Image as ImageIcon, Compass, MapPin, DollarSign, Calendar, Tag, FileText, User } from 'lucide-react';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, Calendar, Plus, X, Plane } from "lucide-react";
+import { insertTripSchema, type InsertTrip, type Hotel } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
-const TripSubmission = () => {
+export default function TripSubmission() {
+  const [, navigate] = useLocation();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [formData, setFormData] = useState({
-    tripTitle: '',
-    destination: '',
-    duration: '',
-    price: '',
-    category: '',
-    inclusions: '',
-    summary: '',
+  const queryClient = useQueryClient();
+  const [tags, setTags] = useState<string[]>([]);
+  const [includes, setIncludes] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+  const [newInclude, setNewInclude] = useState("");
+
+  const form = useForm<InsertTrip>({
+    resolver: zodResolver(insertTripSchema),
+    defaultValues: {
+      duration: 3,
+      tags: [],
+      includes: [],
+    },
   });
-  
-  const [images, setImages] = useState<File[]>([]);
-  const [dragActive, setDragActive] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  const tripCategories = [
-    'Family',
-    'Solo',
-    'Adventure',
-    'Romantic',
-    'Business',
-    'Luxury',
-    'Budget',
-    'Cultural',
-    'Nature',
-    'Beach',
-    'Mountain',
-    'City Break'
-  ];
+  // Fetch hotels for selection
+  const { data: hotels } = useQuery({
+    queryKey: ["/api/hotels"],
+  });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, category: value }));
-    if (errors.category) {
-      setErrors(prev => ({ ...prev, category: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: {[key: string]: string} = {};
-    
-    if (!formData.tripTitle.trim()) newErrors.tripTitle = 'Trip title is required';
-    if (!formData.destination.trim()) newErrors.destination = 'Destination is required';
-    if (!formData.duration.trim()) newErrors.duration = 'Duration is required';
-    if (!formData.price || parseFloat(formData.price) <= 0) {
-      newErrors.price = 'Valid price is required';
-    }
-    if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.inclusions.trim()) newErrors.inclusions = 'Inclusions are required';
-    if (!formData.summary.trim()) newErrors.summary = 'Summary is required';
-    if (images.length === 0) newErrors.images = 'At least one image is required';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const handleFiles = (fileList: File[]) => {
-    const newImages = fileList.slice(0, 5 - images.length);
-    const validImages = newImages.filter(file => {
-      const isImage = file.type.startsWith('image/');
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
-      return isImage && isValidSize;
-    });
-    
-    setImages(prev => [...prev, ...validImages].slice(0, 5));
-    
-    if (validImages.length !== newImages.length) {
-      toast({
-        title: "Invalid files",
-        description: "Only images under 10MB are allowed",
-        variant: "destructive",
-      });
-    }
-    
-    // Clear image error if files are added
-    if (validImages.length > 0 && errors.images) {
-      setErrors(prev => ({ ...prev, images: '' }));
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fix the errors before submitting",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      // Create trip data for API
-      const tripData = {
-        title: formData.tripTitle,
-        location: formData.destination,
-        description: formData.summary,
-        price: parseFloat(formData.price),
-        duration: parseInt(formData.duration) || 7,
-        tags: formData.category ? [formData.category] : [],
-        includes: formData.inclusions.split(',').map(item => item.trim()).filter(item => item)
-      };
-
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(tripData),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast({
-          title: "Trip Package Created Successfully!",
-          description: `${tripData.title} has been added to the platform.`,
-        });
-        
-        // Reset form
-        setFormData({
-          tripTitle: '',
-          destination: '',
-          duration: '',
-          price: '',
-          category: '',
-          inclusions: '',
-          summary: '',
-        });
-        setImages([]);
-      } else {
-        throw new Error(result.message || 'Failed to create trip');
-      }
-      
-    } catch (error) {
-      toast({
-        title: "Submission Failed",
-        description: "There was an error creating your trip package. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      tripTitle: '',
-      destination: '',
-      duration: '',
-      price: '',
-      category: '',
-      inclusions: '',
-      summary: '',
-    });
-    setImages([]);
-    setErrors({});
-  };
-
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Sticky Header */}
-      <div className="sticky top-20 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Compass className="h-6 w-6" />
-            <h1 className="text-heading">Upload Trip Package</h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        <Card className="max-w-4xl mx-auto">
+  // Check if user is admin
+  if (!user || user.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Compass className="h-8 w-8" />
-              Trip Package Submission Form
-            </CardTitle>
-            <CardDescription>
-              Create and submit your trip package for listing on ExploreNow. All packages are reviewed before going live.
+            <CardTitle className="text-center text-red-600">Access Denied</CardTitle>
+            <CardDescription className="text-center">
+              Only administrators can submit trips. Please log in as an admin.
             </CardDescription>
           </CardHeader>
-          
           <CardContent>
-            {/* Current User Info */}
-            <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>Creating trip package as: <strong className="text-foreground">user@example.com</strong></span>
-              </div>
-            </div>
+            <Button 
+              onClick={() => navigate("/login")} 
+              className="w-full"
+            >
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Trip Title */}
-              <div className="space-y-2">
-                <Label htmlFor="tripTitle" className="text-sm font-medium flex items-center gap-2">
-                  <Compass className="h-4 w-4" />
-                  Trip Title *
-                </Label>
-                <Input
-                  id="tripTitle"
-                  name="tripTitle"
-                  value={formData.tripTitle}
-                  onChange={handleInputChange}
-                  placeholder="Amazing 5-Day Paris Adventure"
-                  className={errors.tripTitle ? "border-destructive" : ""}
-                />
-                {errors.tripTitle && (
-                  <p className="text-sm text-destructive">{errors.tripTitle}</p>
-                )}
-              </div>
+  const createTripMutation = useMutation({
+    mutationFn: (data: InsertTrip) => apiRequest("/api/trips", "POST", data),
+    onSuccess: () => {
+      toast({
+        title: "Trip Created!",
+        description: "The trip has been successfully added to the platform.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/trips"] });
+      navigate("/admin");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Creation Failed",
+        description: error.message || "There was an error creating the trip.",
+        variant: "destructive",
+      });
+    },
+  });
 
-              {/* Destination */}
-              <div className="space-y-2">
-                <Label htmlFor="destination" className="text-sm font-medium flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Destination *
-                </Label>
-                <Input
-                  id="destination"
-                  name="destination"
-                  value={formData.destination}
-                  onChange={handleInputChange}
-                  placeholder="Paris, France"
-                  className={errors.destination ? "border-destructive" : ""}
-                />
-                {errors.destination && (
-                  <p className="text-sm text-destructive">{errors.destination}</p>
-                )}
-              </div>
+  const onSubmit = (data: InsertTrip) => {
+    const tripData = {
+      ...data,
+      tags,
+      includes,
+    };
+    createTripMutation.mutate(tripData);
+  };
 
-              {/* Duration and Price Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Duration */}
-                <div className="space-y-2">
-                  <Label htmlFor="duration" className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Duration *
-                  </Label>
-                  <Input
-                    id="duration"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    placeholder="5 Days"
-                    className={errors.duration ? "border-destructive" : ""}
+  const addTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const addInclude = () => {
+    if (newInclude.trim() && !includes.includes(newInclude.trim())) {
+      setIncludes([...includes, newInclude.trim()]);
+      setNewInclude("");
+    }
+  };
+
+  const removeInclude = (includeToRemove: string) => {
+    setIncludes(includes.filter(include => include !== includeToRemove));
+  };
+
+  // Predefined tag suggestions
+  const commonTags = [
+    "adventure", "beach", "mountain", "culture", "food", "nature", 
+    "luxury", "budget", "family", "romance", "wildlife", "historical"
+  ];
+
+  const commonIncludes = [
+    "Accommodation", "Meals", "Transport", "Guide", "Activities", 
+    "Insurance", "Airport Transfer", "Sightseeing"
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+            Create New Trip
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Add an exciting new travel destination for adventurers to explore
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plane className="h-5 w-5" />
+              Trip Information
+            </CardTitle>
+            <CardDescription>
+              Fill in the details about the trip you want to create
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Basic Information */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Trip Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Amazing Bali Adventure" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  {errors.duration && (
-                    <p className="text-sm text-destructive">{errors.duration}</p>
-                  )}
-                </div>
 
-                {/* Price */}
-                <div className="space-y-2">
-                  <Label htmlFor="price" className="text-sm font-medium flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Price (USD) *
-                  </Label>
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    placeholder="1299.00"
-                    className={errors.price ? "border-destructive" : ""}
-                  />
-                  {errors.price && (
-                    <p className="text-sm text-destructive">{errors.price}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Category */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  Category *
-                </Label>
-                <Select onValueChange={handleSelectChange} value={formData.category}>
-                  <SelectTrigger className={errors.category ? "border-destructive" : ""}>
-                    <SelectValue placeholder="Select trip category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tripCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.category && (
-                  <p className="text-sm text-destructive">{errors.category}</p>
-                )}
-              </div>
-
-              {/* Inclusions */}
-              <div className="space-y-2">
-                <Label htmlFor="inclusions" className="text-sm font-medium">
-                  Inclusions *
-                </Label>
-                <Textarea
-                  id="inclusions"
-                  name="inclusions"
-                  value={formData.inclusions}
-                  onChange={handleInputChange}
-                  placeholder="• 4-star hotel accommodation&#10;• Daily breakfast&#10;• Airport transfers&#10;• City tour guide&#10;• Museum tickets"
-                  rows={4}
-                  className={errors.inclusions ? "border-destructive" : ""}
-                />
-                <p className="text-xs text-muted-foreground">
-                  List what's included in the package (accommodation, meals, transfers, activities, etc.)
-                </p>
-                {errors.inclusions && (
-                  <p className="text-sm text-destructive">{errors.inclusions}</p>
-                )}
-              </div>
-
-              {/* Cover Image Upload */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  Cover Images * ({images.length}/5)
-                </Label>
-                
-                <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                    dragActive 
-                      ? 'border-primary bg-primary/5' 
-                      : errors.images 
-                        ? 'border-destructive' 
-                        : 'border-border hover:border-primary/50'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-sm font-medium mb-2">
-                    Drag & drop cover images here, or click to select
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Max 5 images, 10MB each. JPG, PNG supported.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={images.length >= 5}
-                  >
-                    Choose Files
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => e.target.files && handleFiles(Array.from(e.target.files))}
-                    className="hidden"
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Destination</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bali, Indonesia" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                
-                {errors.images && (
-                  <p className="text-sm text-destructive">{errors.images}</p>
-                )}
 
-                {/* Image Preview */}
-                {images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
-                    {images.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={URL.createObjectURL(image)}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-border"
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe the trip, what travelers will experience, and what makes it special..."
+                          className="resize-none"
+                          rows={4}
+                          {...field}
                         />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeImage(index)}
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Pricing and Duration */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price per Person ($)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="999.99" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="duration"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Duration (Days)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            max="30" 
+                            placeholder="7" 
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="imageUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cover Image URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/image.jpg" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-3">
+                  <FormLabel>Trip Tags</FormLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add a tag..."
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                    />
+                    <Button type="button" onClick={addTag} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Common tags */}
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Quick add:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {commonTags.map((tag) => (
+                        <Badge 
+                          key={tag} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => {
+                            if (!tags.includes(tag)) {
+                              setTags([...tags, tag]);
+                            }
+                          }}
                         >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="cursor-pointer">
+                        {tag}
+                        <X 
+                          className="h-3 w-3 ml-1" 
+                          onClick={() => removeTag(tag)}
+                        />
+                      </Badge>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Summary/Highlights */}
-              <div className="space-y-2">
-                <Label htmlFor="summary" className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Trip Summary & Highlights *
-                </Label>
-                <Textarea
-                  id="summary"
-                  name="summary"
-                  value={formData.summary}
-                  onChange={handleInputChange}
-                  placeholder="Experience the magic of Paris with this carefully curated 5-day adventure. Visit iconic landmarks like the Eiffel Tower and Louvre Museum, enjoy authentic French cuisine, and explore charming neighborhoods..."
-                  rows={5}
-                  className={errors.summary ? "border-destructive" : ""}
-                />
-                {errors.summary && (
-                  <p className="text-sm text-destructive">{errors.summary}</p>
-                )}
-              </div>
+                {/* Includes */}
+                <div className="space-y-3">
+                  <FormLabel>What's Included</FormLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="What's included in the trip..."
+                      value={newInclude}
+                      onChange={(e) => setNewInclude(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addInclude())}
+                    />
+                    <Button type="button" onClick={addInclude} size="sm">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1"
-                >
-                  {isSubmitting ? 'Creating Trip...' : 'Create Trip Package'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={resetForm}
-                  disabled={isSubmitting}
-                  className="sm:w-auto"
-                >
-                  Clear Form
-                </Button>
-              </div>
-            </form>
+                  {/* Common includes */}
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Quick add:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {commonIncludes.map((include) => (
+                        <Badge 
+                          key={include} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => {
+                            if (!includes.includes(include)) {
+                              setIncludes([...includes, include]);
+                            }
+                          }}
+                        >
+                          {include}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {includes.map((include) => (
+                      <Badge key={include} variant="default" className="cursor-pointer">
+                        {include}
+                        <X 
+                          className="h-3 w-3 ml-1" 
+                          onClick={() => removeInclude(include)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trip Preview */}
+                {form.watch("title") && (
+                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border">
+                    <h3 className="font-semibold mb-2">Trip Preview</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><strong>Title:</strong> {form.watch("title")}</p>
+                      <p><strong>Location:</strong> {form.watch("location")}</p>
+                      <p><strong>Duration:</strong> {form.watch("duration")} days</p>
+                      <p><strong>Price:</strong> ${form.watch("price")}</p>
+                      {tags.length > 0 && (
+                        <p><strong>Tags:</strong> {tags.join(", ")}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex gap-4 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => navigate("/admin")}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createTripMutation.isPending}
+                    className="flex-1"
+                  >
+                    {createTripMutation.isPending ? "Creating..." : "Create Trip"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-};
-
-export default TripSubmission;
+}

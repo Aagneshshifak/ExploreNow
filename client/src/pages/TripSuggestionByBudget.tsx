@@ -1,473 +1,319 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Star, MapPin, Clock, IndianRupee, Plane, Train, Car, Compass } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DollarSign, Search, MapPin, Calendar, Star, Users } from "lucide-react";
+import { type Trip } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
-interface Trip {
-  id: string;
-  title: string;
-  destination: string;
-  price: number;
-  duration: string;
-  rating: number;
-  reviewCount: number;
-  image: string;
-  highlights: string[];
-  transportMode: 'flight' | 'train' | 'bus' | 'car';
-  category: string;
-}
-
-const mockTrips: Trip[] = [
-  {
-    id: '1',
-    title: 'Serene Himalayan Escape',
-    destination: 'Manali, Himachal Pradesh',
-    price: 4200,
-    duration: '5 Days',
-    rating: 4.8,
-    reviewCount: 234,
-    image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Mountain Views', 'Adventure Sports', 'Local Culture'],
-    transportMode: 'bus',
-    category: 'Adventure'
-  },
-  {
-    id: '2',
-    title: 'Golden Triangle Discovery',
-    destination: 'Delhi - Agra - Jaipur',
-    price: 4800,
-    duration: '6 Days',
-    rating: 4.6,
-    reviewCount: 156,
-    image: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Historical Sites', 'Cultural Heritage', 'Local Cuisine'],
-    transportMode: 'train',
-    category: 'Cultural'
-  },
-  {
-    id: '3',
-    title: 'Tropical Beach Paradise',
-    destination: 'Goa Beach Resort',
-    price: 3900,
-    duration: '4 Days',
-    rating: 4.7,
-    reviewCount: 189,
-    image: 'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Beach Activities', 'Water Sports', 'Nightlife'],
-    transportMode: 'flight',
-    category: 'Beach'
-  },
-  {
-    id: '4',
-    title: 'Mystic Valley Adventure',
-    destination: 'Kasol, Himachal Pradesh',
-    price: 3200,
-    duration: '4 Days',
-    rating: 4.5,
-    reviewCount: 98,
-    image: 'https://images.unsplash.com/photo-1482938289607-e9573fc25ebb?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Trekking', 'Riverside Camps', 'Peaceful Nature'],
-    transportMode: 'bus',
-    category: 'Nature'
-  },
-  {
-    id: '5',
-    title: 'Royal Rajasthan Experience',
-    destination: 'Udaipur, Rajasthan',
-    price: 4500,
-    duration: '5 Days',
-    rating: 4.9,
-    reviewCount: 267,
-    image: 'https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Royal Palaces', 'Lake Views', 'Traditional Arts'],
-    transportMode: 'train',
-    category: 'Heritage'
-  },
-  {
-    id: '6',
-    title: 'Backwater Bliss',
-    destination: 'Alleppey, Kerala',
-    price: 3600,
-    duration: '3 Days',
-    rating: 4.4,
-    reviewCount: 142,
-    image: 'https://images.unsplash.com/photo-1504893524553-b855bce32c67?w=400&h=300&fit=crop&crop=center',
-    highlights: ['Houseboat Stay', 'Scenic Views', 'Local Cuisine'],
-    transportMode: 'flight',
-    category: 'Nature'
-  }
-];
-
-const TripSuggestionByBudget = () => {
-  const [budget, setBudget] = useState('');
-  const [location, setLocation] = useState('');
-  const [duration, setDuration] = useState('');
-  const [transportMode, setTransportMode] = useState('');
-  const [interests, setInterests] = useState('');
-  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
+export default function TripSuggestionByBudget() {
+  const [budget, setBudget] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [searchResults, setSearchResults] = useState<Trip[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
 
-  const handleSuggestTrips = async () => {
-    if (!budget) {
+  const { data: allTrips } = useQuery({
+    queryKey: ["/api/trips"],
+  });
+
+  const searchByBudget = async () => {
+    if (!budget || parseFloat(budget) <= 0) {
       toast({
-        title: "Budget Required",
-        description: "Please enter your total budget to get trip suggestions.",
-        variant: "destructive"
+        title: "Invalid Budget",
+        description: "Please enter a valid budget amount.",
+        variant: "destructive",
       });
       return;
     }
 
     setIsSearching(true);
-    setHasSearched(false);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const budgetNum = parseFloat(budget);
-    let trips = mockTrips.filter(trip => trip.price <= budgetNum * 1.1); // 10% tolerance
-
-    // Apply filters
-    if (location) {
-      trips = trips.filter(trip => 
-        trip.destination.toLowerCase().includes(location.toLowerCase())
-      );
-    }
-    
-    if (duration) {
-      trips = trips.filter(trip => trip.duration.includes(duration));
-    }
-    
-    if (transportMode) {
-      trips = trips.filter(trip => trip.transportMode === transportMode);
-    }
-    
-    if (interests) {
-      trips = trips.filter(trip => 
-        trip.category.toLowerCase().includes(interests.toLowerCase()) ||
-        trip.highlights.some(highlight => 
-          highlight.toLowerCase().includes(interests.toLowerCase())
-        )
-      );
-    }
-
-    setFilteredTrips(trips);
-    setIsSearching(false);
-    setHasSearched(true);
-
-    if (trips.length === 0) {
-      toast({
-        title: "No Trips Found",
-        description: "Try adjusting your budget or filters to see more options.",
+    try {
+      const response = await apiRequest("/api/trips/budget", "POST", {
+        budget: parseFloat(budget),
+        currency,
       });
-    } else {
+      setSearchResults(response.data || []);
+      setHasSearched(true);
+    } catch (error: any) {
       toast({
-        title: "Trips Found!",
-        description: `Found ${trips.length} trip${trips.length > 1 ? 's' : ''} matching your criteria.`,
+        title: "Search Failed",
+        description: error.message || "Unable to search trips by budget.",
+        variant: "destructive",
       });
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  const getTransportIcon = (mode: string) => {
-    switch (mode) {
-      case 'flight': return <Plane className="h-4 w-4" />;
-      case 'train': return <Train className="h-4 w-4" />;
-      case 'bus': 
-      case 'car': return <Car className="h-4 w-4" />;
-      default: return <Compass className="h-4 w-4" />;
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      searchByBudget();
     }
   };
 
-  const formatBudgetMatch = (tripPrice: number, userBudget: number) => {
-    const percentage = (tripPrice / userBudget) * 100;
-    return {
-      text: `₹${tripPrice.toLocaleString()} / ₹${userBudget.toLocaleString()}`,
-      isWithinBudget: tripPrice <= userBudget,
-      percentage: Math.round(percentage)
-    };
+  const formatPrice = (price: string) => {
+    return parseFloat(price).toLocaleString();
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12 animate-fade-in">
-          <h1 className="text-display mb-4">Trip Suggestions by Budget</h1>
-          <p className="text-body-large text-muted-foreground max-w-2xl mx-auto">
-            Discover amazing trips that fit your budget. Enter your total budget and preferences 
-            to get personalized recommendations.
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+            Find Trips by Budget
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Discover amazing destinations that fit perfectly within your budget
           </p>
         </div>
 
-        {/* Search Form */}
-        <Card className="mb-12 animate-slide-up">
+        {/* Search Section */}
+        <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-heading">Find Your Perfect Trip</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Budget Search
+            </CardTitle>
             <CardDescription>
-              Enter your budget and optional filters to get personalized trip suggestions
+              Enter your budget to find trips that match your spending limits
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Budget - Required */}
-              <div className="space-y-2">
-                <Label htmlFor="budget" className="text-sm font-medium">
-                  Total Budget <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="budget"
-                    type="number"
-                    placeholder="5000"
-                    value={budget}
-                    onChange={(e) => setBudget(e.target.value)}
-                    className="pl-10"
-                    aria-label="Enter your total budget in Indian Rupees"
-                  />
-                </div>
-              </div>
-
-              {/* Location Filter */}
-              <div className="space-y-2">
-                <Label htmlFor="location" className="text-sm font-medium">
-                  Preferred Location
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="location"
-                    placeholder="e.g., Himachal, Goa"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="pl-10"
-                    aria-label="Enter preferred destination"
-                  />
-                </div>
-              </div>
-
-              {/* Duration Filter */}
-              <div className="space-y-2">
-                <Label htmlFor="duration" className="text-sm font-medium">
-                  Trip Duration
-                </Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger aria-label="Select trip duration">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">3 Days</SelectItem>
-                    <SelectItem value="4">4 Days</SelectItem>
-                    <SelectItem value="5">5 Days</SelectItem>
-                    <SelectItem value="6">6 Days</SelectItem>
-                    <SelectItem value="7">7+ Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Transport Mode Filter */}
-              <div className="space-y-2">
-                <Label htmlFor="transport" className="text-sm font-medium">
-                  Transport Mode
-                </Label>
-                <Select value={transportMode} onValueChange={setTransportMode}>
-                  <SelectTrigger aria-label="Select transport mode">
-                    <SelectValue placeholder="Select transport" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flight">Flight</SelectItem>
-                    <SelectItem value="train">Train</SelectItem>
-                    <SelectItem value="bus">Bus</SelectItem>
-                    <SelectItem value="car">Car</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Interests Filter */}
-              <div className="space-y-2">
-                <Label htmlFor="interests" className="text-sm font-medium">
-                  Interests
-                </Label>
+          <CardContent>
+            <div className="flex gap-4 items-end">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">
+                  Maximum Budget
+                </label>
                 <Input
-                  id="interests"
-                  placeholder="e.g., Adventure, Beach, Culture"
-                  value={interests}
-                  onChange={(e) => setInterests(e.target.value)}
-                  aria-label="Enter your travel interests"
+                  type="number"
+                  placeholder="1000"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  min="0"
+                  step="10"
                 />
               </div>
-            </div>
+              
+              <div className="w-24">
+                <label className="text-sm font-medium mb-2 block">
+                  Currency
+                </label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="JPY">JPY</SelectItem>
+                    <SelectItem value="CAD">CAD</SelectItem>
+                    <SelectItem value="AUD">AUD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* CTA Button */}
-            <div className="flex justify-center pt-4">
-              <Button
-                onClick={handleSuggestTrips}
-                disabled={isSearching}
-                size="lg"
-                className="px-8 py-4 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 transform hover:scale-105"
-                aria-label="Search for trip suggestions based on your criteria"
+              <Button 
+                onClick={searchByBudget} 
+                disabled={isSearching || !budget}
+                className="px-8"
               >
                 {isSearching ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
-                    Searching Trips...
-                  </>
+                  "Searching..."
                 ) : (
-                  'Suggest Trips'
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Search
+                  </>
                 )}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Results */}
+        {/* Budget Tips */}
+        <Card className="mb-8 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="pt-6">
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <DollarSign className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <h3 className="font-semibold mb-1">Budget Planning</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Include accommodation, meals, activities, and transport in your budget
+                </p>
+              </div>
+              <div className="text-center">
+                <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <h3 className="font-semibold mb-1">Flexible Dates</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Travel during off-peak seasons for better deals and lower costs
+                </p>
+              </div>
+              <div className="text-center">
+                <MapPin className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <h3 className="font-semibold mb-1">Local Experiences</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Consider local destinations to maximize your budget's value
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Search Results */}
         {hasSearched && (
-          <div className="animate-scale-in">
-            {filteredTrips.length > 0 ? (
-              <>
-                <div className="mb-8 text-center">
-                  <h2 className="text-heading mb-2">
-                    {filteredTrips.length} Trip{filteredTrips.length > 1 ? 's' : ''} Found
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Perfect matches for your budget of ₹{parseFloat(budget).toLocaleString()}
-                  </p>
-                </div>
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+                Search Results
+              </h2>
+              <Badge variant="secondary" className="text-lg px-3 py-1">
+                {searchResults.length} trip{searchResults.length !== 1 ? 's' : ''} found
+              </Badge>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {filteredTrips.map((trip) => {
-                    const budgetMatch = formatBudgetMatch(trip.price, parseFloat(budget));
-                    
-                    return (
-                      <Card key={trip.id} className="group hover-lift overflow-hidden">
-                        {/* Trip Image */}
-                        <div className="relative h-48 overflow-hidden">
-                          <img
-                            src={trip.image}
-                            alt={trip.title}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 filter grayscale"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                          <div className="absolute bottom-4 left-4 right-4">
-                            <div className="flex items-center justify-between text-white">
-                              <Badge variant="secondary" className="bg-black/40 text-white border-white/20">
-                                {trip.category}
-                              </Badge>
-                              <div className="flex items-center space-x-1">
-                                {getTransportIcon(trip.transportMode)}
-                                <span className="text-sm capitalize">{trip.transportMode}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <CardContent className="p-6">
-                          {/* Trip Header */}
-                          <div className="mb-4">
-                            <h3 className="text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
-                              {trip.title}
-                            </h3>
-                            <div className="flex items-center text-muted-foreground mb-2">
-                              <MapPin className="h-4 w-4 mr-1" />
-                              <span className="text-sm">{trip.destination}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">{trip.duration}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <Star className="h-4 w-4 text-yellow-500 fill-current mr-1" />
-                                <span className="text-sm font-medium">{trip.rating}</span>
-                                <span className="text-sm text-muted-foreground ml-1">
-                                  ({trip.reviewCount})
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Highlights */}
-                          <div className="mb-4">
-                            <div className="flex flex-wrap gap-2">
-                              {trip.highlights.slice(0, 3).map((highlight, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {highlight}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Budget Match */}
-                          <div className="mb-4 p-3 bg-muted rounded-lg">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm text-muted-foreground">Matched Budget:</span>
-                              <span className={`text-sm font-medium ${
-                                budgetMatch.isWithinBudget ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'
-                              }`}>
-                                {budgetMatch.percentage}% of budget
-                              </span>
-                            </div>
-                            <div className="text-lg font-semibold">
-                              {budgetMatch.text}
-                            </div>
-                          </div>
-
-                          {/* Price and CTA */}
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-2xl font-bold">₹{trip.price.toLocaleString()}</div>
-                              <div className="text-sm text-muted-foreground">per person</div>
-                            </div>
-                            <Button
-                              variant="default"
-                              className="bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
-                              aria-label={`Explore ${trip.title} trip details`}
-                            >
-                              Explore Trip
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <Card className="text-center py-12">
-                <CardContent>
-                  <div className="text-6xl mb-4">🔍</div>
-                  <h3 className="text-heading mb-2">No Trips Found</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    We couldn't find trips matching your criteria. Try adjusting your budget or filters.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBudget('');
-                      setLocation('');
-                      setDuration('');
-                      setTransportMode('');
-                      setInterests('');
-                      setHasSearched(false);
-                      setFilteredTrips([]);
-                    }}
-                  >
-                    Reset Filters
-                  </Button>
+            {searchResults.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <div className="text-gray-500 dark:text-gray-400">
+                    <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-semibold mb-2">No trips found</h3>
+                    <p>
+                      No trips found within your budget of ${budget}. 
+                      Try increasing your budget or check out our affordable options.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {searchResults.map((trip) => (
+                  <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                    {trip.imageUrl && (
+                      <div className="h-48 bg-gray-200 dark:bg-gray-700">
+                        <img
+                          src={trip.imageUrl}
+                          alt={trip.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-bold text-lg line-clamp-2">{trip.title}</h3>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            ${formatPrice(trip.price)}
+                          </div>
+                          <div className="text-xs text-gray-500">per person</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-3 text-gray-600 dark:text-gray-400">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-sm">{trip.location}</span>
+                      </div>
+
+                      <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>{trip.duration} days</span>
+                        </div>
+                      </div>
+
+                      {trip.description && (
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-3">
+                          {trip.description}
+                        </p>
+                      )}
+
+                      {trip.tags && trip.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-4">
+                          {trip.tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {trip.tags.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{trip.tags.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Button className="w-full" size="sm">
+                          View Details
+                        </Button>
+                        <div className="text-center">
+                          <Badge 
+                            variant="secondary" 
+                            className="text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-300"
+                          >
+                            Within Budget
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
+          </div>
+        )}
+
+        {/* All Trips Preview */}
+        {!hasSearched && allTrips?.data && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+              All Available Trips
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {allTrips.data.slice(0, 6).map((trip: Trip) => (
+                <Card key={trip.id} className="overflow-hidden">
+                  {trip.imageUrl && (
+                    <div className="h-32 bg-gray-200 dark:bg-gray-700">
+                      <img
+                        src={trip.imageUrl}
+                        alt={trip.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold mb-2 line-clamp-1">{trip.title}</h3>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {trip.location}
+                      </span>
+                      <span className="font-bold text-lg text-blue-600">
+                        ${formatPrice(trip.price)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
-};
-
-export default TripSuggestionByBudget;
+}

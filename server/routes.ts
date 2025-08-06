@@ -12,8 +12,15 @@ import {
   insertHotelSchema, 
   insertBookingSchema,
   currencyConversionSchema,
+  tripFilterSchema,
+  budgetFilterSchema,
+  aiRecommendationSchema,
+  insertUserPreferencesSchema,
   type LoginRequest,
-  type RegisterRequest
+  type RegisterRequest,
+  type TripFilterData,
+  type BudgetFilterData,
+  type AIRecommendationData
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -863,6 +870,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // ============================================
+  // TRIP FILTERING & SEARCH ROUTES
+  // ============================================
+
+  // Filter trips - POST /api/trips/filter
+  app.post("/api/trips/filter", async (req, res) => {
+    try {
+      const validation = tripFilterSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, null, `Invalid filter data: ${validation.error.errors.map(e => e.message).join(', ')}`)
+        );
+      }
+
+      const trips = await storage.getFilteredTrips(validation.data);
+      res.json(createResponse(true, trips, "Trips filtered successfully"));
+    } catch (error) {
+      console.error("Filter trips error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to filter trips"));
+    }
+  });
+
+  // Get trips by budget - POST /api/trips/budget
+  app.post("/api/trips/budget", async (req, res) => {
+    try {
+      const validation = budgetFilterSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, null, `Invalid budget data: ${validation.error.errors.map(e => e.message).join(', ')}`)
+        );
+      }
+
+      const { budget, currency } = validation.data;
+      const trips = await storage.getTripsByBudget(budget, currency);
+      res.json(createResponse(true, trips, "Budget-filtered trips retrieved successfully"));
+    } catch (error) {
+      console.error("Budget filter error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to filter trips by budget"));
+    }
+  });
+
+  // ============================================
+  // AI RECOMMENDATION ROUTES
+  // ============================================
+
+  // Get AI trip recommendations - POST /api/ai/recommend
+  app.post("/api/ai/recommend", async (req, res) => {
+    try {
+      const validation = aiRecommendationSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, null, `Invalid recommendation data: ${validation.error.errors.map(e => e.message).join(', ')}`)
+        );
+      }
+
+      const recommendations = await storage.getRecommendedTrips(validation.data);
+      
+      // If user is authenticated, save suggestions
+      if (req.user) {
+        const userId = req.user.id;
+        for (const trip of recommendations.slice(0, 3)) { // Save top 3 suggestions
+          try {
+            await storage.createTripSuggestion({
+              userId,
+              tripId: trip.id,
+              reason: `Matches preferences: ${validation.data.preferences.join(', ')}`,
+              score: Math.random() * 0.5 + 0.5, // Mock confidence score 0.5-1.0
+              preferences: validation.data.preferences,
+            });
+          } catch (suggestionError) {
+            console.log("Failed to save suggestion:", suggestionError);
+          }
+        }
+      }
+
+      res.json(createResponse(true, recommendations, "Trip recommendations generated successfully"));
+    } catch (error) {
+      console.error("AI recommendation error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to generate recommendations"));
+    }
+  });
+
+  // Get user's trip suggestions - GET /api/user/suggestions
+  app.get("/api/user/suggestions", requireUser, async (req, res) => {
+    try {
+      const suggestions = await storage.getUserSuggestions(req.user!.id);
+      res.json(createResponse(true, suggestions, "User suggestions retrieved successfully"));
+    } catch (error) {
+      console.error("Get suggestions error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve suggestions"));
+    }
+  });
+
+  // ============================================
+  // USER PREFERENCES ROUTES
+  // ============================================
+
+  // Get user preferences - GET /api/user/preferences
+  app.get("/api/user/preferences", requireUser, async (req, res) => {
+    try {
+      const preferences = await storage.getUserPreferences(req.user!.id);
+      res.json(createResponse(true, preferences, "User preferences retrieved successfully"));
+    } catch (error) {
+      console.error("Get user preferences error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve user preferences"));
+    }
+  });
+
+  // Create/update user preferences - POST /api/user/preferences
+  app.post("/api/user/preferences", requireUser, async (req, res) => {
+    try {
+      const validation = insertUserPreferencesSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id
+      });
+      
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, null, `Invalid preferences data: ${validation.error.errors.map(e => e.message).join(', ')}`)
+        );
+      }
+
+      // Check if preferences exist
+      const existing = await storage.getUserPreferences(req.user!.id);
+      let preferences;
+      
+      if (existing) {
+        preferences = await storage.updateUserPreferences(req.user!.id, validation.data);
+      } else {
+        preferences = await storage.createUserPreferences(validation.data);
+      }
+
+      res.json(createResponse(true, preferences, "User preferences saved successfully"));
+    } catch (error) {
+      console.error("Save user preferences error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to save user preferences"));
+    }
+  });
+
   // ============================================
   // REVIEWS ROUTES
   // ============================================

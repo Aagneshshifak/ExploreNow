@@ -80,6 +80,39 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// User preferences table for travel recommendations
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  preferences: text("preferences").array(), // ["beach", "adventure", "culture", "food", "nature"]
+  budget: decimal("budget", { precision: 10, scale: 2 }),
+  preferredCurrency: text("preferred_currency").default("USD"),
+  language: text("language").default("en"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Translations table for multi-language support
+export const translations = pgTable("translations", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull(), // translation key like "welcome_message"
+  language: text("language").notNull(), // "fr", "de", "hi", "es", "ru", "zh", "ar", "pt"
+  value: text("value").notNull(), // translated text
+  category: text("category").default("general"), // "trips", "hotels", "ui", "general"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Trip suggestions table for AI recommendations
+export const tripSuggestions = pgTable("trip_suggestions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  tripId: integer("trip_id").notNull().references(() => trips.id),
+  reason: text("reason"), // why this trip was suggested
+  score: decimal("score", { precision: 3, scale: 2 }), // recommendation confidence 0.00-1.00
+  preferences: text("preferences").array(), // preferences that matched
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -105,6 +138,22 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
   isVerified: true,
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTranslationSchema = createInsertSchema(translations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTripSuggestionSchema = createInsertSchema(tripSuggestions).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Auth schemas
@@ -140,6 +189,30 @@ export const bookingFormSchema = insertBookingSchema.extend({
   specialRequests: z.string().optional(),
 });
 
+// Trip filtering schemas
+export const tripFilterSchema = z.object({
+  country: z.string().optional(),
+  minPrice: z.number().min(0).optional(),
+  maxPrice: z.number().min(0).optional(),
+  minDuration: z.number().min(1).optional(),
+  maxDuration: z.number().min(1).optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// Budget filtering schema
+export const budgetFilterSchema = z.object({
+  budget: z.number().min(0, "Budget must be positive"),
+  currency: z.string().length(3).default("USD"),
+});
+
+// AI recommendation schema
+export const aiRecommendationSchema = z.object({
+  preferences: z.array(z.enum(["beach", "adventure", "culture", "food", "nature", "city", "mountain", "desert"])),
+  budget: z.number().min(0).optional(),
+  duration: z.number().min(1).optional(),
+  language: z.enum(["en", "fr", "de", "hi", "es", "ru", "zh", "ar", "pt"]).default("en"),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -151,7 +224,16 @@ export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertTranslation = z.infer<typeof insertTranslationSchema>;
+export type Translation = typeof translations.$inferSelect;
+export type InsertTripSuggestion = z.infer<typeof insertTripSuggestionSchema>;
+export type TripSuggestion = typeof tripSuggestions.$inferSelect;
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type CurrencyConversionRequest = z.infer<typeof currencyConversionSchema>;
 export type BookingFormData = z.infer<typeof bookingFormSchema>;
+export type TripFilterData = z.infer<typeof tripFilterSchema>;
+export type BudgetFilterData = z.infer<typeof budgetFilterSchema>;
+export type AIRecommendationData = z.infer<typeof aiRecommendationSchema>;

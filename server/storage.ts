@@ -1,12 +1,16 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, lte, gte, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { 
-  users, trips, hotels, bookings, reviews,
+  users, trips, hotels, bookings, reviews, userPreferences, translations, tripSuggestions,
   type User, type InsertUser,
   type Trip, type InsertTrip,
   type Hotel, type InsertHotel,
   type Booking, type InsertBooking,
-  type Review, type InsertReview
+  type Review, type InsertReview,
+  type UserPreferences, type InsertUserPreferences,
+  type Translation, type InsertTranslation,
+  type TripSuggestion, type InsertTripSuggestion,
+  type TripFilterData, type BudgetFilterData, type AIRecommendationData
 } from "@shared/schema";
 
 export interface IStorage {
@@ -47,6 +51,25 @@ export interface IStorage {
     totalHotels: number;
     totalBookings: number;
   }>;
+
+  // User preferences methods
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
+  updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
+
+  // Trip filtering methods
+  getFilteredTrips(filters: TripFilterData): Promise<Trip[]>;
+  getTripsByBudget(budget: number, currency?: string): Promise<Trip[]>;
+  getTripsByTags(tags: string[]): Promise<Trip[]>;
+  
+  // AI recommendation methods
+  getRecommendedTrips(data: AIRecommendationData): Promise<Trip[]>;
+  createTripSuggestion(suggestion: InsertTripSuggestion): Promise<TripSuggestion>;
+  getUserSuggestions(userId: number): Promise<TripSuggestion[]>;
+
+  // Translation methods
+  getTranslations(language: string, category?: string): Promise<Translation[]>;
+  createTranslation(translation: InsertTranslation): Promise<Translation>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -289,6 +312,129 @@ export class DatabaseStorage implements IStorage {
       totalHotels: hotelsResult.length,
       totalBookings: bookingsResult.length,
     };
+  }
+
+  // User preferences methods
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    const result = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences> {
+    const result = await db.insert(userPreferences).values(preferences).returning();
+    return result[0];
+  }
+
+  async updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined> {
+    const result = await db.update(userPreferences)
+      .set({ ...preferences, updatedAt: new Date() })
+      .where(eq(userPreferences.userId, userId))
+      .returning();
+    return result[0];
+  }
+
+  // Trip filtering methods
+  async getFilteredTrips(filters: TripFilterData): Promise<Trip[]> {
+    let query = db.select().from(trips);
+    
+    const conditions = [];
+    
+    if (filters.country) {
+      conditions.push(eq(trips.location, filters.country));
+    }
+    
+    if (filters.minPrice !== undefined) {
+      conditions.push(gte(trips.price, filters.minPrice.toString()));
+    }
+    
+    if (filters.maxPrice !== undefined) {
+      conditions.push(lte(trips.price, filters.maxPrice.toString()));
+    }
+    
+    if (filters.minDuration !== undefined) {
+      conditions.push(gte(trips.duration, filters.minDuration));
+    }
+    
+    if (filters.maxDuration !== undefined) {
+      conditions.push(lte(trips.duration, filters.maxDuration));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(desc(trips.createdAt));
+  }
+
+  async getTripsByBudget(budget: number, currency: string = "USD"): Promise<Trip[]> {
+    // For now, assume all prices are in USD, future enhancement would convert currencies
+    return await db.select().from(trips)
+      .where(lte(trips.price, budget.toString()))
+      .orderBy(trips.price);
+  }
+
+  async getTripsByTags(tags: string[]): Promise<Trip[]> {
+    // Using PostgreSQL array overlap operator
+    return await db.select().from(trips)
+      .where(inArray(trips.tags, tags))
+      .orderBy(desc(trips.createdAt));
+  }
+
+  // AI recommendation methods
+  async getRecommendedTrips(data: AIRecommendationData): Promise<Trip[]> {
+    let query = db.select().from(trips);
+    const conditions = [];
+
+    // Filter by budget if provided
+    if (data.budget !== undefined) {
+      conditions.push(lte(trips.price, data.budget.toString()));
+    }
+
+    // Filter by duration if provided
+    if (data.duration !== undefined) {
+      conditions.push(lte(trips.duration, data.duration));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const allTrips = await query.orderBy(desc(trips.createdAt));
+    
+    // Simple recommendation logic: filter trips that have tags matching user preferences
+    const recommendedTrips = allTrips.filter(trip => {
+      if (!trip.tags || trip.tags.length === 0) return false;
+      return data.preferences.some(pref => trip.tags!.includes(pref));
+    });
+
+    return recommendedTrips.length > 0 ? recommendedTrips : allTrips.slice(0, 5);
+  }
+
+  async createTripSuggestion(suggestion: InsertTripSuggestion): Promise<TripSuggestion> {
+    const result = await db.insert(tripSuggestions).values(suggestion).returning();
+    return result[0];
+  }
+
+  async getUserSuggestions(userId: number): Promise<TripSuggestion[]> {
+    return await db.select().from(tripSuggestions)
+      .where(eq(tripSuggestions.userId, userId))
+      .orderBy(desc(tripSuggestions.createdAt));
+  }
+
+  // Translation methods
+  async getTranslations(language: string, category?: string): Promise<Translation[]> {
+    let query = db.select().from(translations).where(eq(translations.language, language));
+    
+    if (category) {
+      query = query.where(and(eq(translations.language, language), eq(translations.category, category)));
+    }
+    
+    return await query.orderBy(translations.key);
+  }
+
+  async createTranslation(translation: InsertTranslation): Promise<Translation> {
+    const result = await db.insert(translations).values(translation).returning();
+    return result[0];
   }
 }
 
