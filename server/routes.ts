@@ -25,10 +25,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register - POST /api/auth/register
   app.post("/api/auth/register", async (req, res) => {
     try {
+      console.log("Registration request body:", req.body);
       const validation = registerSchema.safeParse(req.body);
       if (!validation.success) {
+        console.log("Validation errors:", validation.error.errors);
         return res.status(400).json(
-          createResponse(false, null, "Invalid input data")
+          createResponse(false, null, `Invalid input data: ${validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`)
         );
       }
       
@@ -85,10 +87,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Login - POST /api/auth/login
   app.post("/api/auth/login", async (req, res) => {
     try {
+      console.log("Login request body:", req.body);
       const validation = loginSchema.safeParse(req.body);
       if (!validation.success) {
+        console.log("Login validation errors:", validation.error.errors);
         return res.status(400).json(
-          createResponse(false, null, "Invalid email or password format")
+          createResponse(false, null, `Invalid email or password format: ${validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`)
         );
       }
       
