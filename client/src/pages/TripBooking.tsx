@@ -66,13 +66,52 @@ const transportOptions = [
 export default function TripBooking() {
   const params = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const tripId = parseInt(params.id || '0');
   const [step, setStep] = useState(1);
   const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
+  
+  // Simple auth check without useAuth hook initially
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setUser(data.data);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+  
+  // Redirect if not authenticated
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    navigate('/login');
+    return null;
+  }
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
 
