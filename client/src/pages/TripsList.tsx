@@ -182,23 +182,54 @@ export default function TripsList() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card className="h-full hover:shadow-lg transition-shadow">
+                  <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden">
+                    {/* Trip Image */}
+                    {trip.imageUrl && (
+                      <div className="relative w-full h-48 overflow-hidden">
+                        <img 
+                          src={trip.imageUrl} 
+                          alt={trip.title}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                        <div className="absolute bottom-4 left-4 text-white">
+                          <h3 className="text-lg font-semibold">{trip.title}</h3>
+                          <p className="text-sm opacity-90">{trip.location}</p>
+                        </div>
+                      </div>
+                    )}
+                    
                     <CardContent className="p-6">
                       <div className="space-y-4">
-                        {/* Trip Header */}
-                        <div>
-                          <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <div className="flex items-center space-x-1">
-                              <MapPin className="h-3 w-3" />
-                              <span>{trip.location}</span>
+                        {/* Trip Header (fallback if no image) */}
+                        {!trip.imageUrl && (
+                          <div>
+                            <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                              <div className="flex items-center space-x-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{trip.location}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{trip.duration} days</span>
+                              </div>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Trip Info for cards with images */}
+                        {trip.imageUrl && (
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                             <div className="flex items-center space-x-1">
                               <Clock className="h-3 w-3" />
                               <span>{trip.duration} days</span>
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Description */}
                         <p className="text-sm text-muted-foreground line-clamp-3">

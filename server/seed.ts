@@ -50,29 +50,35 @@ export async function seedDatabase() {
       {
         title: "Tropical Paradise in Bali",
         location: "Bali, Indonesia",
-        description: "Experience the beauty of Bali with pristine beaches, cultural temples, and lush rice terraces.",
+        description: "Experience the beauty of Bali with pristine beaches, cultural temples, and lush rice terraces. Discover hidden waterfalls and traditional villages.",
         price: "1299.99",
-        imageUrl: "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?w=800",
-        duration: 7
+        imageUrl: "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?w=1200&h=800&fit=crop&q=80",
+        duration: 7,
+        tags: ["Beach", "Culture", "Adventure", "Wellness"],
+        includes: ["Luxury resort accommodation", "Daily breakfast", "Temple tours", "Rice terrace hiking", "Traditional cooking class", "Airport transfers"]
       },
       {
-        title: "European Adventure",
+        title: "European Grand Tour",
         location: "Paris, Rome, Barcelona",
-        description: "Discover the charm of Europe with visits to iconic cities and historical landmarks.",
+        description: "Discover the charm of Europe with visits to iconic cities and historical landmarks. Experience world-class art, cuisine, and architecture.",
         price: "2199.99",
-        imageUrl: "https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=800",
-        duration: 14
+        imageUrl: "https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=1200&h=800&fit=crop&q=80",
+        duration: 14,
+        tags: ["Culture", "History", "Architecture", "Food"],
+        includes: ["4-star hotel accommodation", "High-speed train tickets", "Museum passes", "Guided city tours", "Wine tasting sessions", "All breakfasts"]
       },
       {
-        title: "Safari Experience in Kenya",
+        title: "African Safari Adventure",
         location: "Maasai Mara, Kenya",
-        description: "Witness the Great Migration and explore the African wilderness.",
+        description: "Witness the Great Migration and explore the African wilderness. Experience close encounters with the Big Five in their natural habitat.",
         price: "1899.99",
-        imageUrl: "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=800",
-        duration: 10
+        imageUrl: "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=1200&h=800&fit=crop&q=80",
+        duration: 10,
+        tags: ["Wildlife", "Adventure", "Nature", "Photography"],
+        includes: ["Safari lodge accommodation", "All meals included", "Game drives", "Professional guide", "Park entrance fees", "Photography workshop"]
       },
       {
-        title: "Japanese Cultural Journey",
+        title: "Japanese Cultural Immersion",
         location: "Tokyo, Kyoto, Osaka",
         description: "Immerse yourself in Japanese culture, traditions, and modern innovation.",
         price: "1699.99",

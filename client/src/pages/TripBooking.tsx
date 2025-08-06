@@ -68,7 +68,7 @@ export default function TripBooking() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const tripId = parseInt(params.id || '0');
+  const tripId = params.id || '';
   const [step, setStep] = useState(1);
   const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
@@ -92,7 +92,7 @@ export default function TripBooking() {
       transportMode: 'flight',
       userId: 0,
       type: 'trip',
-      tripId: tripId,
+      tripId: parseInt(tripId) || 0,
       amount: '0',
     },
   });
@@ -103,7 +103,7 @@ export default function TripBooking() {
     queryFn: async () => {
       const response = await fetch('/api/trips');
       const result = await response.json();
-      return result.data.find((item: Trip) => item.id === tripId);
+      return result.data.find((item: Trip) => item.id.toString() === tripId);
     },
     enabled: !authLoading
   });
@@ -573,9 +573,27 @@ Thank you for booking with ExploreNow!
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                          {/* Trip Image */}
+                          {trip.imageUrl && (
+                            <div className="relative w-full h-48 rounded-lg overflow-hidden">
+                              <img 
+                                src={trip.imageUrl} 
+                                alt={trip.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                            </div>
+                          )}
+
                           <div>
                             <h3 className="font-semibold text-lg">{trip.title}</h3>
-                            <p className="text-muted-foreground">{trip.location}</p>
+                            <p className="text-muted-foreground flex items-center space-x-1">
+                              <MapPin className="h-4 w-4" />
+                              <span>{trip.location}</span>
+                            </p>
                           </div>
 
                           <div className="flex items-center space-x-4 text-sm">
@@ -589,11 +607,22 @@ Thank you for booking with ExploreNow!
                             </div>
                           </div>
 
+                          {/* Trip Tags */}
+                          {trip.tags && trip.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {trip.tags.map((tag: string, index: number) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
                           <p className="text-sm text-muted-foreground">{trip.description}</p>
 
                           {trip.includes && trip.includes.length > 0 && (
                             <div>
-                              <h4 className="font-medium mb-2">Includes:</h4>
+                              <h4 className="font-medium mb-2">What's Included:</h4>
                               <ul className="text-sm space-y-1">
                                 {trip.includes.map((item: string, index: number) => (
                                   <li key={index} className="flex items-center space-x-2">
