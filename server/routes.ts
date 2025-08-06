@@ -567,7 +567,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Detailed booking flow - POST /api/bookings/detailed
+  // Enhanced booking creation with comprehensive details - POST /api/bookings
+  app.post("/api/bookings", requireUser, async (req, res) => {
+    try {
+      const { 
+        tripId, 
+        hotelId, 
+        type, 
+        amount, 
+        checkIn, 
+        checkOut, 
+        guests,
+        customerName,
+        customerEmail,
+        customerPhone,
+        specialRequests,
+        emergencyContact,
+        emergencyPhone,
+        transportMode
+      } = req.body;
+      
+      // Validation
+      if (!type || (type !== 'trip' && type !== 'hotel')) {
+        return res.status(400).json(createResponse(false, null, "Invalid booking type"));
+      }
+      
+      if (type === 'trip' && !tripId) {
+        return res.status(400).json(createResponse(false, null, "Trip ID is required for trip bookings"));
+      }
+      
+      if (type === 'hotel' && !hotelId) {
+        return res.status(400).json(createResponse(false, null, "Hotel ID is required for hotel bookings"));
+      }
+      
+      // Verify item exists
+      if (type === 'trip') {
+        const trip = await storage.getTrip(tripId);
+        if (!trip) {
+          return res.status(404).json(createResponse(false, null, "Trip not found"));
+        }
+      } else {
+        const hotel = await storage.getHotel(hotelId);
+        if (!hotel) {
+          return res.status(404).json(createResponse(false, null, "Hotel not found"));
+        }
+      }
+      
+      const bookingData = {
+        userId: req.user!.id,
+        tripId: type === 'trip' ? tripId : null,
+        hotelId: type === 'hotel' ? hotelId : null,
+        type: type as 'trip' | 'hotel',
+        amount: amount?.toString() || '0',
+        checkIn: checkIn ? new Date(checkIn) : null,
+        checkOut: checkOut ? new Date(checkOut) : null,
+        guests: guests || 1,
+        customerName: customerName || req.user!.name,
+        customerEmail: customerEmail || req.user!.email,
+        customerPhone,
+        specialRequests,
+        emergencyContact,
+        emergencyPhone,
+        transportMode,
+        status: 'confirmed'
+      };
+      
+      const booking = await storage.createBooking(bookingData);
+      
+      // Send booking confirmation email
+      const itemName = type === 'trip' 
+        ? (await storage.getTrip(tripId))?.title || 'Trip'
+        : (await storage.getHotel(hotelId))?.name || 'Hotel';
+        
+      if (req.user) {
+        emailService.sendBookingConfirmation(
+          customerEmail || req.user.email,
+          customerName || req.user.name,
+          {
+            type,
+            itemName,
+            totalPrice: booking.amount,
+            checkIn: checkIn || '',
+            checkOut: checkOut || '',
+            bookingId: booking.id.toString()
+          }
+        );
+      }
+      
+      res.status(201).json(createResponse(true, booking, "Booking created successfully"));
+    } catch (error) {
+      console.error("Create booking error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to create booking"));
+    }
+  });
+
+  // Legacy detailed booking flow - POST /api/bookings/detailed
   app.post("/api/bookings/detailed", requireUser, async (req, res) => {
     try {
       const { tripId, hotelId, type, checkInDate, checkOutDate, guests, customerDetails, amount } = req.body;

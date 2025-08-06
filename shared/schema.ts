@@ -52,6 +52,16 @@ export const bookings = pgTable("bookings", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
   checkIn: timestamp("checkIn"),
   checkOut: timestamp("checkOut"),
+  // Enhanced booking details
+  guests: integer("guests").notNull().default(1),
+  customerName: text("customerName"),
+  customerEmail: text("customerEmail"),
+  customerPhone: text("customerPhone"),
+  specialRequests: text("specialRequests"),
+  emergencyContact: text("emergencyContact"),
+  emergencyPhone: text("emergencyPhone"),
+  transportMode: text("transportMode"), // "flight", "bus", "train", "car", "other"
+  transportDetails: text("transportDetails"), // JSON string for transport info
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
@@ -114,6 +124,20 @@ export const currencyConversionSchema = z.object({
   to: z.string().length(3), // Currency code like "EUR"
 });
 
+// Enhanced booking form schema
+export const bookingFormSchema = insertBookingSchema.extend({
+  customerName: z.string().min(2, "Name must be at least 2 characters"),
+  customerEmail: z.string().email("Invalid email address"),
+  customerPhone: z.string().min(10, "Phone number must be at least 10 digits"),
+  checkIn: z.string().min(1, "Check-in date is required"),
+  checkOut: z.string().min(1, "Check-out date is required"),
+  guests: z.number().min(1, "At least 1 guest is required"),
+  emergencyContact: z.string().min(2, "Emergency contact name is required"),
+  emergencyPhone: z.string().min(10, "Emergency phone number is required"),
+  transportMode: z.enum(["flight", "bus", "train", "car", "other"]).optional(),
+  specialRequests: z.string().optional(),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -128,3 +152,4 @@ export type Review = typeof reviews.$inferSelect;
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type CurrencyConversionRequest = z.infer<typeof currencyConversionSchema>;
+export type BookingFormData = z.infer<typeof bookingFormSchema>;

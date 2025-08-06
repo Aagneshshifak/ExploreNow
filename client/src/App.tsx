@@ -42,6 +42,7 @@ import TripsList from "./pages/TripsList";
 import ExpenseConverter from "./pages/ExpenseConverter";
 import ReviewsPage from "./pages/ReviewsPage";
 import BookingFlow from "./pages/BookingFlow";
+import TripBooking from "./pages/TripBooking";
 
 
 const queryClient = new QueryClient();
@@ -146,6 +147,11 @@ const App = () => {
                         <Route path="/book/:id" element={
                           <ProtectedRoute requireAuth={true}>
                             <BookingFlow />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/trip/:id/book" element={
+                          <ProtectedRoute requireAuth={true}>
+                            <TripBooking />
                           </ProtectedRoute>
                         } />
                         <Route path="/hotels" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Hotels Coming Soon</h1></div>} />

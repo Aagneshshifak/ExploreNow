@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { SEOHead } from '@/components/ui/seo-head';
 import { 
   MapPin, 
@@ -10,7 +11,8 @@ import {
   Calendar,
   Users,
   Filter,
-  Search
+  Search,
+  ShoppingCart
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +40,7 @@ export default function TripsList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [priceFilter, setPriceFilter] = useState('');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const { data: trips, isLoading, error } = useQuery({
     queryKey: ['/api/trips'],
@@ -238,11 +241,11 @@ export default function TripsList() {
                           </div>
                           <Button 
                             size="sm"
-                            onClick={() => {
-                              window.location.href = `/book/${trip.id}?type=trip`;
-                            }}
+                            onClick={() => navigate(`/trip/${trip.id}/book`)}
+                            className="bg-primary hover:bg-primary/90"
                           >
-                            Book Now
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Book Trip
                           </Button>
                         </div>
                       </div>

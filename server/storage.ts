@@ -33,7 +33,7 @@ export interface IStorage {
   getAllBookings(): Promise<Booking[]>;
   getUserBookings(userId: number): Promise<Booking[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
-  getBooking(id: number): Promise<Booking | undefined>;
+  getBooking(id: string): Promise<Booking | undefined>;
   
   // Review methods
   getReviews(type?: 'trip' | 'hotel', itemId?: number): Promise<Review[]>;
@@ -120,13 +120,13 @@ export class DatabaseStorage implements IStorage {
 
   // Booking methods
   async getAllBookings(): Promise<Booking[]> {
-    return await db.select().from(bookings).orderBy(desc(bookings.bookingDate));
+    return await db.select().from(bookings).orderBy(desc(bookings.createdAt));
   }
 
   async getUserBookings(userId: number): Promise<Booking[]> {
     return await db.select().from(bookings)
       .where(eq(bookings.userId, userId))
-      .orderBy(desc(bookings.bookingDate));
+      .orderBy(desc(bookings.createdAt));
   }
 
   async getUserBookingsWithDetails(userId: number): Promise<(Booking & { trip?: Trip; hotel?: Hotel })[]> {
@@ -137,10 +137,19 @@ export class DatabaseStorage implements IStorage {
       hotelId: bookings.hotelId,
       type: bookings.type,
       status: bookings.status,
-      totalPrice: bookings.totalPrice,
-      bookingDate: bookings.bookingDate,
+      amount: bookings.amount,
+      createdAt: bookings.createdAt,
       checkIn: bookings.checkIn,
       checkOut: bookings.checkOut,
+      guests: bookings.guests,
+      customerName: bookings.customerName,
+      customerEmail: bookings.customerEmail,
+      customerPhone: bookings.customerPhone,
+      specialRequests: bookings.specialRequests,
+      emergencyContact: bookings.emergencyContact,
+      emergencyPhone: bookings.emergencyPhone,
+      transportMode: bookings.transportMode,
+      transportDetails: bookings.transportDetails,
       tripTitle: trips.title,
       tripLocation: trips.location,
       hotelName: hotels.name,
@@ -150,7 +159,7 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(trips, eq(bookings.tripId, trips.id))
     .leftJoin(hotels, eq(bookings.hotelId, hotels.id))
     .where(eq(bookings.userId, userId))
-    .orderBy(desc(bookings.bookingDate));
+    .orderBy(desc(bookings.createdAt));
 
     return userBookings.map(booking => ({
       id: booking.id,
@@ -159,10 +168,19 @@ export class DatabaseStorage implements IStorage {
       hotelId: booking.hotelId,
       type: booking.type,
       status: booking.status,
-      totalPrice: booking.totalPrice,
-      bookingDate: booking.bookingDate,
+      amount: booking.amount,
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
+      guests: booking.guests,
+      customerName: booking.customerName,
+      customerEmail: booking.customerEmail,
+      customerPhone: booking.customerPhone,
+      specialRequests: booking.specialRequests,
+      emergencyContact: booking.emergencyContact,
+      emergencyPhone: booking.emergencyPhone,
+      transportMode: booking.transportMode,
+      transportDetails: booking.transportDetails,
+      createdAt: booking.createdAt,
       trip: booking.tripId ? {
         id: booking.tripId,
         title: booking.tripTitle!,
@@ -171,6 +189,8 @@ export class DatabaseStorage implements IStorage {
         price: "0",
         imageUrl: null,
         duration: null,
+        tags: null,
+        includes: null,
         createdAt: null,
       } : undefined,
       hotel: booking.hotelId ? {
@@ -181,6 +201,8 @@ export class DatabaseStorage implements IStorage {
         price: "0",
         imageUrl: null,
         rating: null,
+        tags: null,
+        includes: null,
         amenities: null,
         createdAt: null,
       } : undefined,
@@ -188,17 +210,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBooking(booking: InsertBooking): Promise<Booking> {
-    const result = await db.insert(bookings).values(booking).returning();
+    // Generate a UUID for the booking
+    const id = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const bookingWithId = { ...booking, id };
+    const result = await db.insert(bookings).values(bookingWithId).returning();
     return result[0];
   }
 
-  async getBooking(id: number): Promise<Booking | undefined> {
+  async getBooking(id: string): Promise<Booking | undefined> {
     const result = await db.select().from(bookings).where(eq(bookings.id, id)).limit(1);
     return result[0];
   }
 
   // Update booking status
-  async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
+  async updateBookingStatus(id: string, status: string): Promise<Booking | undefined> {
     const result = await db.update(bookings).set({ status }).where(eq(bookings.id, id)).returning();
     return result[0];
   }
