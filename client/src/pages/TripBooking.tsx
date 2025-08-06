@@ -40,7 +40,6 @@ import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
 import { PriceDisplay } from '@/components/ui/price-display';
 import { bookingFormSchema, type BookingFormData, type Trip, type Hotel } from '@shared/schema';
 
@@ -72,55 +71,17 @@ export default function TripBooking() {
   const tripId = parseInt(params.id || '0');
   const [step, setStep] = useState(1);
   const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
-  
-  // Simple auth check without useAuth hook initially
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            setUser(data.data);
-          }
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    checkAuth();
-  }, []);
-  
-  // Redirect if not authenticated
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!user) {
-    navigate('/login');
-    return null;
-  }
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Form setup with validation
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      customerName: user?.name || '',
-      customerEmail: user?.email || '',
+      customerName: '',
+      customerEmail: '',
       customerPhone: '',
       checkIn: '',
       checkOut: '',
@@ -129,7 +90,7 @@ export default function TripBooking() {
       emergencyContact: '',
       emergencyPhone: '',
       transportMode: 'flight',
-      userId: user?.id || 0,
+      userId: 0,
       type: 'trip',
       tripId: tripId,
       amount: '0',
@@ -143,15 +104,17 @@ export default function TripBooking() {
       const response = await fetch('/api/trips');
       const result = await response.json();
       return result.data.find((item: Trip) => item.id === tripId);
-    }
+    },
+    enabled: !authLoading
   });
 
-  // Set the price when trip data is loaded
-  useEffect(() => {
-    if (trip) {
-      form.setValue('amount', trip.price);
-    }
-  }, [trip, form]);
+  // Calculate total with service fee
+  const calculateTotal = () => {
+    if (!trip) return 0;
+    const basePrice = trip.price;
+    const serviceFee = basePrice * 0.05; // 5% service fee
+    return Math.round((basePrice + serviceFee) * 100) / 100;
+  };
 
   // Create booking mutation
   const createBooking = useMutation({
@@ -177,129 +140,142 @@ export default function TripBooking() {
         id: data.data.id,
         bookingNumber: `TRV-${Date.now()}`,
         customerDetails: form.getValues(),
-        item: trip,
+        item: trip!,
         type: 'trip',
         totalAmount: calculateTotal(),
         bookingDate: new Date().toISOString(),
         status: 'confirmed'
       };
+      
       setReceipt(bookingReceipt);
       setStep(3);
-      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-      
+      setIsConfirmationOpen(true);
       toast({
-        title: "✅ Booking Successful!",
-        description: `Your trip has been booked. Booking ID: ${bookingReceipt.bookingNumber}`,
+        title: "Booking Confirmed!",
+        description: "Your trip has been successfully booked.",
       });
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
     },
     onError: (error) => {
       toast({
         title: "Booking Failed",
-        description: error.message || "Unable to process your booking. Please try again.",
+        description: "There was an error creating your booking. Please try again.",
         variant: "destructive",
       });
     }
   });
 
-  const calculateTotal = () => {
-    if (!trip) return 0;
-    const nights = calculateNights();
-    const basePrice = parseFloat(trip.price);
-    const guests = form.getValues('guests') || 1;
-    return Math.round((basePrice * nights * guests) * 100) / 100;
-  };
+  // Auth check effect
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setUser(data.data);
+            form.setValue('customerName', data.data.name || '');
+            form.setValue('customerEmail', data.data.email || '');
+            form.setValue('userId', data.data.id || 0);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    checkAuth();
+  }, [form]);
 
-  const calculateNights = () => {
-    const checkIn = form.getValues('checkIn');
-    const checkOut = form.getValues('checkOut');
-    
-    if (!checkIn || !checkOut) return trip?.duration || 1;
-    
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
-    return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  };
-
-  const validateStep1 = () => {
-    const values = form.getValues();
-    return values.customerName && 
-           values.customerEmail && 
-           values.customerPhone && 
-           values.checkIn && 
-           values.checkOut &&
-           values.emergencyContact &&
-           values.emergencyPhone;
-  };
-
-  const handleNext = () => {
-    if (step === 1 && !validateStep1()) {
-      form.trigger(['customerName', 'customerEmail', 'customerPhone', 'checkIn', 'checkOut', 'emergencyContact', 'emergencyPhone']);
-      return;
+  // Set the price when trip data is loaded
+  useEffect(() => {
+    if (trip) {
+      form.setValue('amount', trip.price);
     }
-    setStep(step + 1);
+  }, [trip, form]);
+
+  // Handle form submission
+  const onSubmit = (data: BookingFormData) => {
+    if (step === 1) {
+      setStep(2);
+    } else if (step === 2) {
+      createBooking.mutate(data);
+    }
   };
 
-  const handleBookingSubmit = () => {
-    setIsConfirmationOpen(true);
-  };
-
-  const confirmBooking = () => {
-    setIsConfirmationOpen(false);
-    createBooking.mutate(form.getValues());
-  };
-
+  // Download receipt
   const downloadReceipt = () => {
     if (!receipt) return;
     
     const receiptContent = `
-EXPLORENOW BOOKING RECEIPT
-=========================
+BOOKING RECEIPT
+===============
+
 Booking Number: ${receipt.bookingNumber}
 Date: ${new Date(receipt.bookingDate).toLocaleDateString()}
 
-CUSTOMER DETAILS:
+CUSTOMER DETAILS
+---------------
 Name: ${receipt.customerDetails.customerName}
 Email: ${receipt.customerDetails.customerEmail}
 Phone: ${receipt.customerDetails.customerPhone}
 
-TRIP DETAILS:
+TRIP DETAILS
+-----------
 Trip: ${receipt.item.title}
 Location: ${receipt.item.location}
-Check-in: ${new Date(receipt.customerDetails.checkIn).toLocaleDateString()}
-Check-out: ${new Date(receipt.customerDetails.checkOut).toLocaleDateString()}
+Duration: ${receipt.item.duration} days
+Check-in: ${receipt.customerDetails.checkIn}
+Check-out: ${receipt.customerDetails.checkOut}
 Guests: ${receipt.customerDetails.guests}
-Duration: ${calculateNights()} days
 
-TRANSPORT:
-Mode: ${receipt.customerDetails.transportMode || 'Not specified'}
-
-PRICING:
-Base Price: $${receipt.item.price}
-Duration: ${calculateNights()} days
-Guests: ${receipt.customerDetails.guests}
+PAYMENT SUMMARY
+--------------
+Trip Price: $${receipt.item.price.toString()}
+Service Fee (5%): $${(Number(receipt.item.price) * 0.05).toFixed(2)}
 Total Amount: $${receipt.totalAmount}
-
-Special Requests: ${receipt.customerDetails.specialRequests || 'None'}
 
 Status: ${receipt.status.toUpperCase()}
 
 Thank you for booking with ExploreNow!
-    `;
-    
+    `.trim();
+
     const blob = new Blob([receiptContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ExploreNow-Receipt-${receipt.bookingNumber}.txt`;
+    a.download = `booking-receipt-${receipt.bookingNumber}.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  // Loading states
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    navigate('/login');
+    return null;
+  }
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading trip details...</p>
+        </div>
       </div>
     );
   }
@@ -308,8 +284,10 @@ Thank you for booking with ExploreNow!
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Trip Not Found</h1>
-          <Button onClick={() => navigate('/trips')}>Browse Trips</Button>
+          <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Trip Not Found</h1>
+          <p className="text-muted-foreground mb-4">The trip you're looking for doesn't exist.</p>
+          <Button onClick={() => navigate('/trips')}>Back to Trips</Button>
         </div>
       </div>
     );
@@ -319,11 +297,11 @@ Thank you for booking with ExploreNow!
     <>
       <Helmet>
         <title>Book {trip.title} - ExploreNow</title>
-        <meta name="description" content={`Book your trip to ${trip.location}. ${trip.description}`} />
+        <meta name="description" content={`Book your trip to ${trip.location}. Complete your booking in 3 easy steps with secure payment.`} />
       </Helmet>
 
-      <div className="min-h-screen bg-background py-8">
-        <div className="container mx-auto px-4 max-w-6xl">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8">
+        <div className="container mx-auto px-4 max-w-4xl">
           {/* Header */}
           <div className="mb-8">
             <Button 
@@ -331,602 +309,429 @@ Thank you for booking with ExploreNow!
               onClick={() => navigate('/trips')}
               className="mb-4"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Trips
             </Button>
             
-            <div className="text-center">
-              <h1 className="text-3xl font-bold mb-2">Book Your Trip</h1>
-              <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-                {[1, 2, 3].map((stepNum) => (
-                  <div key={stepNum} className="flex items-center">
-                    <div 
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        step >= stepNum 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {stepNum}
-                    </div>
-                    {stepNum < 3 && <div className="w-8 h-0.5 bg-muted mx-2" />}
+            <h1 className="text-3xl font-bold mb-2">Book Your Trip</h1>
+            <p className="text-muted-foreground">Complete your booking in 3 easy steps</p>
+          </div>
+
+          {/* Progress Steps */}
+          <div className="mb-8">
+            <div className="flex items-center justify-center space-x-4">
+              {[1, 2, 3].map((stepNumber) => (
+                <div key={stepNumber} className="flex items-center">
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors
+                    ${step >= stepNumber 
+                      ? 'bg-primary border-primary text-primary-foreground' 
+                      : 'border-muted-foreground text-muted-foreground'
+                    }
+                  `}>
+                    {step > stepNumber ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : (
+                      stepNumber
+                    )}
                   </div>
-                ))}
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {step === 1 && "Personal Details"}
-                {step === 2 && "Review & Payment"}
-                {step === 3 && "Confirmation"}
-              </div>
+                  {stepNumber < 3 && (
+                    <div className={`w-16 h-px mx-2 ${step > stepNumber ? 'bg-primary' : 'bg-muted-foreground'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-center space-x-8 mt-2">
+              <span className={`text-sm ${step >= 1 ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                Personal Details
+              </span>
+              <span className={`text-sm ${step >= 2 ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                Review & Payment
+              </span>
+              <span className={`text-sm ${step >= 3 ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                Confirmation
+              </span>
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Main Form */}
-            <div className="lg:col-span-2">
-              <Form {...form}>
-                <form className="space-y-6">
-                  <AnimatePresence mode="wait">
-                    {step === 1 && (
-                      <motion.div
-                        key="step1"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="space-y-6"
-                      >
-                        {/* Personal Details */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <User className="mr-2 h-5 w-5" />
-                              Personal Details
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="customerName"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Full Name *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="John Doe" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="customerPhone"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Phone Number *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="+1 (555) 123-4567" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                            
-                            <FormField
-                              control={form.control}
-                              name="customerEmail"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Email Address *</FormLabel>
-                                  <FormControl>
-                                    <Input type="email" placeholder="john@example.com" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </CardContent>
-                        </Card>
-
-                        {/* Travel Details */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Calendar className="mr-2 h-5 w-5" />
-                              Travel Details
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-3 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="checkIn"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Check-in Date *</FormLabel>
-                                    <FormControl>
-                                      <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="checkOut"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Check-out Date *</FormLabel>
-                                    <FormControl>
-                                      <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="guests"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Number of Travelers *</FormLabel>
-                                    <Select 
-                                      value={field.value?.toString()} 
-                                      onValueChange={(value) => field.onChange(parseInt(value))}
-                                    >
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select guests" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {[1,2,3,4,5,6,7,8].map(num => (
-                                          <SelectItem key={num} value={num.toString()}>
-                                            {num} {num === 1 ? 'Person' : 'People'}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Transport Preferences */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Plane className="mr-2 h-5 w-5" />
-                              Transportation
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <FormField
-                              control={form.control}
-                              name="transportMode"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Preferred Transport Mode</FormLabel>
-                                  <Select value={field.value} onValueChange={field.onChange}>
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select transport" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {transportOptions.map(option => {
-                                        const Icon = option.icon;
-                                        return (
-                                          <SelectItem key={option.value} value={option.value}>
-                                            <div className="flex items-center">
-                                              <Icon className="mr-2 h-4 w-4" />
-                                              {option.label}
-                                            </div>
-                                          </SelectItem>
-                                        );
-                                      })}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </CardContent>
-                        </Card>
-
-                        {/* Emergency Contact */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Heart className="mr-2 h-5 w-5" />
-                              Emergency Contact
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <FormField
-                                control={form.control}
-                                name="emergencyContact"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Emergency Contact Name *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="Jane Doe" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="emergencyPhone"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Emergency Contact Phone *</FormLabel>
-                                    <FormControl>
-                                      <Input placeholder="+1 (555) 987-6543" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Special Requests */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <Info className="mr-2 h-5 w-5" />
-                              Special Requests
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <FormField
-                              control={form.control}
-                              name="specialRequests"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Special Requests (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Textarea 
-                                      placeholder="Any special accommodations, dietary requirements, accessibility needs, etc."
-                                      className="min-h-[100px]"
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </CardContent>
-                        </Card>
-
-                        <div className="flex justify-end">
-                          <Button 
-                            onClick={handleNext}
-                            size="lg"
-                            className="min-w-[120px]"
-                          >
-                            Continue to Review
-                          </Button>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <AnimatePresence mode="wait">
+                {step === 1 && (
+                  <motion.div
+                    key="step1"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Card className="mb-6">
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <User className="h-5 w-5" />
+                          <span>Personal Information</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="customerName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Enter your full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="customerEmail"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email Address</FormLabel>
+                                <FormControl>
+                                  <Input type="email" placeholder="Enter your email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                      </motion.div>
-                    )}
+                        
+                        <FormField
+                          control={form.control}
+                          name="customerPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input type="tel" placeholder="Enter your phone number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                    {step === 2 && (
-                      <motion.div
-                        key="step2"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="space-y-6"
-                      >
-                        {/* Review Booking Details */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Review Your Booking</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <Label className="text-muted-foreground">Customer Name</Label>
-                                <p className="font-medium">{form.getValues('customerName')}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Email</Label>
-                                <p className="font-medium">{form.getValues('customerEmail')}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Phone</Label>
-                                <p className="font-medium">{form.getValues('customerPhone')}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Travelers</Label>
-                                <p className="font-medium">{form.getValues('guests')} people</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Check-in</Label>
-                                <p className="font-medium">{new Date(form.getValues('checkIn')).toLocaleDateString()}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Check-out</Label>
-                                <p className="font-medium">{new Date(form.getValues('checkOut')).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                        <Separator />
 
-                        {/* Payment Information */}
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center">
-                              <CreditCard className="mr-2 h-5 w-5" />
-                              Payment Information
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="bg-muted p-4 rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-muted-foreground">This is a demo booking system</span>
-                                <Badge variant="outline">Demo Mode</Badge>
-                              </div>
-                              <p className="text-sm">No actual payment will be processed. Click "Book Now" to simulate a successful booking.</p>
-                            </div>
-                            
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div>
-                                <Label>Cardholder Name</Label>
-                                <Input placeholder="John Doe" disabled value="Demo User" />
-                              </div>
-                              <div>
-                                <Label>Card Number</Label>
-                                <Input placeholder="**** **** **** 1234" disabled value="**** **** **** 1234" />
-                              </div>
-                              <div>
-                                <Label>Expiry Date</Label>
-                                <Input placeholder="MM/YY" disabled value="12/25" />
-                              </div>
-                              <div>
-                                <Label>CVV</Label>
-                                <div className="flex">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="checkIn"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Check-in Date</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="checkOut"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Check-out Date</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="guests"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Number of Guests</FormLabel>
+                                <FormControl>
                                   <Input 
-                                    placeholder="***" 
-                                    type={showPaymentDetails ? "text" : "password"} 
-                                    disabled 
-                                    value="123" 
-                                    className="flex-1"
+                                    type="number" 
+                                    min="1" 
+                                    max="10" 
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value))}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowPaymentDetails(!showPaymentDetails)}
-                                    className="ml-2"
-                                  >
-                                    {showPaymentDetails ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <div className="flex justify-between">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setStep(1)}
-                            size="lg"
-                          >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back
-                          </Button>
-                          
-                          <Dialog open={isConfirmationOpen} onOpenChange={setIsConfirmationOpen}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                size="lg"
-                                className="min-w-[120px]"
-                                disabled={createBooking.isPending}
-                              >
-                                {createBooking.isPending ? "Processing..." : "Book Now"}
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle className="flex items-center">
-                                  <AlertTriangle className="mr-2 h-5 w-5 text-orange-500" />
-                                  Confirm Your Booking
-                                </DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <p>Are you sure you want to proceed with this booking?</p>
-                                <div className="bg-muted p-4 rounded-lg">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">Total Amount:</span>
-                                    <span className="font-bold text-lg">
-                                      <PriceDisplay price={calculateTotal()} />
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex space-x-3">
-                                  <Button 
-                                    variant="outline" 
-                                    onClick={() => setIsConfirmationOpen(false)}
-                                    className="flex-1"
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button 
-                                    onClick={confirmBooking}
-                                    disabled={createBooking.isPending}
-                                    className="flex-1"
-                                  >
-                                    {createBooking.isPending ? "Processing..." : "Confirm Booking"}
-                                  </Button>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                      </motion.div>
-                    )}
 
-                    {step === 3 && receipt && (
-                      <motion.div
-                        key="step3"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-center space-y-6"
+                        <FormField
+                          control={form.control}
+                          name="transportMode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Preferred Transportation</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select transportation mode" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {transportOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      <div className="flex items-center space-x-2">
+                                        <option.icon className="h-4 w-4" />
+                                        <span>{option.label}</span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <Separator />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="emergencyContact"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Emergency Contact Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Emergency contact full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="emergencyPhone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Emergency Contact Phone</FormLabel>
+                                <FormControl>
+                                  <Input type="tel" placeholder="Emergency contact phone" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="specialRequests"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Special Requests (Optional)</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Any special dietary requirements, accessibility needs, or other requests..."
+                                  className="resize-none"
+                                  rows={3}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    <div className="flex justify-end">
+                      <Button type="submit" size="lg">
+                        Continue to Review
+                        <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {step === 2 && (
+                  <motion.div
+                    key="step2"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Trip Details */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <MapPin className="h-5 w-5" />
+                            <span>Trip Details</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <h3 className="font-semibold text-lg">{trip.title}</h3>
+                            <p className="text-muted-foreground">{trip.location}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-4 text-sm">
+                            <div className="flex items-center space-x-1">
+                              <Clock className="h-4 w-4" />
+                              <span>{trip.duration} days</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Users className="h-4 w-4" />
+                              <span>{form.watch('guests')} guests</span>
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground">{trip.description}</p>
+
+                          {trip.includes && trip.includes.length > 0 && (
+                            <div>
+                              <h4 className="font-medium mb-2">Includes:</h4>
+                              <ul className="text-sm space-y-1">
+                                {trip.includes.map((item: string, index: number) => (
+                                  <li key={index} className="flex items-center space-x-2">
+                                    <CheckCircle className="h-3 w-3 text-green-500" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Booking Summary */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <CreditCard className="h-5 w-5" />
+                            <span>Booking Summary</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Trip Price</span>
+                              <PriceDisplay price={trip.price} originalCurrency="USD" />
+                            </div>
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Service Fee (5%)</span>
+                              <PriceDisplay price={trip.price * 0.05} originalCurrency="USD" />
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between font-semibold text-lg">
+                              <span>Total</span>
+                              <PriceDisplay price={calculateTotal()} originalCurrency="USD" />
+                            </div>
+                          </div>
+
+                          <div className="bg-muted p-4 rounded-lg">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Info className="h-4 w-4 text-blue-500" />
+                              <span className="font-medium">Payment Information</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              This is a demo booking system. No actual payment will be processed.
+                              Your booking will be confirmed immediately upon submission.
+                            </p>
+                          </div>
+
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Name:</span>
+                              <span>{form.watch('customerName')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Email:</span>
+                              <span>{form.watch('customerEmail')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Check-in:</span>
+                              <span>{form.watch('checkIn')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Check-out:</span>
+                              <span>{form.watch('checkOut')}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="flex justify-between mt-6">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setStep(1)}
                       >
-                        <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                          <CheckCircle className="h-12 w-12 text-green-600" />
-                        </div>
-                        
-                        <div>
-                          <h2 className="text-3xl font-bold text-green-600 mb-2">Booking Confirmed!</h2>
-                          <p className="text-muted-foreground">
-                            Your trip booking has been successfully processed.
-                          </p>
-                        </div>
-
-                        <Card className="text-left">
-                          <CardHeader>
-                            <CardTitle>Booking Receipt</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <Label className="text-muted-foreground">Booking Number</Label>
-                                <p className="font-bold text-lg">{receipt.bookingNumber}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Booking Date</Label>
-                                <p className="font-medium">{new Date(receipt.bookingDate).toLocaleDateString()}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Trip</Label>
-                                <p className="font-medium">{receipt.item.title}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Location</Label>
-                                <p className="font-medium">{receipt.item.location}</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Duration</Label>
-                                <p className="font-medium">{calculateNights()} days</p>
-                              </div>
-                              <div>
-                                <Label className="text-muted-foreground">Total Amount</Label>
-                                <p className="font-bold text-lg">
-                                  <PriceDisplay price={receipt.totalAmount} />
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                          <Button onClick={downloadReceipt} variant="outline">
-                            <Download className="mr-2 h-4 w-4" />
-                            Download Receipt
-                          </Button>
-                          <Button onClick={() => navigate('/dashboard/bookings')}>
-                            View My Bookings
-                          </Button>
-                          <Button variant="outline" onClick={() => navigate('/trips')}>
-                            Browse More Trips
-                          </Button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </form>
-              </Form>
-            </div>
-
-            {/* Trip Summary Sidebar */}
-            <div className="lg:col-span-1">
-              <Card className="sticky top-8">
-                <CardHeader>
-                  <CardTitle>Trip Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {trip.imageUrl && (
-                    <img 
-                      src={trip.imageUrl} 
-                      alt={trip.title}
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                  )}
-                  
-                  <div>
-                    <h3 className="font-bold text-lg">{trip.title}</h3>
-                    <p className="text-muted-foreground flex items-center mt-1">
-                      <MapPin className="mr-1 h-4 w-4" />
-                      {trip.location}
-                    </p>
-                  </div>
-
-                  {trip.description && (
-                    <p className="text-sm text-muted-foreground">{trip.description}</p>
-                  )}
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Base Price:</span>
-                      <PriceDisplay price={trip.price} />
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Details
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        size="lg"
+                        disabled={createBooking.isPending}
+                      >
+                        {createBooking.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            Confirm Booking
+                            <CheckCircle className="h-4 w-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    
-                    {step >= 1 && form.getValues('checkIn') && form.getValues('checkOut') && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Duration:</span>
-                          <span>{calculateNights()} days</span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Travelers:</span>
-                          <span>{form.getValues('guests')} people</span>
-                        </div>
-                      </>
-                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </form>
+          </Form>
 
-                    <Separator />
-                    
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total:</span>
-                      <PriceDisplay price={calculateTotal()} />
-                    </div>
+          {/* Confirmation Modal */}
+          <Dialog open={isConfirmationOpen} onOpenChange={setIsConfirmationOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2 text-green-600">
+                  <CheckCircle className="h-6 w-6" />
+                  <span>Booking Confirmed!</span>
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600 mb-2">
+                    {receipt?.bookingNumber}
                   </div>
+                  <p className="text-muted-foreground">
+                    Your booking has been confirmed. A confirmation email has been sent to your email address.
+                  </p>
+                </div>
 
-                  {trip.includes && trip.includes.length > 0 && (
-                    <>
-                      <Separator />
-                      <div>
-                        <h4 className="font-medium mb-2">What's Included:</h4>
-                        <ul className="text-sm text-muted-foreground space-y-1">
-                          {trip.includes.map((item: string, index: number) => (
-                            <li key={index} className="flex items-center">
-                              <CheckCircle className="mr-2 h-3 w-3 text-green-500" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                <div className="flex flex-col space-y-2">
+                  <Button onClick={downloadReceipt} variant="outline" className="w-full">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Receipt
+                  </Button>
+                  <Button 
+                    onClick={() => navigate('/dashboard')} 
+                    className="w-full"
+                  >
+                    View My Bookings
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>
