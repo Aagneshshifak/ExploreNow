@@ -115,7 +115,7 @@ export default function TripBooking() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {trips?.data?.map((trip: Trip) => (
+                  {Array.isArray(trips) && trips.map((trip: Trip) => (
                     <div
                       key={trip.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -156,7 +156,7 @@ export default function TripBooking() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {hotels?.data?.map((hotel: Hotel) => (
+                  {Array.isArray(hotels) && hotels.map((hotel: Hotel) => (
                     <div
                       key={hotel.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -389,7 +389,7 @@ export default function TripBooking() {
                     </div>
                   )}
 
-                  {/* Dummy Payment Button */}
+                  {/* Book Now Button */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <CreditCard className="h-4 w-4" />
