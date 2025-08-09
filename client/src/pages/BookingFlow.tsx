@@ -61,7 +61,7 @@ export default function BookingFlow() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { convertPrice, currency } = useCurrency();
+  const { convertPrice, currency, exchangeRates, loading } = useCurrency();
   
   const searchParams = new URLSearchParams(location.search || '');
   const itemType = searchParams.get('type') as 'trip' | 'hotel';
@@ -85,6 +85,7 @@ export default function BookingFlow() {
   }
   
   const [step, setStep] = useState(1);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
     customerName: user?.name || '',
     customerEmail: user?.email || '',
@@ -176,6 +177,39 @@ export default function BookingFlow() {
     const totalInUSD = basePrice * nights * guestMultiplier;
     // Convert to user's selected currency
     return convertPrice(totalInUSD, 'USD');
+  };
+
+  const formatTotalPrice = () => {
+    const total = calculateTotal();
+    const currencyData = [
+      { code: 'USD', symbol: '$' },
+      { code: 'EUR', symbol: '€' },
+      { code: 'GBP', symbol: '£' },
+      { code: 'INR', symbol: '₹' },
+      { code: 'JPY', symbol: '¥' },
+      { code: 'CAD', symbol: 'C$' },
+      { code: 'AUD', symbol: 'A$' },
+      { code: 'CHF', symbol: 'CHF' },
+      { code: 'CNY', symbol: '¥' },
+      { code: 'KRW', symbol: '₩' },
+    ].find(c => c.code === currency);
+    
+    const symbol = currencyData?.symbol || currency;
+    
+    // Debug log
+    console.log('Currency conversion debug:', {
+      currency,
+      exchangeRates,
+      total,
+      item: item?.price,
+      loading
+    });
+    
+    if (currency === 'JPY' || currency === 'KRW') {
+      return `${symbol}${Math.round(total).toLocaleString()}`;
+    } else {
+      return `${symbol}${total.toFixed(2)}`;
+    }
   };
 
   const calculateNights = () => {
@@ -310,6 +344,75 @@ Thank you for booking with ExploreNow!
             ))}
           </div>
         </div>
+
+        {/* Payment Confirmation Modal */}
+        {showPaymentConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-background rounded-lg p-6 max-w-md w-full mx-4"
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <CreditCard className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Payment Confirmation</h3>
+                <p className="text-muted-foreground">
+                  Confirm your booking for {item?.title || item?.name}
+                </p>
+              </div>
+              
+              <div className="space-y-4 mb-6">
+                <div className="bg-muted p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">Trip:</span>
+                    <span>{item?.title || item?.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">Guests:</span>
+                    <span>{bookingDetails.guests}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">Nights:</span>
+                    <span>{calculateNights()}</span>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between items-center font-bold">
+                    <span>Total Amount:</span>
+                    <span>{formatTotalPrice()}</span>
+                  </div>
+                </div>
+                
+                <div className="text-sm text-muted-foreground text-center">
+                  This is a demo booking. No actual payment will be processed.
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPaymentConfirmation(false)}
+                  className="flex-1"
+                  data-testid="button-cancel-payment"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowPaymentConfirmation(false);
+                    createBooking.mutate(bookingDetails);
+                  }}
+                  disabled={createBooking.isPending}
+                  className="flex-1"
+                  data-testid="button-confirm-payment"
+                >
+                  {createBooking.isPending ? 'Processing...' : 'Confirm Payment'}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -510,11 +613,12 @@ Thank you for booking with ExploreNow!
                     Back to Details
                   </Button>
                   <Button
-                    onClick={() => createBooking.mutate(bookingDetails)}
+                    onClick={() => setShowPaymentConfirmation(true)}
                     disabled={createBooking.isPending}
                     size="lg"
+                    data-testid="button-confirm-booking"
                   >
-                    {createBooking.isPending ? 'Processing...' : 'Confirm Booking'}
+                    {createBooking.isPending ? 'Processing...' : 'Book Now'}
                   </Button>
                 </div>
               </motion.div>
@@ -544,7 +648,7 @@ Thank you for booking with ExploreNow!
                           <p><strong>Status:</strong> <Badge variant="default">Confirmed</Badge></p>
                         </div>
                         <div>
-                          <p><strong>Total Amount:</strong> <PriceDisplay price={receipt.totalAmount} originalCurrency={currency} /></p>
+                          <p><strong>Total Amount:</strong> {formatTotalPrice()}</p>
                           <p><strong>Nights:</strong> {calculateNights()}</p>
                           <p><strong>Guests:</strong> {receipt.customerDetails.guests}</p>
                         </div>
@@ -620,9 +724,7 @@ Thank you for booking with ExploreNow!
                       <Separator />
                       <div className="flex justify-between font-medium">
                         <span>Total:</span>
-                        <span>
-                          <PriceDisplay price={calculateTotal()} originalCurrency="USD" />
-                        </span>
+                        <span>{formatTotalPrice()}</span>
                       </div>
                     </>
                   )}

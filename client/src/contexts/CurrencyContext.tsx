@@ -116,6 +116,13 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     fetchExchangeRates();
   }, []);
 
+  useEffect(() => {
+    // Re-fetch rates when currency changes if we don't have rates for the new currency
+    if (currency && Object.keys(exchangeRates).length > 0 && !exchangeRates[currency]) {
+      fetchExchangeRates(currency);
+    }
+  }, [currency]);
+
   const value: CurrencyContextType = {
     currency,
     setCurrency,
