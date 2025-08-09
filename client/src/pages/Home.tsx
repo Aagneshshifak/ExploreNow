@@ -6,8 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { LazyImage } from '@/components/LazyImage';
 import { PriceDisplay } from '@/components/ui/price-display';
+import { useAuth } from '@/hooks/use-auth';
 import heroBackground from '@/assets/hero-background.jpg';
 export default function Home() {
+  const { user } = useAuth();
   const featuredDestinations = [{
     id: 1,
     name: 'Santorini, Greece',
@@ -162,18 +164,36 @@ export default function Home() {
               From hidden gems to iconic destinations, let us craft your perfect journey.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Sign up for ExploreNow">
-                <Link to="/signup">
-                  Sign Up
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Explore travel trips">
-                <Link to="/trips">Explore Trips</Link>
-              </Button>
-              <Button asChild variant="ghost" size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Login to your account">
-                <Link to="/login">Login</Link>
-              </Button>
+              {user ? (
+                // User is logged in - show dashboard and explore trips
+                <>
+                  <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="View your dashboard">
+                    <Link to="/dashboard">
+                      My Dashboard
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Explore travel trips">
+                    <Link to="/trips">Explore Trips</Link>
+                  </Button>
+                </>
+              ) : (
+                // User is not logged in - show signup, explore trips, and login
+                <>
+                  <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Sign up for ExploreNow" data-testid="button-signup">
+                    <Link to="/signup">
+                      Sign Up
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Explore travel trips" data-testid="button-explore-trips">
+                    <Link to="/trips">Explore Trips</Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Login to your account" data-testid="button-login">
+                    <Link to="/login">Login</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </motion.div>
         </div>
