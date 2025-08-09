@@ -57,13 +57,30 @@ export default function BookingFlow() {
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const searchParams = new URLSearchParams(location.search || '');
   const itemType = searchParams.get('type') as 'trip' | 'hotel';
   const itemId = parseInt(params.id || '0');
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !user) {
+    navigate('/login');
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   const [step, setStep] = useState(1);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails>({
@@ -80,7 +97,7 @@ export default function BookingFlow() {
   const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
 
   // Fetch item details (trip or hotel)
-  const { data: item, isLoading } = useQuery({
+  const { data: item, isLoading: isLoadingItem } = useQuery({
     queryKey: [`/api/${itemType}s`, itemId],
     queryFn: async () => {
       const response = await fetch(`/api/${itemType}s`);
@@ -108,6 +125,11 @@ export default function BookingFlow() {
         body: JSON.stringify(bookingData),
         credentials: 'include'
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Booking failed');
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -125,10 +147,11 @@ export default function BookingFlow() {
       setStep(3);
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error('Booking error:', error);
       toast({
         title: "Booking Failed",
-        description: "Unable to process your booking. Please try again.",
+        description: error.message || "Unable to process your booking. Please try again.",
         variant: "destructive",
       });
     }
@@ -206,7 +229,7 @@ Thank you for booking with ExploreNow!
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading) {
+  if (isLoadingItem) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />

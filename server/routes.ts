@@ -721,6 +721,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: amount.toString(),
         checkIn: new Date(checkInDate),
         checkOut: new Date(checkOutDate),
+        guests: guests || 1,
+        customerName: customerDetails.customerName,
+        customerEmail: customerDetails.customerEmail,
+        customerPhone: customerDetails.customerPhone,
+        specialRequests: customerDetails.specialRequests,
+        emergencyContact: customerDetails.emergencyContact,
+        emergencyPhone: customerDetails.emergencyPhone,
+        status: 'confirmed'
       };
       
       const booking = await storage.createBooking(bookingData);
