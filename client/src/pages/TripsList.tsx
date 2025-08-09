@@ -270,14 +270,23 @@ export default function TripsList() {
                           <div className="text-2xl text-primary">
                             <PriceDisplay price={trip.price} originalCurrency="USD" />
                           </div>
-                          <Button 
-                            size="sm"
-                            onClick={() => navigate(`/trip/${trip.id}/book`)}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            <ShoppingCart className="h-4 w-4 mr-2" />
-                            Book Trip
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/trip/${trip.id}`)}
+                            >
+                              View Details
+                            </Button>
+                            <Button 
+                              size="sm"
+                              onClick={() => navigate(`/trip/${trip.id}/book`)}
+                              className="bg-primary hover:bg-primary/90"
+                            >
+                              <ShoppingCart className="h-4 w-4 mr-2" />
+                              Book Trip
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>

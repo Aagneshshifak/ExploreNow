@@ -44,6 +44,8 @@ import ReviewsPage from "./pages/ReviewsPage";
 import BookingFlow from "./pages/BookingFlow";
 import TripBooking from "./pages/TripBooking";
 import TranslationPage from "./pages/TranslationPage";
+import TripDetails from "./pages/TripDetails";
+import HotelDetails from "./pages/HotelDetails";
 
 
 const queryClient = new QueryClient();
@@ -143,6 +145,8 @@ const App = () => {
                         } />
                         <Route path="/ai-recommender" element={<AITripRecommender />} />
                         <Route path="/trips" element={<TripsList />} />
+                        <Route path="/trip/:id" element={<TripDetails />} />
+                        <Route path="/hotel/:id" element={<HotelDetails />} />
                         <Route path="/currency-converter" element={<ExpenseConverter />} />
                         <Route path="/translate" element={<TranslationPage />} />
                         <Route path="/reviews" element={<ReviewsPage />} />

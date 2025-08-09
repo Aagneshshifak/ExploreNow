@@ -722,12 +722,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkIn: new Date(checkInDate),
         checkOut: new Date(checkOutDate),
         guests: guests || 1,
-        customerName: customerDetails.customerName,
-        customerEmail: customerDetails.customerEmail,
-        customerPhone: customerDetails.customerPhone,
-        specialRequests: customerDetails.specialRequests,
-        emergencyContact: customerDetails.emergencyContact,
-        emergencyPhone: customerDetails.emergencyPhone,
+        customerName: customerDetails?.customerName || req.user!.name,
+        customerEmail: customerDetails?.customerEmail || req.user!.email,
+        customerPhone: customerDetails?.customerPhone,
+        specialRequests: customerDetails?.specialRequests,
+        emergencyContact: customerDetails?.emergencyContact,
+        emergencyPhone: customerDetails?.emergencyPhone,
         status: 'confirmed'
       };
       
