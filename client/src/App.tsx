@@ -98,7 +98,16 @@ const App = () => {
                 <Route path="/admin/signup" element={<AdminSignup />} />
                 
                 {/* Routes with navigation */}
-                <Route path="*" element={
+                <Route path="/" element={
+                  <>
+                    <Navigation darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+                    <main className="pt-20">
+                      <Home />
+                    </main>
+                    <Footer />
+                  </>
+                } />
+                <Route path="/*" element={
                   <>
                     <Navigation darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
                     <main className="pt-20">

@@ -8,6 +8,7 @@ import { LazyImage } from '@/components/LazyImage';
 import { PriceDisplay } from '@/components/ui/price-display';
 import { useAuth } from '@/hooks/use-auth';
 import heroBackground from '@/assets/hero-background.jpg';
+
 export default function Home() {
   const { user } = useAuth();
   const featuredDestinations = [{
