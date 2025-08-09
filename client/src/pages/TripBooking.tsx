@@ -9,17 +9,34 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, MapPin, CreditCard, Users, Phone, Mail, Car } from "lucide-react";
+import { Calendar, MapPin, CreditCard, Users, Phone, Mail, Car, CheckCircle, Download } from "lucide-react";
 import { bookingFormSchema, type Trip, type Hotel, type BookingFormData } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { motion } from "framer-motion";
+import { useCurrency } from "@/contexts/CurrencyContext";
+
+interface BookingReceipt {
+  id: string;
+  bookingNumber: string;
+  customerDetails: any;
+  item: Trip | Hotel;
+  type: 'trip' | 'hotel';
+  totalAmount: number;
+  bookingDate: string;
+  status: string;
+}
 
 export default function TripBooking() {
   const [, navigate] = useLocation();
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+  const [showBookingConfirmation, setShowBookingConfirmation] = useState(false);
+  const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { convertPrice, currency } = useCurrency();
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
@@ -41,24 +58,69 @@ export default function TripBooking() {
     queryKey: ["/api/hotels"],
   });
 
-  // Create booking mutation
+  // Create booking mutation with detailed API call
   const createBookingMutation = useMutation({
-    mutationFn: (data: BookingFormData) => apiRequest("/api/bookings", "POST", data),
-    onSuccess: () => {
-      toast({
-        title: "Booking Successful!",
-        description: "Your booking has been confirmed. Check your email for details.",
+    mutationFn: async (data: any) => {
+      const totalAmount = calculateTotalAmount();
+      const selectedItem = selectedTrip || selectedHotel;
+      
+      const bookingData = {
+        [selectedTrip ? 'tripId' : 'hotelId']: selectedItem?.id,
+        type: selectedTrip ? 'trip' : 'hotel',
+        checkInDate: data.checkIn,
+        checkOutDate: data.checkOut,
+        guests: data.guests,
+        customerDetails: {
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          emergencyContact: data.emergencyContact,
+          emergencyPhone: data.emergencyPhone,
+          specialRequests: data.specialRequests
+        },
+        amount: totalAmount,
+        currency: currency
+      };
+      
+      const response = await fetch('/api/bookings/detailed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData),
+        credentials: 'include'
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/bookings"] });
-      navigate("/dashboard");
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Booking failed');
+      }
+      return response.json();
     },
-    onError: (error: any) => {
+    onSuccess: (data) => {
+      const selectedItem = selectedTrip || selectedHotel;
+      const bookingReceipt: BookingReceipt = {
+        id: data.data.id,
+        bookingNumber: `EN-${Date.now()}`,
+        customerDetails: form.getValues(),
+        item: selectedItem!,
+        type: selectedTrip ? 'trip' : 'hotel',
+        totalAmount: calculateTotalAmount(),
+        bookingDate: new Date().toISOString(),
+        status: 'confirmed'
+      };
+      setReceipt(bookingReceipt);
+      setShowPaymentConfirmation(false);
+      setShowBookingConfirmation(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+    },
+    onError: (error: Error) => {
+      console.error('Booking error:', error);
       toast({
         title: "Booking Failed",
-        description: error.message || "There was an error processing your booking.",
+        description: error.message || "Unable to process your booking. Please try again.",
         variant: "destructive",
       });
-    },
+      setShowPaymentConfirmation(false);
+    }
   });
 
   const onSubmit = (data: BookingFormData) => {
@@ -71,21 +133,93 @@ export default function TripBooking() {
       return;
     }
 
-    const bookingData = {
-      ...data,
-      tripId: selectedTrip?.id || null,
-      hotelId: selectedHotel?.id || null,
-      type: selectedTrip ? "trip" : "hotel",
-      amount: selectedTrip ? selectedTrip.price : selectedHotel?.price || "0",
-    };
+    if (!data.checkIn || !data.checkOut) {
+      toast({
+        title: "Dates Required",
+        description: "Please select check-in and check-out dates.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    createBookingMutation.mutate(bookingData);
+    // Show payment confirmation modal instead of directly submitting
+    setShowPaymentConfirmation(true);
+  };
+
+  const handlePaymentConfirmation = () => {
+    const formData = form.getValues();
+    createBookingMutation.mutate(formData);
   };
 
   const calculateTotal = () => {
     const basePrice = selectedTrip ? parseFloat(selectedTrip.price) : selectedHotel ? parseFloat(selectedHotel.price) : 0;
     const guests = form.watch("guests") || 1;
     return (basePrice * guests).toFixed(2);
+  };
+
+  const calculateTotalAmount = () => {
+    const basePrice = selectedTrip ? parseFloat(selectedTrip.price) : selectedHotel ? parseFloat(selectedHotel.price) : 0;
+    const guests = form.watch("guests") || 1;
+    const totalInUSD = basePrice * guests;
+    // Convert to user's selected currency
+    return convertPrice(totalInUSD, 'USD');
+  };
+
+  const formatTotalPrice = () => {
+    const total = calculateTotalAmount();
+    const currencyData = [
+      { code: 'USD', symbol: '$' },
+      { code: 'EUR', symbol: '€' },
+      { code: 'GBP', symbol: '£' },
+      { code: 'INR', symbol: '₹' },
+      { code: 'JPY', symbol: '¥' },
+      { code: 'CAD', symbol: 'C$' },
+      { code: 'AUD', symbol: 'A$' },
+      { code: 'CHF', symbol: 'CHF' },
+      { code: 'CNY', symbol: '¥' },
+      { code: 'KRW', symbol: '₩' },
+    ].find(c => c.code === currency);
+    
+    const symbol = currencyData?.symbol || currency;
+    return `${symbol}${total.toFixed(2)}`;
+  };
+
+  const downloadReceipt = () => {
+    if (!receipt) return;
+    
+    const receiptContent = `
+EXPLORENOW BOOKING RECEIPT
+=========================
+Booking Number: ${receipt.bookingNumber}
+Date: ${new Date(receipt.bookingDate).toLocaleDateString()}
+
+CUSTOMER DETAILS:
+Name: ${receipt.customerDetails.customerName}
+Email: ${receipt.customerDetails.customerEmail}
+Phone: ${receipt.customerDetails.customerPhone}
+
+${receipt.type.toUpperCase()} DETAILS:
+${receipt.type === 'trip' ? 'Trip' : 'Hotel'}: ${receipt.item.title || receipt.item.name}
+Location: ${receipt.item.location}
+Check-in: ${new Date(receipt.customerDetails.checkIn).toLocaleDateString()}
+Check-out: ${new Date(receipt.customerDetails.checkOut).toLocaleDateString()}
+Guests: ${receipt.customerDetails.guests}
+
+PRICING:
+Total Amount: ${formatTotalPrice()}
+
+Status: ${receipt.status.toUpperCase()}
+
+Thank you for booking with ExploreNow!
+    `;
+    
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ExploreNow-Receipt-${receipt.bookingNumber}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -384,7 +518,7 @@ export default function TripBooking() {
                       </div>
                       <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
                         <span>Total:</span>
-                        <span>${calculateTotal()}</span>
+                        <span>{formatTotalPrice()}</span>
                       </div>
                     </div>
                   )}
@@ -401,7 +535,7 @@ export default function TripBooking() {
                       className="w-full"
                       disabled={createBookingMutation.isPending || (!selectedTrip && !selectedHotel)}
                     >
-                      {createBookingMutation.isPending ? "Processing..." : `Book Now - $${calculateTotal()}`}
+                      {createBookingMutation.isPending ? "Processing..." : `Book Now - ${formatTotalPrice()}`}
                     </Button>
                   </div>
                 </form>
@@ -410,6 +544,161 @@ export default function TripBooking() {
           </Card>
         </div>
       </div>
+
+      {/* Payment Confirmation Modal */}
+      {showPaymentConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+          >
+            <h3 className="text-xl font-bold mb-4">Confirm Payment</h3>
+            
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between">
+                <span>Item:</span>
+                <span className="font-medium">
+                  {selectedTrip ? selectedTrip.title : selectedHotel?.name}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Location:</span>
+                <span>{selectedTrip ? selectedTrip.location : selectedHotel?.location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Check-in:</span>
+                <span>{form.getValues('checkIn')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Check-out:</span>
+                <span>{form.getValues('checkOut')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Guests:</span>
+                <span>{form.getValues('guests')}</span>
+              </div>
+              <div className="flex justify-between border-t pt-3 font-bold text-lg">
+                <span>Total Amount:</span>
+                <span>{formatTotalPrice()}</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <CreditCard className="h-4 w-4" />
+                <span className="text-sm">Secure Payment Processing</span>
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Your payment will be processed securely. All booking details will be stored in our database.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowPaymentConfirmation(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePaymentConfirmation}
+                disabled={createBookingMutation.isPending}
+                className="flex-1"
+              >
+                {createBookingMutation.isPending ? "Processing..." : "Confirm Payment"}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Booking Confirmation Receipt */}
+      {showBookingConfirmation && receipt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
+                Booking Confirmed!
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Your reservation has been successfully processed
+              </p>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
+              <h4 className="font-semibold mb-3">Booking Details</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Booking Number:</span>
+                  <span className="font-mono">{receipt.bookingNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{receipt.type === 'trip' ? 'Trip' : 'Hotel'}:</span>
+                  <span className="font-medium">{receipt.item.title || receipt.item.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Location:</span>
+                  <span>{receipt.item.location}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Check-in:</span>
+                  <span>{new Date(receipt.customerDetails.checkIn).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Check-out:</span>
+                  <span>{new Date(receipt.customerDetails.checkOut).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Guests:</span>
+                  <span>{receipt.customerDetails.guests}</span>
+                </div>
+                <div className="flex justify-between border-t pt-2 font-bold">
+                  <span>Total Paid:</span>
+                  <span>{formatTotalPrice()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
+              <h4 className="font-semibold mb-2">What's Next?</h4>
+              <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
+                <li>• A confirmation email has been sent to {receipt.customerDetails.customerEmail}</li>
+                <li>• Your booking details are saved in your dashboard</li>
+                <li>• Download your receipt for your records</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={downloadReceipt}
+                className="flex-1 flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Receipt
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowBookingConfirmation(false);
+                  navigate('/dashboard');
+                }}
+                className="flex-1"
+              >
+                View Dashboard
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
