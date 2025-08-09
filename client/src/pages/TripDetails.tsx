@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -56,7 +56,7 @@ export default function TripDetails() {
     queryKey: ['/api/trips'],
   });
 
-  const trip = trips?.find((t: Trip) => t.id === tripId);
+  const trip = Array.isArray(trips) ? trips.find((t: Trip) => t.id === tripId) : null;
 
   // Mock detailed itinerary data (in a real app, this would come from the API)
   const itinerary = [

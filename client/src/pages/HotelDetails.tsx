@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -59,7 +59,7 @@ export default function HotelDetails() {
     queryKey: ['/api/hotels'],
   });
 
-  const hotel = hotels?.find((h: Hotel) => h.id === hotelId);
+  const hotel = Array.isArray(hotels) ? hotels.find((h: Hotel) => h.id === hotelId) : null;
 
   // Mock room types (in a real app, this would come from the API)
   const roomTypes = [
