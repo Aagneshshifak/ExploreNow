@@ -497,6 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hotelId: null,
         type: "trip" as const,
         amount: trip.price,
+        currency: req.body.currency || 'USD',
         checkIn: req.body.checkIn ? new Date(req.body.checkIn) : null,
         checkOut: req.body.checkOut ? new Date(req.body.checkOut) : null,
       };
@@ -550,6 +551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hotelId: hotelId,
         type: "hotel" as const,
         amount: totalPrice.toString(),
+        currency: req.body.currency || 'USD',
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
       };
@@ -632,6 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hotelId: type === 'hotel' ? hotelId : null,
         type: type as 'trip' | 'hotel',
         amount: amount?.toString() || '0',
+        currency: req.body.currency || 'USD',
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
         guests: guests || 1,
@@ -677,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Legacy detailed booking flow - POST /api/bookings/detailed
   app.post("/api/bookings/detailed", requireUser, async (req, res) => {
     try {
-      const { tripId, hotelId, type, checkInDate, checkOutDate, guests, customerDetails, amount } = req.body;
+      const { tripId, hotelId, type, checkInDate, checkOutDate, guests, customerDetails, amount, currency } = req.body;
       
       // Validation
       if (!type || (type !== 'trip' && type !== 'hotel')) {
@@ -719,6 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hotelId: type === 'hotel' ? hotelId : null,
         type: type as 'trip' | 'hotel',
         amount: amount.toString(),
+        currency: currency || 'USD',
         checkIn: new Date(checkInDate),
         checkOut: new Date(checkOutDate),
         guests: guests || 1,

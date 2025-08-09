@@ -50,6 +50,7 @@ export const bookings = pgTable("bookings", {
   type: text("type").notNull(), // "trip" or "hotel"
   status: text("status").notNull().default("pending"), // "pending", "confirmed", "cancelled"
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
+  currency: text("currency").notNull().default("USD"), // Currency code for the amount
   checkIn: timestamp("checkIn"),
   checkOut: timestamp("checkOut"),
   // Enhanced booking details

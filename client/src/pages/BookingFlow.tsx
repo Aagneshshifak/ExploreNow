@@ -28,6 +28,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { PriceDisplay } from '@/components/ui/price-display';
+import { useCurrency } from '@/contexts/CurrencyContext';
 // import { apiRequest } from '@/lib/queryClient';
 
 interface BookingDetails {
@@ -60,6 +61,7 @@ export default function BookingFlow() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { convertPrice, currency } = useCurrency();
   
   const searchParams = new URLSearchParams(location.search || '');
   const itemType = searchParams.get('type') as 'trip' | 'hotel';
@@ -109,14 +111,23 @@ export default function BookingFlow() {
   // Create booking mutation
   const createBooking = useMutation({
     mutationFn: async (data: BookingDetails) => {
+      const totalAmount = calculateTotal();
       const bookingData = {
         [itemType + 'Id']: itemId,
         type: itemType,
         checkInDate: data.checkInDate,
         checkOutDate: data.checkOutDate,
         guests: data.guests,
-        customerDetails: data,
-        amount: calculateTotal()
+        customerDetails: {
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          specialRequests: data.specialRequests,
+          emergencyContact: data.emergencyContact,
+          emergencyPhone: data.emergencyPhone
+        },
+        amount: totalAmount,
+        currency: currency // Store the currency used for the booking
       };
       
       const response = await fetch('/api/bookings/detailed', {
@@ -160,9 +171,11 @@ export default function BookingFlow() {
   const calculateTotal = () => {
     if (!item) return 0;
     const nights = calculateNights();
-    const basePrice = item.price;
+    const basePrice = parseFloat(item.price);
     const guestMultiplier = itemType === 'hotel' ? bookingDetails.guests : 1;
-    return basePrice * nights * guestMultiplier;
+    const totalInUSD = basePrice * nights * guestMultiplier;
+    // Convert to user's selected currency
+    return convertPrice(totalInUSD, 'USD');
   };
 
   const calculateNights = () => {
@@ -210,10 +223,10 @@ Guests: ${receipt.customerDetails.guests}
 Nights: ${calculateNights()}
 
 PRICING:
-Base Price: $${receipt.item.price}
+Base Price: ${currency}${convertPrice(receipt.item.price, 'USD').toFixed(2)}
 Nights: ${calculateNights()}
 Guests: ${receipt.customerDetails.guests}
-Total Amount: $${receipt.totalAmount}
+Total Amount: ${currency}${receipt.totalAmount.toFixed(2)}
 
 Status: ${receipt.status.toUpperCase()}
 
@@ -531,7 +544,7 @@ Thank you for booking with ExploreNow!
                           <p><strong>Status:</strong> <Badge variant="default">Confirmed</Badge></p>
                         </div>
                         <div>
-                          <p><strong>Total Amount:</strong> ${receipt.totalAmount}</p>
+                          <p><strong>Total Amount:</strong> <PriceDisplay price={receipt.totalAmount} originalCurrency={currency} /></p>
                           <p><strong>Nights:</strong> {calculateNights()}</p>
                           <p><strong>Guests:</strong> {receipt.customerDetails.guests}</p>
                         </div>
