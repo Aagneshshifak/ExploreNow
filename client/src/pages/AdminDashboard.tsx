@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Hotel, 
   MapPin, 
@@ -22,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function AdminDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -46,22 +48,67 @@ export default function AdminDashboard() {
   
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Create hotel mutation
+  const createHotelMutation = useMutation({
+    mutationFn: async (hotelData: any) => {
+      const response = await apiRequest('/api/hotels', 'POST', hotelData);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Hotel Created Successfully",
+        description: "Hotel has been added to the database and is now visible on the Hotels page.",
+      });
+      // Invalidate hotel queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/hotels'] });
+      setHotelForm({
+        title: '',
+        location: '',
+        images: '',
+        summary: '',
+        price: '',
+        amenities: '',
+        rating: ''
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Create Hotel",
+        description: error.message || "There was an error creating the hotel. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
 
   const handleHotelSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Hotel Submitted",
-      description: "Hotel information has been submitted for review.",
-    });
-    setHotelForm({
-      title: '',
-      location: '',
-      images: '',
-      summary: '',
-      price: '',
-      amenities: '',
-      rating: ''
-    });
+    
+    // Validate required fields
+    if (!hotelForm.title || !hotelForm.location || !hotelForm.price) {
+      toast({
+        title: "Missing Required Fields",
+        description: "Please fill in the hotel name, location, and price.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare hotel data for API
+    const hotelData = {
+      name: hotelForm.title,
+      location: hotelForm.location,
+      description: hotelForm.summary,
+      price: hotelForm.price,
+      imageUrl: hotelForm.images || null,
+      rating: hotelForm.rating || null,
+      tags: hotelForm.amenities ? hotelForm.amenities.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+      includes: [],
+      amenities: hotelForm.amenities ? hotelForm.amenities.split(',').map(amenity => amenity.trim()).filter(amenity => amenity) : []
+    };
+
+    createHotelMutation.mutate(hotelData);
   };
 
   const handleTripSubmit = (e: React.FormEvent) => {
@@ -238,9 +285,15 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      <Button type="submit" className="w-full">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Submit Hotel
+                      <Button type="submit" className="w-full" disabled={createHotelMutation.isPending}>
+                        {createHotelMutation.isPending ? (
+                          "Creating Hotel..."
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Submit Hotel
+                          </>
+                        )}
                       </Button>
                     </form>
                   </CardContent>

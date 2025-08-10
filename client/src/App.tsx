@@ -46,6 +46,7 @@ import TripBooking from "./pages/TripBooking";
 import TranslationPage from "./pages/TranslationPage";
 import TripDetails from "./pages/TripDetails";
 import HotelDetails from "./pages/HotelDetails";
+import HotelsList from "./pages/HotelsList";
 
 
 const queryClient = new QueryClient();
@@ -169,7 +170,7 @@ const App = () => {
                             <TripBooking />
                           </ProtectedRoute>
                         } />
-                        <Route path="/hotels" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Hotels Coming Soon</h1></div>} />
+                        <Route path="/hotels" element={<HotelsList />} />
                         <Route path="/about" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div>} />
                         <Route path="/profile" element={
                           <ProtectedRoute requireAuth={true}>
