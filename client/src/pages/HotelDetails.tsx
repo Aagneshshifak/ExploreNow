@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+// import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -326,7 +326,7 @@ export default function HotelDetails() {
                       <div className="mb-6">
                         <h3 className="text-lg font-semibold mb-3">Hotel Amenities</h3>
                         <div className="grid grid-cols-2 gap-2">
-                          {hotel.amenities.map((amenity, index) => (
+                          {hotel.amenities.map((amenity: string, index: number) => (
                             <div key={index} className="flex items-center gap-2">
                               <Check className="h-4 w-4 text-green-600" />
                               <span className="text-sm">{amenity}</span>
@@ -339,7 +339,7 @@ export default function HotelDetails() {
                     {/* Tags */}
                     {hotel.tags && hotel.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {hotel.tags.map((tag, index) => (
+                        {hotel.tags.map((tag: string, index: number) => (
                           <Badge key={index} variant="secondary">{tag}</Badge>
                         ))}
                       </div>
@@ -482,16 +482,21 @@ export default function HotelDetails() {
                         Room Selection
                       </h3>
                       
-                      <RadioGroup 
-                        value={bookingForm.roomType} 
-                        onValueChange={(value) => setBookingForm(prev => ({ ...prev, roomType: value }))}
-                        className="space-y-3"
-                      >
+                      <div className="space-y-3">
                         {roomTypes.map((room) => (
-                          <div key={room.id} className="border rounded-lg p-4">
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value={room.id} id={room.id} />
-                              <Label htmlFor={room.id} className="flex-1 cursor-pointer">
+                          <div key={room.id} className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                            bookingForm.roomType === room.id ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                          }`}>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="radio"
+                                name="roomType"
+                                value={room.id}
+                                checked={bookingForm.roomType === room.id}
+                                onChange={(e) => setBookingForm(prev => ({ ...prev, roomType: e.target.value }))}
+                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                              />
+                              <label className="flex-1 cursor-pointer" onClick={() => setBookingForm(prev => ({ ...prev, roomType: room.id }))}>
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <h4 className="font-medium">{room.name}</h4>
@@ -513,11 +518,11 @@ export default function HotelDetails() {
                                     </div>
                                   </div>
                                 </div>
-                              </Label>
+                              </label>
                             </div>
                           </div>
                         ))}
-                      </RadioGroup>
+                      </div>
                     </div>
 
                     <Separator />
@@ -529,28 +534,52 @@ export default function HotelDetails() {
                         Payment Method
                       </h3>
                       
-                      <RadioGroup 
-                        value={bookingForm.paymentMethod} 
-                        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
-                        className="space-y-2"
-                      >
+                      <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="credit" id="credit" />
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="credit"
+                            checked={bookingForm.paymentMethod === 'credit'}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                          />
                           <Label htmlFor="credit">Credit Card</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="debit" id="debit" />
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="debit"
+                            checked={bookingForm.paymentMethod === 'debit'}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                          />
                           <Label htmlFor="debit">Debit Card</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="paypal" id="paypal" />
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="paypal"
+                            checked={bookingForm.paymentMethod === 'paypal'}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                          />
                           <Label htmlFor="paypal">PayPal</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="pay_at_hotel" id="pay_at_hotel" />
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            value="pay_at_hotel"
+                            checked={bookingForm.paymentMethod === 'pay_at_hotel'}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                          />
                           <Label htmlFor="pay_at_hotel">Pay at Hotel</Label>
                         </div>
-                      </RadioGroup>
+                      </div>
                     </div>
 
                     <Separator />
