@@ -50,13 +50,18 @@ export default function TripBooking() {
   });
 
   // Fetch trips and hotels
-  const { data: trips } = useQuery({
+  const { data: tripsResponse } = useQuery({
     queryKey: ["/api/trips"],
   });
 
-  const { data: hotels } = useQuery({
+  const { data: hotelsResponse } = useQuery({
     queryKey: ["/api/hotels"],
   });
+
+  const trips = tripsResponse?.data;
+  const hotels = hotelsResponse?.data;
+
+
 
   // Create booking mutation with detailed API call
   const createBookingMutation = useMutation({
@@ -290,32 +295,42 @@ Thank you for booking with ExploreNow!
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {Array.isArray(hotels) && hotels.map((hotel: Hotel) => (
-                    <div
-                      key={hotel.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                        selectedHotel?.id === hotel.id
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                      }`}
-                      onClick={() => {
-                        setSelectedHotel(hotel);
-                        setSelectedTrip(null);
-                      }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{hotel.name}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{hotel.location}</p>
-                          <p className="text-sm text-gray-500 mt-1">Rating: {hotel.rating}/5</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg">${hotel.price}</p>
-                          <p className="text-xs text-gray-500">per night</p>
+                  {!hotels ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">Loading hotels...</p>
+                    </div>
+                  ) : Array.isArray(hotels) && hotels.length > 0 ? (
+                    hotels.map((hotel: Hotel) => (
+                      <div
+                        key={hotel.id}
+                        className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                          selectedHotel?.id === hotel.id
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
+                        }`}
+                        onClick={() => {
+                          setSelectedHotel(hotel);
+                          setSelectedTrip(null);
+                        }}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold">{hotel.name}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{hotel.location}</p>
+                            <p className="text-sm text-gray-500 mt-1">Rating: {hotel.rating}/5</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg">${hotel.price}</p>
+                            <p className="text-xs text-gray-500">per night</p>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">No hotels available</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
