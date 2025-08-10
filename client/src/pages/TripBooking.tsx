@@ -199,7 +199,7 @@ Email: ${receipt.customerDetails.customerEmail}
 Phone: ${receipt.customerDetails.customerPhone}
 
 ${receipt.type.toUpperCase()} DETAILS:
-${receipt.type === 'trip' ? 'Trip' : 'Hotel'}: ${receipt.item.title || receipt.item.name}
+${receipt.type === 'trip' ? 'Trip' : 'Hotel'}: ${receipt.type === 'trip' ? (receipt.item as Trip).title : (receipt.item as Hotel).name}
 Location: ${receipt.item.location}
 Check-in: ${new Date(receipt.customerDetails.checkIn).toLocaleDateString()}
 Check-out: ${new Date(receipt.customerDetails.checkOut).toLocaleDateString()}
@@ -329,6 +329,31 @@ Thank you for booking with ExploreNow!
                 Booking Details
               </CardTitle>
               <CardDescription>Fill in your information to complete the booking</CardDescription>
+              
+              {/* Selection Status */}
+              {(selectedTrip || selectedHotel) ? (
+                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {selectedTrip ? `Trip Selected: ${selectedTrip.title}` : `Hotel Selected: ${selectedHotel?.name}`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    Location: {selectedTrip ? selectedTrip.location : selectedHotel?.location}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                    <MapPin className="h-4 w-4" />
+                    <span className="text-sm font-medium">Please select a trip or hotel first</span>
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Choose from the options on the left to proceed with booking
+                  </p>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -529,13 +554,31 @@ Thank you for booking with ExploreNow!
                       <CreditCard className="h-4 w-4" />
                       <span>Secure payment processing (Demo mode)</span>
                     </div>
+
+                    {/* Selection Required Message */}
+                    {(!selectedTrip && !selectedHotel) && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                          <MapPin className="h-4 w-4" />
+                          <span className="text-sm font-medium">Selection Required</span>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Please select a trip or hotel above to enable booking
+                        </p>
+                      </div>
+                    )}
                     
                     <Button 
                       type="submit" 
                       className="w-full"
                       disabled={createBookingMutation.isPending || (!selectedTrip && !selectedHotel)}
                     >
-                      {createBookingMutation.isPending ? "Processing..." : `Book Now - ${formatTotalPrice()}`}
+                      {createBookingMutation.isPending 
+                        ? "Processing..." 
+                        : (!selectedTrip && !selectedHotel)
+                          ? "Select Trip or Hotel to Continue"
+                          : `Book Now - ${formatTotalPrice()}`
+                      }
                     </Button>
                   </div>
                 </form>
@@ -643,7 +686,7 @@ Thank you for booking with ExploreNow!
                 </div>
                 <div className="flex justify-between">
                   <span>{receipt.type === 'trip' ? 'Trip' : 'Hotel'}:</span>
-                  <span className="font-medium">{receipt.item.title || receipt.item.name}</span>
+                  <span className="font-medium">{receipt.type === 'trip' ? (receipt.item as Trip).title : (receipt.item as Hotel).name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Location:</span>
