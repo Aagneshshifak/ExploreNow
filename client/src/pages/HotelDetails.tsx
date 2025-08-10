@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -9,22 +9,14 @@ import {
   Star, 
   Users, 
   Calendar,
-  Wifi,
-  Car,
-  Utensils,
   Check,
-  Info,
   CreditCard,
   Phone,
-  Mail,
   User,
   CalendarDays,
   Clock,
   DollarSign,
-  Bed,
-  Bath,
-  Tv,
-  Coffee
+  Bed
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,9 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
@@ -54,40 +44,25 @@ interface Hotel {
   createdAt: string;
 }
 
-interface BookingForm {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  roomType: string;
-  paymentMethod: string;
-  specialRequests: string;
-  emergencyContact: string;
-  emergencyPhone: string;
-}
-
 export default function HotelDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [bookingForm, setBookingForm] = useState<BookingForm>({
-    customerName: user?.name || '',
-    customerEmail: user?.email || '',
-    customerPhone: '',
-    checkIn: '',
-    checkOut: '',
-    guests: 1,
-    roomType: 'standard',
-    paymentMethod: 'credit',
-    specialRequests: '',
-    emergencyContact: '',
-    emergencyPhone: ''
-  });
+
+  // Booking form state
+  const [customerName, setCustomerName] = useState(user?.name || '');
+  const [customerEmail, setCustomerEmail] = useState(user?.email || '');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [guests, setGuests] = useState(1);
+  const [roomType, setRoomType] = useState('standard');
+  const [paymentMethod, setPaymentMethod] = useState('credit');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
 
   const hotelId = parseInt(id || '0');
 
@@ -108,7 +83,7 @@ export default function HotelDetails() {
   const hotels = hotelsResponse?.data || [];
   const hotel = hotels.find((h: Hotel) => h.id === hotelId);
 
-  // Available room types with pricing
+  // Available room types
   const roomTypes = [
     {
       id: 'standard',
@@ -168,16 +143,16 @@ export default function HotelDetails() {
   });
 
   const calculateNights = () => {
-    if (!bookingForm.checkIn || !bookingForm.checkOut) return 0;
-    const checkIn = new Date(bookingForm.checkIn);
-    const checkOut = new Date(bookingForm.checkOut);
-    const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+    if (!checkIn || !checkOut) return 0;
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
   const calculateTotalPrice = () => {
-    const selectedRoom = roomTypes.find(room => room.id === bookingForm.roomType);
+    const selectedRoom = roomTypes.find(room => room.id === roomType);
     const nights = calculateNights();
     if (!selectedRoom || !nights) return 0;
     return parseFloat(selectedRoom.price) * nights;
@@ -197,7 +172,7 @@ export default function HotelDetails() {
     }
 
     // Validate required fields
-    if (!bookingForm.customerName || !bookingForm.customerEmail || !bookingForm.checkIn || !bookingForm.checkOut) {
+    if (!customerName || !customerEmail || !checkIn || !checkOut) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -206,7 +181,7 @@ export default function HotelDetails() {
       return;
     }
 
-    const selectedRoom = roomTypes.find(room => room.id === bookingForm.roomType);
+    const selectedRoom = roomTypes.find(room => room.id === roomType);
     const nights = calculateNights();
     const totalPrice = calculateTotalPrice();
 
@@ -215,19 +190,19 @@ export default function HotelDetails() {
       type: 'hotel',
       status: 'pending',
       amount: totalPrice.toString(),
-      checkIn: new Date(bookingForm.checkIn).toISOString(),
-      checkOut: new Date(bookingForm.checkOut).toISOString(),
-      guests: bookingForm.guests,
-      customerName: bookingForm.customerName,
-      customerEmail: bookingForm.customerEmail,
-      customerPhone: bookingForm.customerPhone,
-      specialRequests: bookingForm.specialRequests,
-      emergencyContact: bookingForm.emergencyContact,
-      emergencyPhone: bookingForm.emergencyPhone,
+      checkIn: new Date(checkIn).toISOString(),
+      checkOut: new Date(checkOut).toISOString(),
+      guests: guests,
+      customerName: customerName,
+      customerEmail: customerEmail,
+      customerPhone: customerPhone,
+      specialRequests: specialRequests,
+      emergencyContact: emergencyContact,
+      emergencyPhone: emergencyPhone,
       transportDetails: JSON.stringify({
         roomType: selectedRoom?.name,
         nights: nights,
-        paymentMethod: bookingForm.paymentMethod
+        paymentMethod: paymentMethod
       })
     };
 
@@ -259,9 +234,6 @@ export default function HotelDetails() {
       <Helmet>
         <title>{hotel.name} - Book Now | ExploreNow</title>
         <meta name="description" content={`Book ${hotel.name} in ${hotel.location}. ${hotel.description}`} />
-        <meta property="og:title" content={`${hotel.name} - Book Now | ExploreNow`} />
-        <meta property="og:description" content={hotel.description} />
-        <meta property="og:image" content={hotel.imageUrl} />
       </Helmet>
 
       <div className="min-h-screen bg-background">
@@ -271,7 +243,6 @@ export default function HotelDetails() {
             <Button 
               variant="ghost" 
               onClick={() => navigate('/hotels')}
-              className="mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Hotels
@@ -295,9 +266,6 @@ export default function HotelDetails() {
                         src={hotel.imageUrl} 
                         alt={hotel.name}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
                       />
                       {hotel.rating && (
                         <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1">
@@ -376,8 +344,8 @@ export default function HotelDetails() {
                           <Label htmlFor="customerName">Full Name *</Label>
                           <Input
                             id="customerName"
-                            value={bookingForm.customerName}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerName: e.target.value }))}
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
                             placeholder="John Smith"
                             required
                           />
@@ -387,8 +355,8 @@ export default function HotelDetails() {
                           <Input
                             id="customerEmail"
                             type="email"
-                            value={bookingForm.customerEmail}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                            value={customerEmail}
+                            onChange={(e) => setCustomerEmail(e.target.value)}
                             placeholder="john@example.com"
                             required
                           />
@@ -401,16 +369,16 @@ export default function HotelDetails() {
                           <Input
                             id="customerPhone"
                             type="tel"
-                            value={bookingForm.customerPhone}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
                             placeholder="+1 (555) 123-4567"
                           />
                         </div>
                         <div>
                           <Label htmlFor="guests">Number of Guests</Label>
                           <Select 
-                            value={bookingForm.guests.toString()} 
-                            onValueChange={(value) => setBookingForm(prev => ({ ...prev, guests: parseInt(value) }))}
+                            value={guests.toString()} 
+                            onValueChange={(value) => setGuests(parseInt(value))}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select guests" />
@@ -441,8 +409,8 @@ export default function HotelDetails() {
                           <Input
                             id="checkIn"
                             type="date"
-                            value={bookingForm.checkIn}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, checkIn: e.target.value }))}
+                            value={checkIn}
+                            onChange={(e) => setCheckIn(e.target.value)}
                             min={new Date().toISOString().split('T')[0]}
                             required
                           />
@@ -452,9 +420,9 @@ export default function HotelDetails() {
                           <Input
                             id="checkOut"
                             type="date"
-                            value={bookingForm.checkOut}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, checkOut: e.target.value }))}
-                            min={bookingForm.checkIn || new Date().toISOString().split('T')[0]}
+                            value={checkOut}
+                            onChange={(e) => setCheckOut(e.target.value)}
+                            min={checkIn || new Date().toISOString().split('T')[0]}
                             required
                           />
                         </div>
@@ -485,18 +453,18 @@ export default function HotelDetails() {
                       <div className="space-y-3">
                         {roomTypes.map((room) => (
                           <div key={room.id} className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                            bookingForm.roomType === room.id ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
+                            roomType === room.id ? 'border-primary bg-primary/5' : 'hover:border-muted-foreground'
                           }`}>
                             <div className="flex items-center space-x-3">
                               <input
                                 type="radio"
                                 name="roomType"
                                 value={room.id}
-                                checked={bookingForm.roomType === room.id}
-                                onChange={(e) => setBookingForm(prev => ({ ...prev, roomType: e.target.value }))}
+                                checked={roomType === room.id}
+                                onChange={(e) => setRoomType(e.target.value)}
                                 className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
                               />
-                              <label className="flex-1 cursor-pointer" onClick={() => setBookingForm(prev => ({ ...prev, roomType: room.id }))}>
+                              <label className="flex-1 cursor-pointer" onClick={() => setRoomType(room.id)}>
                                 <div className="flex justify-between items-start">
                                   <div>
                                     <h4 className="font-medium">{room.name}</h4>
@@ -540,44 +508,44 @@ export default function HotelDetails() {
                             type="radio"
                             name="paymentMethod"
                             value="credit"
-                            checked={bookingForm.paymentMethod === 'credit'}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            checked={paymentMethod === 'credit'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
                           />
-                          <Label htmlFor="credit">Credit Card</Label>
+                          <Label>Credit Card</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <input
                             type="radio"
                             name="paymentMethod"
                             value="debit"
-                            checked={bookingForm.paymentMethod === 'debit'}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            checked={paymentMethod === 'debit'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
                           />
-                          <Label htmlFor="debit">Debit Card</Label>
+                          <Label>Debit Card</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <input
                             type="radio"
                             name="paymentMethod"
                             value="paypal"
-                            checked={bookingForm.paymentMethod === 'paypal'}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            checked={paymentMethod === 'paypal'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
                           />
-                          <Label htmlFor="paypal">PayPal</Label>
+                          <Label>PayPal</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <input
                             type="radio"
                             name="paymentMethod"
                             value="pay_at_hotel"
-                            checked={bookingForm.paymentMethod === 'pay_at_hotel'}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            checked={paymentMethod === 'pay_at_hotel'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
                           />
-                          <Label htmlFor="pay_at_hotel">Pay at Hotel</Label>
+                          <Label>Pay at Hotel</Label>
                         </div>
                       </div>
                     </div>
@@ -596,8 +564,8 @@ export default function HotelDetails() {
                           <Label htmlFor="emergencyContact">Emergency Contact Name</Label>
                           <Input
                             id="emergencyContact"
-                            value={bookingForm.emergencyContact}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, emergencyContact: e.target.value }))}
+                            value={emergencyContact}
+                            onChange={(e) => setEmergencyContact(e.target.value)}
                             placeholder="Jane Smith"
                           />
                         </div>
@@ -606,8 +574,8 @@ export default function HotelDetails() {
                           <Input
                             id="emergencyPhone"
                             type="tel"
-                            value={bookingForm.emergencyPhone}
-                            onChange={(e) => setBookingForm(prev => ({ ...prev, emergencyPhone: e.target.value }))}
+                            value={emergencyPhone}
+                            onChange={(e) => setEmergencyPhone(e.target.value)}
                             placeholder="+1 (555) 987-6543"
                           />
                         </div>
@@ -619,8 +587,8 @@ export default function HotelDetails() {
                       <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
                       <Textarea
                         id="specialRequests"
-                        value={bookingForm.specialRequests}
-                        onChange={(e) => setBookingForm(prev => ({ ...prev, specialRequests: e.target.value }))}
+                        value={specialRequests}
+                        onChange={(e) => setSpecialRequests(e.target.value)}
                         placeholder="Any special requirements or requests..."
                         rows={3}
                       />
@@ -637,7 +605,7 @@ export default function HotelDetails() {
                         </h3>
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
-                            <span>{roomTypes.find(r => r.id === bookingForm.roomType)?.name} x {calculateNights()} night{calculateNights() !== 1 ? 's' : ''}</span>
+                            <span>{roomTypes.find(r => r.id === roomType)?.name} x {calculateNights()} night{calculateNights() !== 1 ? 's' : ''}</span>
                             <span>${(calculateTotalPrice()).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm">
@@ -667,7 +635,7 @@ export default function HotelDetails() {
                       )}
                     </Button>
 
-                    {calculateNights() <= 0 && bookingForm.checkIn && bookingForm.checkOut && (
+                    {calculateNights() <= 0 && checkIn && checkOut && (
                       <p className="text-sm text-destructive text-center">
                         Please select valid check-in and check-out dates.
                       </p>
