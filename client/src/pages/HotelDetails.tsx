@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { 
@@ -12,24 +12,33 @@ import {
   Wifi,
   Car,
   Utensils,
-  ShoppingCart,
   Check,
   Info,
-  Heart,
-  Share2,
+  CreditCard,
+  Phone,
+  Mail,
+  User,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  Bed,
   Bath,
   Tv,
-  Coffee,
-  Wind
+  Coffee
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PriceDisplay } from '@/components/ui/price-display';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { apiRequest } from '@/lib/queryClient';
 
 interface Hotel {
   id: number;
@@ -45,94 +54,184 @@ interface Hotel {
   createdAt: string;
 }
 
+interface BookingForm {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  roomType: string;
+  paymentMethod: string;
+  specialRequests: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+}
+
 export default function HotelDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const queryClient = useQueryClient();
+  
+  const [bookingForm, setBookingForm] = useState<BookingForm>({
+    customerName: user?.name || '',
+    customerEmail: user?.email || '',
+    customerPhone: '',
+    checkIn: '',
+    checkOut: '',
+    guests: 1,
+    roomType: 'standard',
+    paymentMethod: 'credit',
+    specialRequests: '',
+    emergencyContact: '',
+    emergencyPhone: ''
+  });
 
   const hotelId = parseInt(id || '0');
 
   // Fetch hotel details
-  const { data: hotels, isLoading } = useQuery({
+  const { data: hotelsResponse, isLoading } = useQuery({
     queryKey: ['/api/hotels'],
+    queryFn: async () => {
+      const response = await fetch('/api/hotels', {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch hotels');
+      }
+      return response.json();
+    },
   });
 
-  const hotel = Array.isArray(hotels) ? hotels.find((h: Hotel) => h.id === hotelId) : null;
+  const hotels = hotelsResponse?.data || [];
+  const hotel = hotels.find((h: Hotel) => h.id === hotelId);
 
-  // Mock room types (in a real app, this would come from the API)
+  // Available room types with pricing
   const roomTypes = [
     {
-      id: 1,
+      id: 'standard',
+      name: "Standard Room",
+      size: "25 m²",
+      capacity: "2 guests",
+      beds: "1 Queen bed",
+      price: hotel?.price || "0",
+      features: ["Free WiFi", "Air conditioning", "Private bathroom", "TV"],
+      description: "Comfortable room with essential amenities.",
+      available: 5
+    },
+    {
+      id: 'deluxe',
       name: "Deluxe Room",
-      size: "320 sq ft",
-      capacity: "2 adults",
-      price: hotel?.price,
-      features: ["King bed", "City view", "Free WiFi", "Mini bar"],
-      description: "Comfortable room with modern amenities and city view."
+      size: "35 m²",
+      capacity: "3 guests",
+      beds: "1 King bed + sofa",
+      price: hotel ? (parseFloat(hotel.price) * 1.3).toFixed(0) : "0",
+      features: ["Free WiFi", "Air conditioning", "Mini bar", "City view", "Room service"],
+      description: "Spacious room with premium amenities and city view.",
+      available: 3
     },
     {
-      id: 2,
-      name: "Premium Suite",
-      size: "580 sq ft",
-      capacity: "2-4 adults",
-      price: hotel ? (parseFloat(hotel.price) * 1.5).toString() : "0",
-      features: ["Separate living area", "Ocean view", "Balcony", "Premium amenities"],
-      description: "Spacious suite with separate living area and stunning ocean views."
-    },
-    {
-      id: 3,
-      name: "Executive Room",
-      size: "420 sq ft",
-      capacity: "2 adults",
-      price: hotel ? (parseFloat(hotel.price) * 1.2).toString() : "0",
-      features: ["Executive lounge access", "Complimentary breakfast", "Work desk", "Airport transfer"],
-      description: "Business traveler's choice with executive privileges and enhanced services."
+      id: 'suite',
+      name: "Executive Suite",
+      size: "55 m²",
+      capacity: "4 guests",
+      beds: "1 King bed + living area",
+      price: hotel ? (parseFloat(hotel.price) * 2).toFixed(0) : "0",
+      features: ["Free WiFi", "Living area", "Kitchenette", "Balcony", "Premium service"],
+      description: "Luxury suite with separate living area and premium services.",
+      available: 2
     }
   ];
 
-  const handleBookNow = () => {
+  // Create booking mutation
+  const createBookingMutation = useMutation({
+    mutationFn: async (bookingData: any) => {
+      const response = await apiRequest('/api/bookings', 'POST', bookingData);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Booking Successful!",
+        description: "Your hotel booking has been confirmed. You will receive a confirmation email shortly.",
+      });
+      navigate('/dashboard');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Booking Failed",
+        description: error.message || "There was an error processing your booking. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const calculateNights = () => {
+    if (!bookingForm.checkIn || !bookingForm.checkOut) return 0;
+    const checkIn = new Date(bookingForm.checkIn);
+    const checkOut = new Date(bookingForm.checkOut);
+    const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const calculateTotalPrice = () => {
+    const selectedRoom = roomTypes.find(room => room.id === bookingForm.roomType);
+    const nights = calculateNights();
+    if (!selectedRoom || !nights) return 0;
+    return parseFloat(selectedRoom.price) * nights;
+  };
+
+  const handleBookingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!user) {
       toast({
         title: "Login Required",
-        description: "Please log in to book this hotel.",
+        description: "Please log in to complete your booking.",
         variant: "destructive",
       });
       navigate('/login');
       return;
     }
-    navigate(`/hotel/${hotelId}/book?type=hotel`);
-  };
 
-  const toggleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    toast({
-      title: isWishlisted ? "Removed from Wishlist" : "Added to Wishlist",
-      description: isWishlisted 
-        ? "Hotel removed from your wishlist" 
-        : "Hotel added to your wishlist",
-    });
-  };
-
-  const shareHotel = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: hotel?.name,
-          text: hotel?.description,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+    // Validate required fields
+    if (!bookingForm.customerName || !bookingForm.customerEmail || !bookingForm.checkIn || !bookingForm.checkOut) {
       toast({
-        title: "Link Copied",
-        description: "Hotel link copied to clipboard",
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
       });
+      return;
     }
+
+    const selectedRoom = roomTypes.find(room => room.id === bookingForm.roomType);
+    const nights = calculateNights();
+    const totalPrice = calculateTotalPrice();
+
+    const bookingData = {
+      hotelId: hotel.id,
+      type: 'hotel',
+      status: 'pending',
+      amount: totalPrice.toString(),
+      checkIn: new Date(bookingForm.checkIn).toISOString(),
+      checkOut: new Date(bookingForm.checkOut).toISOString(),
+      guests: bookingForm.guests,
+      customerName: bookingForm.customerName,
+      customerEmail: bookingForm.customerEmail,
+      customerPhone: bookingForm.customerPhone,
+      specialRequests: bookingForm.specialRequests,
+      emergencyContact: bookingForm.emergencyContact,
+      emergencyPhone: bookingForm.emergencyPhone,
+      transportDetails: JSON.stringify({
+        roomType: selectedRoom?.name,
+        nights: nights,
+        paymentMethod: bookingForm.paymentMethod
+      })
+    };
+
+    createBookingMutation.mutate(bookingData);
   };
 
   if (isLoading) {
@@ -145,9 +244,10 @@ export default function HotelDetails() {
 
   if (!hotel) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Hotel Not Found</h1>
+          <p className="text-muted-foreground mb-6">The hotel you're looking for doesn't exist or may have been removed.</p>
           <Button onClick={() => navigate('/hotels')}>Browse All Hotels</Button>
         </div>
       </div>
@@ -157,399 +257,396 @@ export default function HotelDetails() {
   return (
     <>
       <Helmet>
-        <title>{hotel.name} - ExploreNow</title>
-        <meta name="description" content={hotel.description} />
-        <meta property="og:title" content={`${hotel.name} - ExploreNow`} />
+        <title>{hotel.name} - Book Now | ExploreNow</title>
+        <meta name="description" content={`Book ${hotel.name} in ${hotel.location}. ${hotel.description}`} />
+        <meta property="og:title" content={`${hotel.name} - Book Now | ExploreNow`} />
         <meta property="og:description" content={hotel.description} />
         <meta property="og:image" content={hotel.imageUrl} />
       </Helmet>
 
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Hero Section */}
-        <div className="relative h-96 overflow-hidden">
-          <img
-            src={hotel.imageUrl}
-            alt={hotel.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="absolute top-4 left-4">
-            <Button
-              variant="outline"
-              size="sm"
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="border-b">
+          <div className="container mx-auto px-4 py-4">
+            <Button 
+              variant="ghost" 
               onClick={() => navigate('/hotels')}
-              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+              className="mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Hotels
             </Button>
           </div>
-          <div className="absolute top-4 right-4 flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleWishlist}
-              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
-            >
-              <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-current' : ''}`} />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={shareHotel}
-              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="absolute bottom-8 left-8 text-white">
-            <div className="flex items-center mb-2">
-              <div className="flex mr-3">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star 
-                    key={star} 
-                    className={`h-5 w-5 ${parseFloat(hotel.rating) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-white/50'}`} 
-                  />
-                ))}
-              </div>
-              <span className="text-lg">{hotel.rating}/5</span>
-            </div>
-            <h1 className="text-4xl font-bold mb-2">{hotel.name}</h1>
-            <div className="flex items-center text-lg">
-              <MapPin className="h-5 w-5 mr-1" />
-              {hotel.location}
-            </div>
-          </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Description */}
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Hotel Information */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Card>
+                <CardContent className="p-0">
+                  {hotel.imageUrl && (
+                    <div className="relative h-64 overflow-hidden rounded-t-lg">
+                      <img 
+                        src={hotel.imageUrl} 
+                        alt={hotel.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      {hotel.rating && (
+                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium">{hotel.rating}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <h1 className="text-3xl font-bold mb-2">{hotel.name}</h1>
+                      <div className="flex items-center text-muted-foreground mb-4">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        <span>{hotel.location}</span>
+                      </div>
+                    </div>
+
+                    {hotel.description && (
+                      <p className="text-muted-foreground mb-6">{hotel.description}</p>
+                    )}
+
+                    {/* Amenities */}
+                    {hotel.amenities && hotel.amenities.length > 0 && (
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold mb-3">Hotel Amenities</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                          {hotel.amenities.map((amenity, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <Check className="h-4 w-4 text-green-600" />
+                              <span className="text-sm">{amenity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    {hotel.tags && hotel.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {hotel.tags.map((tag, index) => (
+                          <Badge key={index} variant="secondary">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Booking Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Info className="h-5 w-5 mr-2" />
-                    About This Hotel
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Book Your Stay
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground leading-relaxed mb-4">
-                    {hotel.description}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {hotel.tags?.map((tag: string) => (
-                      <Badge key={tag} variant="secondary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Detailed Tabs */}
-              <Card>
-                <CardContent className="p-0">
-                  <Tabs defaultValue="rooms" className="w-full">
-                    <TabsList className="w-full justify-start p-1 bg-muted rounded-none">
-                      <TabsTrigger value="rooms" className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Rooms & Rates
-                      </TabsTrigger>
-                      <TabsTrigger value="amenities" className="flex items-center">
-                        <Check className="h-4 w-4 mr-2" />
-                        Amenities
-                      </TabsTrigger>
-                      <TabsTrigger value="policies" className="flex items-center">
-                        <Info className="h-4 w-4 mr-2" />
-                        Policies
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="rooms" className="p-6">
-                      <div className="space-y-6">
-                        {roomTypes.map((room, index) => (
-                          <motion.div
-                            key={room.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="border rounded-lg p-6"
-                          >
-                            <div className="flex justify-between items-start mb-4">
-                              <div>
-                                <h3 className="font-semibold text-lg mb-1">{room.name}</h3>
-                                <p className="text-sm text-muted-foreground mb-2">{room.description}</p>
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                  <span>{room.size}</span>
-                                  <span>•</span>
-                                  <span>{room.capacity}</span>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-2xl font-bold text-primary">
-                                  <PriceDisplay price={room.price} originalCurrency="USD" />
-                                </div>
-                                <div className="text-sm text-muted-foreground">per night</div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                              {room.features.map((feature, idx) => (
-                                <div key={idx} className="flex items-center text-sm">
-                                  <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                                  <span>{feature}</span>
-                                </div>
-                              ))}
-                            </div>
-
-                            <Button 
-                              onClick={handleBookNow}
-                              className="w-full md:w-auto"
-                            >
-                              Book This Room
-                            </Button>
-                          </motion.div>
-                        ))}
+                  <form onSubmit={handleBookingSubmit} className="space-y-6">
+                    {/* Customer Details */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Guest Information
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="customerName">Full Name *</Label>
+                          <Input
+                            id="customerName"
+                            value={bookingForm.customerName}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerName: e.target.value }))}
+                            placeholder="John Smith"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="customerEmail">Email Address *</Label>
+                          <Input
+                            id="customerEmail"
+                            type="email"
+                            value={bookingForm.customerEmail}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerEmail: e.target.value }))}
+                            placeholder="john@example.com"
+                            required
+                          />
+                        </div>
                       </div>
-                    </TabsContent>
 
-                    <TabsContent value="amenities" className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Hotel Amenities */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h3 className="font-semibold text-lg mb-4 flex items-center">
-                            <Wifi className="h-5 w-5 mr-2" />
-                            Connectivity
-                          </h3>
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Free high-speed WiFi
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Business center
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Conference rooms
-                            </li>
-                          </ul>
+                          <Label htmlFor="customerPhone">Phone Number</Label>
+                          <Input
+                            id="customerPhone"
+                            type="tel"
+                            value={bookingForm.customerPhone}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                            placeholder="+1 (555) 123-4567"
+                          />
                         </div>
-
                         <div>
-                          <h3 className="font-semibold text-lg mb-4 flex items-center">
-                            <Utensils className="h-5 w-5 mr-2" />
-                            Dining
-                          </h3>
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Restaurant
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Room service (24/7)
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Bar/lounge
-                            </li>
-                          </ul>
+                          <Label htmlFor="guests">Number of Guests</Label>
+                          <Select 
+                            value={bookingForm.guests.toString()} 
+                            onValueChange={(value) => setBookingForm(prev => ({ ...prev, guests: parseInt(value) }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select guests" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 Guest</SelectItem>
+                              <SelectItem value="2">2 Guests</SelectItem>
+                              <SelectItem value="3">3 Guests</SelectItem>
+                              <SelectItem value="4">4 Guests</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
+                      </div>
+                    </div>
 
+                    <Separator />
+
+                    {/* Check-in/Check-out */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4" />
+                        Stay Duration
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h3 className="font-semibold text-lg mb-4 flex items-center">
-                            <Car className="h-5 w-5 mr-2" />
-                            Transportation
-                          </h3>
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Airport shuttle
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Valet parking
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Car rental desk
-                            </li>
-                          </ul>
+                          <Label htmlFor="checkIn">Check-in Date *</Label>
+                          <Input
+                            id="checkIn"
+                            type="date"
+                            value={bookingForm.checkIn}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, checkIn: e.target.value }))}
+                            min={new Date().toISOString().split('T')[0]}
+                            required
+                          />
                         </div>
+                        <div>
+                          <Label htmlFor="checkOut">Check-out Date *</Label>
+                          <Input
+                            id="checkOut"
+                            type="date"
+                            value={bookingForm.checkOut}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, checkOut: e.target.value }))}
+                            min={bookingForm.checkIn || new Date().toISOString().split('T')[0]}
+                            required
+                          />
+                        </div>
+                      </div>
 
-                        {/* Display actual hotel amenities */}
-                        {hotel.amenities && hotel.amenities.length > 0 && (
-                          <div className="md:col-span-2 lg:col-span-3">
-                            <h3 className="font-semibold text-lg mb-4">Hotel Features</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                              {hotel.amenities.map((amenity: string, idx: number) => (
-                                <div key={idx} className="flex items-center text-sm">
-                                  <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                                  <span>{amenity}</span>
+                      {calculateNights() > 0 && (
+                        <div className="bg-muted p-3 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              Duration
+                            </span>
+                            <span className="font-medium">{calculateNights()} night{calculateNights() !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Room Selection */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Bed className="h-4 w-4" />
+                        Room Selection
+                      </h3>
+                      
+                      <RadioGroup 
+                        value={bookingForm.roomType} 
+                        onValueChange={(value) => setBookingForm(prev => ({ ...prev, roomType: value }))}
+                        className="space-y-3"
+                      >
+                        {roomTypes.map((room) => (
+                          <div key={room.id} className="border rounded-lg p-4">
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value={room.id} id={room.id} />
+                              <Label htmlFor={room.id} className="flex-1 cursor-pointer">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="font-medium">{room.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{room.size} • {room.capacity} • {room.beds}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{room.description}</p>
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {room.features.slice(0, 3).map((feature, index) => (
+                                        <Badge key={index} variant="outline" className="text-xs">
+                                          {feature}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-bold text-lg">${room.price}</div>
+                                    <div className="text-xs text-muted-foreground">per night</div>
+                                    <div className="text-xs text-green-600 mt-1">
+                                      {room.available} available
+                                    </div>
+                                  </div>
                                 </div>
-                              ))}
+                              </Label>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="policies" className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h3 className="font-semibold text-lg mb-4 text-green-600">Check-in/Check-out</h3>
-                          <ul className="space-y-3">
-                            <li className="flex justify-between text-sm">
-                              <span className="font-medium">Check-in:</span>
-                              <span>3:00 PM - 12:00 AM</span>
-                            </li>
-                            <li className="flex justify-between text-sm">
-                              <span className="font-medium">Check-out:</span>
-                              <span>12:00 PM</span>
-                            </li>
-                            <li className="flex justify-between text-sm">
-                              <span className="font-medium">Early check-in:</span>
-                              <span>Subject to availability</span>
-                            </li>
-                            <li className="flex justify-between text-sm">
-                              <span className="font-medium">Late check-out:</span>
-                              <span>Additional charges apply</span>
-                            </li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-lg mb-4 text-blue-600">Cancellation Policy</h3>
-                          <ul className="space-y-3 text-sm">
-                            <li className="flex items-start">
-                              <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                              <span>Free cancellation up to 24 hours before check-in</span>
-                            </li>
-                            <li className="flex items-start">
-                              <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                              <span>Flexible rebooking options</span>
-                            </li>
-                            <li className="flex items-start">
-                              <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-                              <span>No charges for changes made 48+ hours in advance</span>
-                            </li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-lg mb-4 text-purple-600">Pet Policy</h3>
-                          <ul className="space-y-3 text-sm">
-                            <li>Pets allowed with restrictions</li>
-                            <li>Pet fee: $50 per night per pet</li>
-                            <li>Maximum 2 pets per room</li>
-                            <li>Service animals welcome</li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-lg mb-4 text-orange-600">Additional Policies</h3>
-                          <ul className="space-y-3 text-sm">
-                            <li>Minimum age for check-in: 18</li>
-                            <li>Government-issued photo ID required</li>
-                            <li>Security deposit may be required</li>
-                            <li>Smoking prohibited in all rooms</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Booking Card */}
-              <Card className="sticky top-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Book This Hotel</span>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary">
-                        <PriceDisplay price={hotel.price} originalCurrency="USD" />
-                      </div>
-                      <div className="text-sm text-muted-foreground">per night</div>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-sm">
-                    <div className="flex items-center mb-2">
-                      <div className="flex mr-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star 
-                            key={star} 
-                            className={`h-4 w-4 ${parseFloat(hotel.rating) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
-                          />
                         ))}
-                      </div>
-                      <span className="font-medium">{hotel.rating}/5 rating</span>
+                      </RadioGroup>
                     </div>
-                  </div>
 
-                  <Separator />
+                    <Separator />
 
-                  <Button 
-                    onClick={handleBookNow}
-                    size="lg" 
-                    className="w-full"
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Book Now
-                  </Button>
+                    {/* Payment Method */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" />
+                        Payment Method
+                      </h3>
+                      
+                      <RadioGroup 
+                        value={bookingForm.paymentMethod} 
+                        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="credit" id="credit" />
+                          <Label htmlFor="credit">Credit Card</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="debit" id="debit" />
+                          <Label htmlFor="debit">Debit Card</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="paypal" id="paypal" />
+                          <Label htmlFor="paypal">PayPal</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="pay_at_hotel" id="pay_at_hotel" />
+                          <Label htmlFor="pay_at_hotel">Pay at Hotel</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
 
-                  <div className="text-xs text-center text-muted-foreground">
-                    Free cancellation up to 24 hours before check-in
-                  </div>
+                    <Separator />
+
+                    {/* Emergency Contact */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        Emergency Contact (Optional)
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="emergencyContact">Emergency Contact Name</Label>
+                          <Input
+                            id="emergencyContact"
+                            value={bookingForm.emergencyContact}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, emergencyContact: e.target.value }))}
+                            placeholder="Jane Smith"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="emergencyPhone">Emergency Contact Phone</Label>
+                          <Input
+                            id="emergencyPhone"
+                            type="tel"
+                            value={bookingForm.emergencyPhone}
+                            onChange={(e) => setBookingForm(prev => ({ ...prev, emergencyPhone: e.target.value }))}
+                            placeholder="+1 (555) 987-6543"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Special Requests */}
+                    <div>
+                      <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
+                      <Textarea
+                        id="specialRequests"
+                        value={bookingForm.specialRequests}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, specialRequests: e.target.value }))}
+                        placeholder="Any special requirements or requests..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Price Summary */}
+                    {calculateNights() > 0 && (
+                      <div className="bg-muted p-4 rounded-lg">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          Booking Summary
+                        </h3>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>{roomTypes.find(r => r.id === bookingForm.roomType)?.name} x {calculateNights()} night{calculateNights() !== 1 ? 's' : ''}</span>
+                            <span>${(calculateTotalPrice()).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Taxes & Fees</span>
+                            <span>Included</span>
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between font-bold">
+                            <span>Total</span>
+                            <span>${calculateTotalPrice().toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Submit Button */}
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      size="lg"
+                      disabled={createBookingMutation.isPending || calculateNights() <= 0}
+                    >
+                      {createBookingMutation.isPending ? (
+                        "Processing Booking..."
+                      ) : (
+                        `Book Now - $${calculateTotalPrice().toFixed(2)}`
+                      )}
+                    </Button>
+
+                    {calculateNights() <= 0 && bookingForm.checkIn && bookingForm.checkOut && (
+                      <p className="text-sm text-destructive text-center">
+                        Please select valid check-in and check-out dates.
+                      </p>
+                    )}
+                  </form>
                 </CardContent>
               </Card>
-
-              {/* Quick Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Quick Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Wifi className="h-4 w-4 mr-2 text-muted-foreground" />
-                      WiFi
-                    </span>
-                    <span className="text-muted-foreground">Free</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Car className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Parking
-                    </span>
-                    <span className="text-muted-foreground">Valet Available</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Check-in
-                    </span>
-                    <span className="text-muted-foreground">3:00 PM</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                      Check-out
-                    </span>
-                    <span className="text-muted-foreground">12:00 PM</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
