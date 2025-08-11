@@ -1,321 +1,334 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Calendar, MapPin, CreditCard, Users, Phone, Mail, Car, CheckCircle, Download } from "lucide-react";
-import { bookingFormSchema, type Trip, type Hotel, type BookingFormData } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { motion } from "framer-motion";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { 
+  ArrowLeft, 
+  MapPin, 
+  DollarSign, 
+  Calendar,
+  Users,
+  Phone,
+  Mail,
+  User,
+  Plane,
+  Train,
+  Bus,
+  CheckCircle
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PriceDisplay } from '@/components/ui/price-display';
+import { useToast } from '@/hooks/use-toast';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SEOHead } from '@/components/ui/seo-head';
 
-interface BookingReceipt {
-  id: string;
-  bookingNumber: string;
-  customerDetails: any;
-  item: Trip | Hotel;
-  type: 'trip' | 'hotel';
-  totalAmount: number;
-  bookingDate: string;
-  status: string;
+const bookingSchema = z.object({
+  tripId: z.number().optional(),
+  hotelId: z.number().optional(),
+  transportType: z.enum(['bus', 'train', 'flight']),
+  customerName: z.string().min(2, 'Name must be at least 2 characters'),
+  customerEmail: z.string().email('Please enter a valid email'),
+  customerPhone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  checkIn: z.string().min(1, 'Check-in date is required'),
+  checkOut: z.string().min(1, 'Check-out date is required'),
+  guests: z.number().min(1, 'At least 1 guest is required').max(10, 'Maximum 10 guests allowed'),
+});
+
+type BookingForm = z.infer<typeof bookingSchema>;
+
+interface Trip {
+  id: number;
+  title: string;
+  location: string;
+  description: string;
+  price: number;
+  duration: number;
+  tags: string[];
+  includes: string[];
+  imageUrl: string | null;
+}
+
+interface Hotel {
+  id: number;
+  name: string;
+  location: string;
+  description: string;
+  price: number;
+  rating: number;
+  tags: string[];
+  includes: string[];
+  amenities: string[];
+  imageUrl: string | null;
 }
 
 export default function TripBooking() {
-  const [, navigate] = useLocation();
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
-  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
-  const [showBookingConfirmation, setShowBookingConfirmation] = useState(false);
-  const [receipt, setReceipt] = useState<BookingReceipt | null>(null);
+  const { tripId } = useParams<{ tripId: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { convertPrice, currency } = useCurrency();
+  const [step, setStep] = useState<'form' | 'confirmation'>('form');
+  const [selectedHotel, setSelectedHotel] = useState<number | null>(null);
+  const [bookingId, setBookingId] = useState<number | null>(null);
 
-  const form = useForm<BookingFormData>({
-    resolver: zodResolver(bookingFormSchema),
+  const form = useForm<BookingForm>({
+    resolver: zodResolver(bookingSchema),
     defaultValues: {
+      tripId: tripId ? parseInt(tripId) : undefined,
+      transportType: 'flight',
       guests: 1,
-      transportMode: "flight",
-      type: "trip",
-      status: "pending",
-      amount: "0",
+      customerName: '',
+      customerEmail: '',
+      customerPhone: '',
+      checkIn: '',
+      checkOut: '',
     },
   });
 
-  // Fetch trips and hotels
-  const { data: tripsResponse, isLoading: tripsLoading, error: tripsError } = useQuery({
-    queryKey: ["/api/trips"],
+  // Fetch trip details
+  const { data: trip, isLoading: tripLoading } = useQuery({
+    queryKey: ['/api/trips', tripId],
     queryFn: async () => {
-      const response = await fetch('/api/trips', {
+      const response = await fetch(`/api/trips/${tripId}`, {
         credentials: 'include',
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch trips');
-      }
-      
+      if (!response.ok) throw new Error('Failed to fetch trip');
       const result = await response.json();
-      return result;
+      return result.data as Trip;
     },
+    enabled: !!tripId,
   });
 
-  const { data: hotelsResponse, isLoading: hotelsLoading, error: hotelsError } = useQuery({
-    queryKey: ["/api/hotels"],
+  // Fetch available hotels
+  const { data: hotels, isLoading: hotelsLoading } = useQuery({
+    queryKey: ['/api/hotels'],
     queryFn: async () => {
       const response = await fetch('/api/hotels', {
         credentials: 'include',
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch hotels');
-      }
-      
+      if (!response.ok) throw new Error('Failed to fetch hotels');
       const result = await response.json();
-      return result;
+      return result.data as Hotel[];
     },
   });
 
-  const trips = tripsResponse?.data || [];
-  const hotels = hotelsResponse?.data || [];
+  // Calculate total cost
+  const calculateTotalCost = () => {
+    const tripCost = trip?.price || 0;
+    const hotelCost = selectedHotel ? 
+      (hotels?.find(h => h.id === selectedHotel)?.price || 0) * form.watch('guests') : 0;
+    const transportCost = {
+      bus: 50,
+      train: 100,
+      flight: 300
+    }[form.watch('transportType')] || 0;
 
+    return tripCost + hotelCost + transportCost;
+  };
 
-
-  // Create booking mutation with detailed API call
+  // Create booking mutation
   const createBookingMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const totalAmount = calculateTotalAmount();
-      const selectedItem = selectedTrip || selectedHotel;
-      
-      const bookingData = {
-        [selectedTrip ? 'tripId' : 'hotelId']: selectedItem?.id,
-        type: selectedTrip ? 'trip' : 'hotel',
-        checkInDate: data.checkIn,
-        checkOutDate: data.checkOut,
-        guests: data.guests,
-        customerDetails: {
-          customerName: data.customerName,
-          customerEmail: data.customerEmail,
-          customerPhone: data.customerPhone,
-          emergencyContact: data.emergencyContact,
-          emergencyPhone: data.emergencyPhone,
-          specialRequests: data.specialRequests
-        },
-        amount: totalAmount,
-        currency: currency
-      };
-      
-      const response = await fetch('/api/bookings/detailed', {
+    mutationFn: async (data: BookingForm & { cost: number }) => {
+      const response = await fetch('/api/bookings/new', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData),
-        credentials: 'include'
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Booking failed');
+        throw new Error(error.message || 'Failed to create booking');
       }
+
       return response.json();
     },
     onSuccess: (data) => {
-      const selectedItem = selectedTrip || selectedHotel;
-      const bookingReceipt: BookingReceipt = {
-        id: data.data.id,
-        bookingNumber: `EN-${Date.now()}`,
-        customerDetails: form.getValues(),
-        item: selectedItem!,
-        type: selectedTrip ? 'trip' : 'hotel',
-        totalAmount: calculateTotalAmount(),
-        bookingDate: new Date().toISOString(),
-        status: 'confirmed'
-      };
-      setReceipt(bookingReceipt);
-      setShowPaymentConfirmation(false);
-      setShowBookingConfirmation(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      setBookingId(data.data.id);
+      setStep('confirmation');
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking Confirmed!",
+        description: "Your booking has been successfully created.",
+      });
     },
-    onError: (error: Error) => {
-      console.error('Booking error:', error);
+    onError: (error) => {
       toast({
         title: "Booking Failed",
-        description: error.message || "Unable to process your booking. Please try again.",
+        description: error.message,
         variant: "destructive",
       });
-      setShowPaymentConfirmation(false);
-    }
+    },
   });
 
-  const onSubmit = (data: BookingFormData) => {
-    if (!selectedTrip && !selectedHotel) {
-      toast({
-        title: "Selection Required",
-        description: "Please select a trip or hotel to book.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!data.checkIn || !data.checkOut) {
-      toast({
-        title: "Dates Required",
-        description: "Please select check-in and check-out dates.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Show payment confirmation modal instead of directly submitting
-    setShowPaymentConfirmation(true);
+  const onSubmit = (data: BookingForm) => {
+    const totalCost = calculateTotalCost();
+    createBookingMutation.mutate({
+      ...data,
+      hotelId: selectedHotel || undefined,
+      cost: totalCost,
+    });
   };
 
-  const handlePaymentConfirmation = () => {
-    const formData = form.getValues();
-    createBookingMutation.mutate(formData);
-  };
+  if (tripLoading || hotelsLoading) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <LoadingSpinner />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const calculateTotal = () => {
-    const basePrice = selectedTrip ? parseFloat(selectedTrip.price) : selectedHotel ? parseFloat(selectedHotel.price) : 0;
-    const guests = form.watch("guests") || 1;
-    return (basePrice * guests).toFixed(2);
-  };
+  if (!trip) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-4">Trip Not Found</h1>
+            <Button onClick={() => navigate('/trips')}>Browse Trips</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const calculateTotalAmount = () => {
-    const basePrice = selectedTrip ? parseFloat(selectedTrip.price) : selectedHotel ? parseFloat(selectedHotel.price) : 0;
-    const guests = form.watch("guests") || 1;
-    const totalInUSD = basePrice * guests;
-    // Convert to user's selected currency
-    return convertPrice(totalInUSD, 'USD');
-  };
+  if (step === 'confirmation') {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <SEOHead 
+          title={`Booking Confirmed - ${trip.title} | ExploreNow`}
+          description="Your booking has been confirmed successfully. Get ready for an amazing trip!"
+        />
+        <div className="container mx-auto px-4 max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-foreground mb-2">Booking Confirmed!</h1>
+            <p className="text-muted-foreground mb-8">
+              Your booking for {trip.title} has been successfully confirmed.
+            </p>
 
-  const formatTotalPrice = () => {
-    const total = calculateTotalAmount();
-    const currencyData = [
-      { code: 'USD', symbol: '$' },
-      { code: 'EUR', symbol: '€' },
-      { code: 'GBP', symbol: '£' },
-      { code: 'INR', symbol: '₹' },
-      { code: 'JPY', symbol: '¥' },
-      { code: 'CAD', symbol: 'C$' },
-      { code: 'AUD', symbol: 'A$' },
-      { code: 'CHF', symbol: 'CHF' },
-      { code: 'CNY', symbol: '¥' },
-      { code: 'KRW', symbol: '₩' },
-    ].find(c => c.code === currency);
-    
-    const symbol = currencyData?.symbol || currency;
-    return `${symbol}${total.toFixed(2)}`;
-  };
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle>Booking Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Booking ID:</span>
+                  <span className="font-mono">#{bookingId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Trip:</span>
+                  <span>{trip.title}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Location:</span>
+                  <span>{trip.location}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Transport:</span>
+                  <span className="capitalize">{form.getValues('transportType')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Guests:</span>
+                  <span>{form.getValues('guests')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Check-in:</span>
+                  <span>{new Date(form.getValues('checkIn')).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Check-out:</span>
+                  <span>{new Date(form.getValues('checkOut')).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t pt-2">
+                  <span>Total Cost:</span>
+                  <PriceDisplay price={calculateTotalCost()} originalCurrency="USD" />
+                </div>
+              </CardContent>
+            </Card>
 
-  const downloadReceipt = () => {
-    if (!receipt) return;
-    
-    const receiptContent = `
-EXPLORENOW BOOKING RECEIPT
-=========================
-Booking Number: ${receipt.bookingNumber}
-Date: ${new Date(receipt.bookingDate).toLocaleDateString()}
-
-CUSTOMER DETAILS:
-Name: ${receipt.customerDetails.customerName}
-Email: ${receipt.customerDetails.customerEmail}
-Phone: ${receipt.customerDetails.customerPhone}
-
-${receipt.type.toUpperCase()} DETAILS:
-${receipt.type === 'trip' ? 'Trip' : 'Hotel'}: ${receipt.type === 'trip' ? (receipt.item as Trip).title : (receipt.item as Hotel).name}
-Location: ${receipt.item.location}
-Check-in: ${new Date(receipt.customerDetails.checkIn).toLocaleDateString()}
-Check-out: ${new Date(receipt.customerDetails.checkOut).toLocaleDateString()}
-Guests: ${receipt.customerDetails.guests}
-
-PRICING:
-Total Amount: ${formatTotalPrice()}
-
-Status: ${receipt.status.toUpperCase()}
-
-Thank you for booking with ExploreNow!
-    `;
-    
-    const blob = new Blob([receiptContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ExploreNow-Receipt-${receipt.bookingNumber}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+            <Button 
+              onClick={() => navigate('/trips')}
+              size="lg"
+              className="w-full"
+            >
+              Done
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
-            Book Your Journey
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Complete your booking with our simple and secure process
-          </p>
-        </div>
+    <div className="min-h-screen bg-background py-16">
+      <SEOHead 
+        title={`Book ${trip.title} | ExploreNow`}
+        description={`Book your trip to ${trip.location}. ${trip.description}`}
+      />
+      <div className="container mx-auto px-4 max-w-4xl">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/trips')}
+          className="mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Trips
+        </Button>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Selection Cards */}
-          <div className="space-y-6">
-            {/* Trip Selection */}
-            <Card>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid md:grid-cols-2 gap-8"
+        >
+          {/* Trip Summary */}
+          <div>
+            <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
-                  Select a Trip
+                  {trip.title}
                 </CardTitle>
-                <CardDescription>Choose your destination</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {tripsLoading ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">Loading trips...</p>
-                    </div>
-                  ) : tripsError ? (
-                    <div className="text-center py-8">
-                      <p className="text-red-500 dark:text-red-400">Error loading trips</p>
-                    </div>
-                  ) : !trips || trips.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">No trips available</p>
-                    </div>
-                  ) : trips.map((trip: Trip) => (
-                    <div
-                      key={trip.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                        selectedTrip?.id === trip.id
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                      }`}
-                      onClick={() => {
-                        setSelectedTrip(trip);
-                        setSelectedHotel(null);
-                      }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{trip.title}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{trip.location}</p>
-                          <p className="text-sm text-gray-500 mt-1">{trip.duration} days</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg">${trip.price}</p>
-                          <p className="text-xs text-gray-500">per person</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {trip.imageUrl && (
+                    <img
+                      src={trip.imageUrl}
+                      alt={trip.title}
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    {trip.location}
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    {trip.duration} days
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    <PriceDisplay price={trip.price} originalCurrency="USD" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{trip.description}</p>
                 </div>
               </CardContent>
             </Card>
@@ -323,478 +336,233 @@ Thank you for booking with ExploreNow!
             {/* Hotel Selection */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Or Select a Hotel
-                </CardTitle>
-                <CardDescription>Book accommodation only</CardDescription>
+                <CardTitle>Select Hotel</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {hotelsLoading ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">Loading hotels...</p>
-                    </div>
-                  ) : hotelsError ? (
-                    <div className="text-center py-8">
-                      <p className="text-red-500 dark:text-red-400">Error loading hotels</p>
-                    </div>
-                  ) : !hotels || hotels.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">No hotels available</p>
-                    </div>
-                  ) : hotels.map((hotel: Hotel) => (
-                      <div
-                        key={hotel.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                          selectedHotel?.id === hotel.id
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                            : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                        }`}
-                        onClick={() => {
-                          setSelectedHotel(hotel);
-                          setSelectedTrip(null);
-                        }}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-semibold">{hotel.name}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{hotel.location}</p>
-                            <p className="text-sm text-gray-500 mt-1">Rating: {hotel.rating}/5</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-lg">${hotel.price}</p>
-                            <p className="text-xs text-gray-500">per night</p>
+                <div className="space-y-3">
+                  {hotels?.slice(0, 3).map((hotel) => (
+                    <div
+                      key={hotel.id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedHotel === hotel.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setSelectedHotel(hotel.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{hotel.name}</h4>
+                          <p className="text-sm text-muted-foreground">{hotel.location}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-sm">★</span>
+                            <span className="text-sm">{hotel.rating}</span>
                           </div>
                         </div>
+                        <PriceDisplay price={hotel.price} originalCurrency="USD" className="text-sm" />
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
 
           {/* Booking Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Booking Details
-              </CardTitle>
-              <CardDescription>Fill in your information to complete the booking</CardDescription>
-              
-              {/* Selection Status */}
-              {(selectedTrip || selectedHotel) ? (
-                <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {selectedTrip ? `Trip Selected: ${selectedTrip.title}` : `Hotel Selected: ${selectedHotel?.name}`}
-                    </span>
-                  </div>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    Location: {selectedTrip ? selectedTrip.location : selectedHotel?.location}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                    <MapPin className="h-4 w-4" />
-                    <span className="text-sm font-medium">Please select a trip or hotel first</span>
-                  </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    Choose from the options on the left to proceed with booking
-                  </p>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  {/* Customer Information */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Booking Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Customer Details */}
+                    <div className="space-y-4">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Customer Details
+                      </h3>
+                      
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your full name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                    <FormField
-                      control={form.control}
-                      name="customerEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="john@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                      <FormField
+                        control={form.control}
+                        name="customerEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="Enter your email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={form.control}
-                    name="customerPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+1234567890" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Dates and Guests */}
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="checkIn"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Check-in Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="checkOut"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Check-out Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="guests"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Guests</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              min="1" 
-                              max="10" 
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Transport Preferences */}
-                  <FormField
-                    control={form.control}
-                    name="transportMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Transport Preference</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select transport mode" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="flight">Flight</SelectItem>
-                            <SelectItem value="bus">Bus</SelectItem>
-                            <SelectItem value="train">Train</SelectItem>
-                            <SelectItem value="car">Car</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Emergency Contact */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="emergencyContact"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Emergency Contact Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Emergency contact" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="emergencyPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Emergency Contact Phone</FormLabel>
-                          <FormControl>
-                            <Input placeholder="+1234567890" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Special Requests */}
-                  <FormField
-                    control={form.control}
-                    name="specialRequests"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Special Requests (Optional)</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Any special requirements or requests..."
-                            className="resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Total Cost Display */}
-                  {(selectedTrip || selectedHotel) && (
-                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                      <div className="flex justify-between items-center mb-2">
-                        <span>Base Price:</span>
-                        <span>${selectedTrip ? selectedTrip.price : selectedHotel?.price}</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span>Guests:</span>
-                        <span>{form.watch("guests") || 1}</span>
-                      </div>
-                      <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
-                        <span>Total:</span>
-                        <span>{formatTotalPrice()}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Book Now Button */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <CreditCard className="h-4 w-4" />
-                      <span>Secure payment processing (Demo mode)</span>
+                      <FormField
+                        control={form.control}
+                        name="customerPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your phone number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
-                    {/* Selection Required Message */}
-                    {(!selectedTrip && !selectedHotel) && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                          <MapPin className="h-4 w-4" />
-                          <span className="text-sm font-medium">Selection Required</span>
-                        </div>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          Please select a trip or hotel above to enable booking
-                        </p>
+                    {/* Travel Details */}
+                    <div className="space-y-4">
+                      <h3 className="font-medium">Travel Details</h3>
+
+                      <FormField
+                        control={form.control}
+                        name="transportType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Transport Preference</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                className="flex gap-4"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="bus" id="bus" />
+                                  <Label htmlFor="bus" className="flex items-center gap-2">
+                                    <Bus className="h-4 w-4" />
+                                    Bus ($50)
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="train" id="train" />
+                                  <Label htmlFor="train" className="flex items-center gap-2">
+                                    <Train className="h-4 w-4" />
+                                    Train ($100)
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="flight" id="flight" />
+                                  <Label htmlFor="flight" className="flex items-center gap-2">
+                                    <Plane className="h-4 w-4" />
+                                    Flight ($300)
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="checkIn"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Check-in Date</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="checkOut"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Check-out Date</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
-                    )}
-                    
-                    <Button 
-                      type="submit" 
+
+                      <FormField
+                        control={form.control}
+                        name="guests"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number of Guests</FormLabel>
+                            <FormControl>
+                              <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select guests" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                                    <SelectItem key={num} value={num.toString()}>
+                                      {num} Guest{num > 1 ? 's' : ''}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Total Cost */}
+                    <div className="border-t pt-4">
+                      <div className="flex justify-between items-center text-lg font-semibold">
+                        <span>Total Cost:</span>
+                        <PriceDisplay price={calculateTotalCost()} originalCurrency="USD" />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      size="lg"
                       className="w-full"
-                      disabled={createBookingMutation.isPending || (!selectedTrip && !selectedHotel)}
+                      disabled={createBookingMutation.isPending || !selectedHotel}
                     >
-                      {createBookingMutation.isPending 
-                        ? "Processing..." 
-                        : (!selectedTrip && !selectedHotel)
-                          ? "Select Trip or Hotel to Continue"
-                          : `Book Now - ${formatTotalPrice()}`
-                      }
+                      {createBookingMutation.isPending ? (
+                        <>
+                          <LoadingSpinner className="mr-2 h-4 w-4" />
+                          Creating Booking...
+                        </>
+                      ) : (
+                        'Confirm Booking'
+                      )}
                     </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
+
+                    {!selectedHotel && (
+                      <p className="text-sm text-muted-foreground text-center">
+                        Please select a hotel to continue
+                      </p>
+                    )}
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        </motion.div>
       </div>
-
-      {/* Payment Confirmation Modal */}
-      {showPaymentConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
-          >
-            <h3 className="text-xl font-bold mb-4">Confirm Payment</h3>
-            
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between">
-                <span>Item:</span>
-                <span className="font-medium">
-                  {selectedTrip ? selectedTrip.title : selectedHotel?.name}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Location:</span>
-                <span>{selectedTrip ? selectedTrip.location : selectedHotel?.location}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Check-in:</span>
-                <span>{form.getValues('checkIn')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Check-out:</span>
-                <span>{form.getValues('checkOut')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Guests:</span>
-                <span>{form.getValues('guests')}</span>
-              </div>
-              <div className="flex justify-between border-t pt-3 font-bold text-lg">
-                <span>Total Amount:</span>
-                <span>{formatTotalPrice()}</span>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
-              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                <CreditCard className="h-4 w-4" />
-                <span className="text-sm">Secure Payment Processing</span>
-              </div>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                Your payment will be processed securely. All booking details will be stored in our database.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowPaymentConfirmation(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handlePaymentConfirmation}
-                disabled={createBookingMutation.isPending}
-                className="flex-1"
-              >
-                {createBookingMutation.isPending ? "Processing..." : "Confirm Payment"}
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Booking Confirmation Receipt */}
-      {showBookingConfirmation && receipt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto"
-          >
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">
-                Booking Confirmed!
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Your reservation has been successfully processed
-              </p>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
-              <h4 className="font-semibold mb-3">Booking Details</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Booking Number:</span>
-                  <span className="font-mono">{receipt.bookingNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{receipt.type === 'trip' ? 'Trip' : 'Hotel'}:</span>
-                  <span className="font-medium">{receipt.type === 'trip' ? (receipt.item as Trip).title : (receipt.item as Hotel).name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Location:</span>
-                  <span>{receipt.item.location}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Check-in:</span>
-                  <span>{new Date(receipt.customerDetails.checkIn).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Check-out:</span>
-                  <span>{new Date(receipt.customerDetails.checkOut).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Guests:</span>
-                  <span>{receipt.customerDetails.guests}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2 font-bold">
-                  <span>Total Paid:</span>
-                  <span>{formatTotalPrice()}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6">
-              <h4 className="font-semibold mb-2">What's Next?</h4>
-              <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
-                <li>• A confirmation email has been sent to {receipt.customerDetails.customerEmail}</li>
-                <li>• Your booking details are saved in your dashboard</li>
-                <li>• Download your receipt for your records</li>
-              </ul>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={downloadReceipt}
-                className="flex-1 flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download Receipt
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowBookingConfirmation(false);
-                  navigate('/dashboard');
-                }}
-                className="flex-1"
-              >
-                View Dashboard
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 }

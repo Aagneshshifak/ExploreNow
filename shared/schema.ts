@@ -43,27 +43,21 @@ export const hotels = pgTable("hotels", {
 
 // Bookings table  
 export const bookings = pgTable("bookings", {
-  id: text("id").primaryKey(), // UUID format
+  id: serial("id").primaryKey(),
   userId: integer("userId").notNull().references(() => users.id),
   tripId: integer("tripId").references(() => trips.id),
   hotelId: integer("hotelId").references(() => hotels.id),
-  type: text("type").notNull(), // "trip" or "hotel"
-  status: text("status").notNull().default("pending"), // "pending", "confirmed", "cancelled"
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull().default("0"),
-  currency: text("currency").notNull().default("USD"), // Currency code for the amount
-  checkIn: timestamp("checkIn"),
-  checkOut: timestamp("checkOut"),
-  // Enhanced booking details
-  guests: integer("guests").notNull().default(1),
+  transportType: text("transportType").notNull(), // "bus", "train", "flight"
+  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("confirmed"),
+  createdAt: timestamp("createdAt").defaultNow(),
+  // Additional fields for enhanced functionality
   customerName: text("customerName"),
   customerEmail: text("customerEmail"),
   customerPhone: text("customerPhone"),
-  specialRequests: text("specialRequests"),
-  emergencyContact: text("emergencyContact"),
-  emergencyPhone: text("emergencyPhone"),
-  transportMode: text("transportMode"), // "flight", "bus", "train", "car", "other"
-  transportDetails: text("transportDetails"), // JSON string for transport info
-  createdAt: timestamp("createdAt").defaultNow(),
+  checkIn: timestamp("checkIn"),
+  checkOut: timestamp("checkOut"),
+  guests: integer("guests").default(1),
 });
 
 // Reviews table

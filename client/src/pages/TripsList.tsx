@@ -284,7 +284,7 @@ export default function TripsList() {
                               className="bg-primary hover:bg-primary/90"
                             >
                               <ShoppingCart className="h-4 w-4 mr-2" />
-                              Book Trip
+                              Book Now
                             </Button>
                           </div>
                         </div>

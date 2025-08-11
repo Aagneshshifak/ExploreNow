@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+import { db } from "./db";
+import { bookings } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
 import { emailService } from "./services/emailService";
@@ -582,37 +584,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced booking creation with comprehensive details - POST /api/bookings
+  // New streamlined booking endpoint - POST /api/bookings
   app.post("/api/bookings", requireUser, async (req, res) => {
     try {
       const { 
         tripId, 
         hotelId, 
-        type, 
-        amount, 
-        checkIn, 
-        checkOut, 
-        guests,
+        transportType,
+        cost,
         customerName,
         customerEmail,
         customerPhone,
-        specialRequests,
-        emergencyContact,
-        emergencyPhone,
-        transportMode
+        checkIn,
+        checkOut,
+        guests
       } = req.body;
       
       // Validation
-      if (!type || (type !== 'trip' && type !== 'hotel')) {
-        return res.status(400).json(createResponse(false, null, "Invalid booking type"));
+      if (!transportType || !['bus', 'train', 'flight'].includes(transportType)) {
+        return res.status(400).json(createResponse(false, null, "Valid transport type is required (bus, train, flight)"));
       }
       
-      if (type === 'trip' && !tripId) {
-        return res.status(400).json(createResponse(false, null, "Trip ID is required for trip bookings"));
+      if (!cost || isNaN(parseFloat(cost))) {
+        return res.status(400).json(createResponse(false, null, "Valid cost is required"));
       }
       
-      if (type === 'hotel' && !hotelId) {
-        return res.status(400).json(createResponse(false, null, "Hotel ID is required for hotel bookings"));
+      if (!tripId && !hotelId) {
+        return res.status(400).json(createResponse(false, null, "Either trip ID or hotel ID is required"));
+      }
+      
+      if (!customerName || !customerEmail || !customerPhone) {
+        return res.status(400).json(createResponse(false, null, "Customer details (name, email, phone) are required"));
       }
       
       // Verify item exists
@@ -1225,6 +1227,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI placeholder for other future AI routes
   app.use("/api/ai/*", (req, res) => {
     res.json(createResponse(true, null, "AI Feature Coming Soon"));
+  });
+  
+  // Simple booking endpoint as requested - POST /api/bookings/new
+  app.post("/api/bookings/new", requireUser, async (req, res) => {
+    try {
+      const { 
+        tripId, 
+        hotelId, 
+        transportType,
+        cost,
+        customerName,
+        customerEmail,
+        customerPhone,
+        checkIn,
+        checkOut,
+        guests
+      } = req.body;
+      
+      // Validation
+      if (!transportType || !['bus', 'train', 'flight'].includes(transportType)) {
+        return res.status(400).json(createResponse(false, null, "Valid transport type is required (bus, train, flight)"));
+      }
+      
+      if (!cost || isNaN(parseFloat(cost))) {
+        return res.status(400).json(createResponse(false, null, "Valid cost is required"));
+      }
+      
+      if (!tripId && !hotelId) {
+        return res.status(400).json(createResponse(false, null, "Either trip ID or hotel ID is required"));
+      }
+      
+      if (!customerName || !customerEmail || !customerPhone) {
+        return res.status(400).json(createResponse(false, null, "Customer details (name, email, phone) are required"));
+      }
+      
+      // Verify items exist
+      if (tripId) {
+        const trip = await storage.getTrip(tripId);
+        if (!trip) {
+          return res.status(404).json(createResponse(false, null, "Trip not found"));
+        }
+      }
+      
+      if (hotelId) {
+        const hotel = await storage.getHotel(hotelId);
+        if (!hotel) {
+          return res.status(404).json(createResponse(false, null, "Hotel not found"));
+        }
+      }
+      
+      // Create booking with new simplified schema
+      const [booking] = await db.insert(bookings).values({
+        userId: req.user!.id,
+        tripId: tripId || null,
+        hotelId: hotelId || null,
+        transportType,
+        cost: cost.toString(),
+        customerName,
+        customerEmail,
+        customerPhone,
+        checkIn: checkIn ? new Date(checkIn) : null,
+        checkOut: checkOut ? new Date(checkOut) : null,
+        guests: guests || 1,
+        status: 'confirmed'
+      }).returning();
+      
+      res.status(201).json(createResponse(true, booking, "Booking created successfully"));
+    } catch (error) {
+      console.error("Create booking error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to create booking"));
+    }
   });
   
   const httpServer = createServer(app);
