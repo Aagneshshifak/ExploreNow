@@ -50,16 +50,40 @@ export default function TripBooking() {
   });
 
   // Fetch trips and hotels
-  const { data: tripsResponse } = useQuery({
+  const { data: tripsResponse, isLoading: tripsLoading, error: tripsError } = useQuery({
     queryKey: ["/api/trips"],
+    queryFn: async () => {
+      const response = await fetch('/api/trips', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch trips');
+      }
+      
+      const result = await response.json();
+      return result;
+    },
   });
 
-  const { data: hotelsResponse } = useQuery({
+  const { data: hotelsResponse, isLoading: hotelsLoading, error: hotelsError } = useQuery({
     queryKey: ["/api/hotels"],
+    queryFn: async () => {
+      const response = await fetch('/api/hotels', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch hotels');
+      }
+      
+      const result = await response.json();
+      return result;
+    },
   });
 
-  const trips = tripsResponse?.data;
-  const hotels = hotelsResponse?.data;
+  const trips = tripsResponse?.data || [];
+  const hotels = hotelsResponse?.data || [];
 
 
 
@@ -254,7 +278,19 @@ Thank you for booking with ExploreNow!
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {Array.isArray(trips) && trips.map((trip: Trip) => (
+                  {tripsLoading ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">Loading trips...</p>
+                    </div>
+                  ) : tripsError ? (
+                    <div className="text-center py-8">
+                      <p className="text-red-500 dark:text-red-400">Error loading trips</p>
+                    </div>
+                  ) : !trips || trips.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">No trips available</p>
+                    </div>
+                  ) : trips.map((trip: Trip) => (
                     <div
                       key={trip.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -295,12 +331,19 @@ Thank you for booking with ExploreNow!
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 max-h-96 overflow-y-auto">
-                  {!hotels ? (
+                  {hotelsLoading ? (
                     <div className="text-center py-8">
                       <p className="text-gray-500 dark:text-gray-400">Loading hotels...</p>
                     </div>
-                  ) : Array.isArray(hotels) && hotels.length > 0 ? (
-                    hotels.map((hotel: Hotel) => (
+                  ) : hotelsError ? (
+                    <div className="text-center py-8">
+                      <p className="text-red-500 dark:text-red-400">Error loading hotels</p>
+                    </div>
+                  ) : !hotels || hotels.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 dark:text-gray-400">No hotels available</p>
+                    </div>
+                  ) : hotels.map((hotel: Hotel) => (
                       <div
                         key={hotel.id}
                         className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -325,12 +368,7 @@ Thank you for booking with ExploreNow!
                           </div>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">No hotels available</p>
-                    </div>
-                  )}
+                    ))}
                 </div>
               </CardContent>
             </Card>
