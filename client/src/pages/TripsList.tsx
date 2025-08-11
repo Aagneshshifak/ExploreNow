@@ -58,7 +58,7 @@ export default function TripsList() {
     },
   });
 
-  const filteredTrips = trips?.filter(trip => {
+  const filteredTrips = (Array.isArray(trips) ? trips : []).filter(trip => {
     const matchesSearch = trip.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          trip.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          trip.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -66,7 +66,7 @@ export default function TripsList() {
     const matchesPrice = !priceFilter || trip.price <= parseFloat(priceFilter);
     
     return matchesSearch && matchesPrice;
-  }) || [];
+  });
 
   if (isLoading) {
     return (
