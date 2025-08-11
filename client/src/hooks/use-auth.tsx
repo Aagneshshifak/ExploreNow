@@ -62,14 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await response.json();
+      console.log('Login response:', data);
       
       if (data.success && data.data?.user) {
         setUser(data.data.user);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
       } else {
         throw new Error(data.message || 'Login failed');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      console.error('Login error:', error);
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {

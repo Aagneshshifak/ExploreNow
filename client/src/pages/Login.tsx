@@ -33,9 +33,11 @@ export default function Login() {
       });
       navigate(from, { replace: true });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid email or password. Please try again.';
+      console.error('Login error:', error);
       toast({
         title: "Error",
-        description: "Invalid email or password. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
