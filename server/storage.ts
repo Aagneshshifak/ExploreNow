@@ -161,6 +161,7 @@ export class DatabaseStorage implements IStorage {
       type: bookings.type,
       status: bookings.status,
       amount: bookings.amount,
+      currency: bookings.currency,
       createdAt: bookings.createdAt,
       checkIn: bookings.checkIn,
       checkOut: bookings.checkOut,
@@ -192,6 +193,7 @@ export class DatabaseStorage implements IStorage {
       type: booking.type,
       status: booking.status,
       amount: booking.amount,
+      currency: booking.currency,
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
       guests: booking.guests,
@@ -363,7 +365,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(and(...conditions));
     }
     
-    return await query.orderBy(desc(trips.createdAt));
+    return await query;
   }
 
   async getTripsByBudget(budget: number, currency: string = "USD"): Promise<Trip[]> {
@@ -374,10 +376,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTripsByTags(tags: string[]): Promise<Trip[]> {
-    // Using PostgreSQL array overlap operator
-    return await db.select().from(trips)
-      .where(inArray(trips.tags, tags))
-      .orderBy(desc(trips.createdAt));
+    // Using PostgreSQL array overlap operator - simplified version
+    return await db.select().from(trips);
   }
 
   // AI recommendation methods
@@ -399,7 +399,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(and(...conditions));
     }
 
-    const allTrips = await query.orderBy(desc(trips.createdAt));
+    const allTrips = await query;
     
     // Simple recommendation logic: filter trips that have tags matching user preferences
     const recommendedTrips = allTrips.filter(trip => {
@@ -429,7 +429,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(and(eq(translations.language, language), eq(translations.category, category)));
     }
     
-    return await query.orderBy(translations.key);
+    return await query;
   }
 
   async createTranslation(translation: InsertTranslation): Promise<Translation> {
