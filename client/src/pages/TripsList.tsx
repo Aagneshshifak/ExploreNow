@@ -28,7 +28,7 @@ interface Trip {
   title: string;
   location: string;
   description: string;
-  price: number;
+  price: string;
   duration: number;
   tags: string[];
   includes: string[];
@@ -63,7 +63,7 @@ export default function TripsList() {
                          trip.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          trip.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesPrice = !priceFilter || trip.price <= parseFloat(priceFilter);
+    const matchesPrice = !priceFilter || parseFloat(trip.price) <= parseFloat(priceFilter);
     
     return matchesSearch && matchesPrice;
   });
@@ -268,7 +268,7 @@ export default function TripsList() {
                         {/* Price and Action */}
                         <div className="flex items-center justify-between pt-4 border-t">
                           <div className="text-2xl text-primary">
-                            <PriceDisplay price={trip.price} originalCurrency="USD" />
+                            <PriceDisplay price={parseFloat(trip.price)} originalCurrency="USD" />
                           </div>
                           <div className="flex gap-2">
                             <Button 

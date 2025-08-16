@@ -472,7 +472,7 @@ export default function TripDetails() {
                     <span>Book This Trip</span>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary">
-                        <PriceDisplay price={trip.price} originalCurrency="USD" />
+                        <PriceDisplay price={parseFloat(trip.price)} originalCurrency="USD" />
                       </div>
                       <div className="text-sm text-muted-foreground">per person</div>
                     </div>

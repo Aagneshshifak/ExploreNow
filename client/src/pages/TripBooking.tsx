@@ -50,7 +50,7 @@ interface Trip {
   title: string;
   location: string;
   description: string;
-  price: number;
+  price: string;
   duration: number;
   tags: string[];
   includes: string[];
@@ -122,7 +122,7 @@ export default function TripBooking() {
 
   // Calculate total cost
   const calculateTotalCost = () => {
-    const tripCost = trip?.price || 0;
+    const tripCost = trip?.price ? parseFloat(trip.price) : 0;
     const hotelCost = selectedHotel ? 
       (hotels?.find(h => h.id === selectedHotel)?.price || 0) * form.watch('guests') : 0;
     const transportCost = {
@@ -326,7 +326,7 @@ export default function TripBooking() {
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    <PriceDisplay price={trip.price} originalCurrency="USD" />
+                    <PriceDisplay price={parseFloat(trip.price)} originalCurrency="USD" />
                   </div>
                   <p className="text-sm text-muted-foreground">{trip.description}</p>
                 </div>
