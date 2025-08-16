@@ -188,11 +188,12 @@ export default function TripBooking() {
       return response.json();
     },
     onSuccess: (data) => {
+      console.log('Booking created successfully:', data);
       setBookingId(data.data.id);
       setStep('payment');
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
       toast({
-        title: "Booking Created!",
+        title: "Booking Created! 🎉",
         description: "Please proceed to payment to complete your booking.",
       });
     },

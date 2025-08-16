@@ -1286,16 +1286,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine booking type
       const bookingType = tripId ? 'trip' : 'hotel';
       
-      // Create booking with proper schema
+      // Create booking with correct database schema
       const [booking] = await db.insert(bookings).values({
         id: bookingId,
         userId: req.user!.id,
         tripId: tripId || null,
         hotelId: hotelId || null,
         type: bookingType,
-        transportType: transportType || 'flight',
-        cost: cost.toString(),
-        amount: cost.toString(),
+        transportMode: transportType || 'flight', // Use transportMode not transportType
+        amount: cost.toString(), // Use amount not cost
         currency: 'USD',
         customerName,
         customerEmail,
