@@ -24,7 +24,7 @@ import { PriceDisplay } from '@/components/ui/price-display';
 import { useToast } from '@/hooks/use-toast';
 
 interface Trip {
-  id: string;
+  id: number;
   title: string;
   location: string;
   description: string;
