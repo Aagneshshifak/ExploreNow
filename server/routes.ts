@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { bookings } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
@@ -1278,24 +1279,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine booking type
       const bookingType = tripId ? 'trip' : 'hotel';
       
-      // Create booking with correct database schema
-      const [booking] = await db.insert(bookings).values({
-        id: bookingId,
-        userId: req.user!.id,
-        tripId: tripId || null,
-        hotelId: hotelId || null,
-        type: bookingType,
-        transportMode: transportType || 'flight', // Use transportMode not transportType
-        amount: cost.toString(), // Use amount not cost
-        currency: 'USD',
+      // Insert directly to database with exact column names to avoid schema conflicts
+      const bookingInsertQuery = `
+        INSERT INTO bookings (
+          id, "userId", "tripId", "hotelId", type, "transportMode", amount, currency,
+          "customerName", "customerEmail", "customerPhone", "checkIn", "checkOut", 
+          guests, status, "createdAt"
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW()
+        ) RETURNING *
+      `;
+      
+      const bookingResult = await db.execute(sql.raw(bookingInsertQuery, [
+        bookingId,
+        req.user!.id,
+        tripId || null,
+        hotelId || null, 
+        bookingType,
+        transportType || 'flight',
+        cost.toString(),
+        'USD',
         customerName,
         customerEmail,
         customerPhone,
-        checkIn: checkIn ? new Date(checkIn) : null,
-        checkOut: checkOut ? new Date(checkOut) : null,
-        guests: guests || 1,
-        status: 'confirmed'
-      }).returning();
+        checkIn ? new Date(checkIn) : null,
+        checkOut ? new Date(checkOut) : null,
+        guests || 1,
+        'confirmed'
+      ]));
+      
+      const booking = bookingResult.rows[0];
       
       res.status(201).json(createResponse(true, booking, "Booking created successfully"));
     } catch (error) {

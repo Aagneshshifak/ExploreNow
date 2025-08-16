@@ -48,8 +48,6 @@ export const bookings = pgTable("bookings", {
   tripId: integer("tripId").references(() => trips.id),
   hotelId: integer("hotelId").references(() => hotels.id),
   type: text("type"), // "trip" or "hotel" - optional to avoid breaking changes
-  transportType: text("transportType"), // Make optional to avoid breaking changes
-  cost: decimal("cost", { precision: 10, scale: 2 }), // Make optional
   amount: decimal("amount", { precision: 10, scale: 2 }), // For compatibility
   currency: text("currency").default("USD"),
   status: text("status").notNull().default("confirmed"),
