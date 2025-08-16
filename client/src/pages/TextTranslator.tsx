@@ -40,6 +40,42 @@ const TextTranslator = () => {
     setIsTranslating(true);
     
     try {
+      // Try AI-powered translation first
+      const aiResponse = await fetch('/api/ai/assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: `Translate the following text to ${languages.find(l => l.code === toLanguage)?.name || toLanguage}. Only provide the translated text without any additional commentary: "${inputText}"`,
+          userContext: {
+            sourceText: inputText,
+            targetLanguage: toLanguage,
+            requestType: "translation"
+          }
+        }),
+      });
+
+      if (aiResponse.ok) {
+        const aiResult = await aiResponse.json();
+        if (aiResult.success && aiResult.data && aiResult.data.response) {
+          // Clean up the AI response to extract just the translation
+          let translation = aiResult.data.response.trim();
+          
+          // Remove common AI response prefixes
+          translation = translation.replace(/^(Translation:|Translated text:|Here is the translation:|The translation is:)\s*/i, '');
+          translation = translation.replace(/^["'](.+)["']$/s, '$1'); // Remove quotes if wrapped
+          
+          setOutputText(translation);
+          toast({
+            title: "AI Translation Complete",
+            description: `Text translated to ${languages.find(l => l.code === toLanguage)?.name || toLanguage} using AI`,
+          });
+          return;
+        }
+      }
+
+      // Fallback to existing translation service
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: {
@@ -52,8 +88,6 @@ const TextTranslator = () => {
       });
 
       const result = await response.json();
-
-      console.log('Translation result:', result);
       
       if (result.success && result.data && result.data.translated) {
         setOutputText(result.data.translated);
@@ -62,7 +96,6 @@ const TextTranslator = () => {
           description: `Text translated to ${languages.find(l => l.code === toLanguage)?.name || toLanguage}`,
         });
       } else {
-        console.error('Translation result structure:', result);
         throw new Error(result.message || 'Translation failed');
       }
     } catch (error: any) {

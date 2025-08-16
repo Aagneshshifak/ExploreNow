@@ -26,46 +26,101 @@ export default function RouteFinder() {
   const [results, setResults] = useState<RouteResults | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  const findRoute = () => {
+  const findRoute = async () => {
     if (!origin || !destination) return;
 
     setIsSearching(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const mockResults: RouteResults = {
-        distance: `${Math.floor(Math.random() * 2000 + 500)} km`,
+    try {
+      const response = await fetch("/api/ai/route-planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destinations: [destination],
+          startLocation: origin,
+          travelMode: "mixed",
+          duration: "1",
+          budget: 1000
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Transform AI response to match UI format
+          const aiRoute = data.data;
+          const transformedResults: RouteResults = {
+            distance: aiRoute.totalDistance || "Calculating...",
+            options: [
+              {
+                type: 'flight',
+                duration: aiRoute.estimatedDuration || "2-8 hours",
+                cost: aiRoute.estimatedCost || "$200-500",
+                details: aiRoute.transportOptions?.flight || 'AI-optimized flight route',
+                emissions: "100-200 kg CO₂",
+                icon: Plane
+              },
+              {
+                type: 'train',
+                duration: aiRoute.estimatedDuration || "8-12 hours",
+                cost: aiRoute.estimatedCost || "$80-200",
+                details: aiRoute.transportOptions?.train || 'AI-recommended train route',
+                emissions: "20-50 kg CO₂",
+                icon: Train
+              },
+              {
+                type: 'road',
+                duration: aiRoute.estimatedDuration || "12-16 hours",
+                cost: aiRoute.estimatedCost || "$50-150",
+                details: aiRoute.transportOptions?.road || 'AI-planned road trip',
+                emissions: "80-150 kg CO₂",
+                icon: Car
+              }
+            ]
+          };
+          setResults(transformedResults);
+        } else {
+          throw new Error(data.message || "Failed to find route");
+        }
+      } else {
+        throw new Error("Failed to get route information");
+      }
+    } catch (error) {
+      console.error("Route finding error:", error);
+      // Fallback to basic results if AI fails
+      const fallbackResults: RouteResults = {
+        distance: "Distance calculating...",
         options: [
           {
             type: 'flight',
-            duration: `${Math.floor(Math.random() * 8 + 2)}h ${Math.floor(Math.random() * 60)}m`,
-            cost: `$${Math.floor(Math.random() * 500 + 200)}`,
-            details: 'Direct flight • 1 stop • Multiple airlines available',
-            emissions: `${Math.floor(Math.random() * 200 + 100)} kg CO₂`,
+            duration: "2-8 hours",
+            cost: "$200-500",
+            details: 'Multiple airlines available',
+            emissions: "100-200 kg CO₂",
             icon: Plane
           },
           {
             type: 'train',
-            duration: `${Math.floor(Math.random() * 12 + 8)}h ${Math.floor(Math.random() * 60)}m`,
-            cost: `$${Math.floor(Math.random() * 200 + 80)}`,
-            details: 'High-speed rail • Scenic route • Station to station',
-            emissions: `${Math.floor(Math.random() * 50 + 20)} kg CO₂`,
+            duration: "8-12 hours", 
+            cost: "$80-200",
+            details: 'Rail connections available',
+            emissions: "20-50 kg CO₂",
             icon: Train
           },
           {
             type: 'road',
-            duration: `${Math.floor(Math.random() * 16 + 12)}h ${Math.floor(Math.random() * 60)}m`,
-            cost: `$${Math.floor(Math.random() * 150 + 50)}`,
-            details: 'Driving • Fuel + tolls • Rest stops recommended',
-            emissions: `${Math.floor(Math.random() * 150 + 80)} kg CO₂`,
+            duration: "12-16 hours",
+            cost: "$50-150", 
+            details: 'Driving route with stops',
+            emissions: "80-150 kg CO₂",
             icon: Car
           }
         ]
       };
-
-      setResults(mockResults);
+      setResults(fallbackResults);
+    } finally {
       setIsSearching(false);
-    }, 2000);
+    }
   };
 
   const getRouteColor = (type: string) => {

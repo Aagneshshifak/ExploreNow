@@ -75,14 +75,28 @@ export default function AITripRecommender() {
         language: language as any,
       };
 
-      const response = await apiRequest("/api/ai/recommendations", "POST", requestData);
-      setRecommendations(response.data || []);
-      setHasGenerated(true);
-      
-      toast({
-        title: "Recommendations Generated!",
-        description: `Found ${response.data?.length || 0} personalized trip recommendations.`,
+      const response = await fetch("/api/ai/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to get AI recommendations");
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setRecommendations(data.data.recommendations || []);
+        setHasGenerated(true);
+        
+        toast({
+          title: "AI Recommendations Generated!",
+          description: `Found ${data.data.recommendations?.length || 0} personalized trip recommendations powered by AI.`,
+        });
+      } else {
+        throw new Error(data.message || "Failed to generate recommendations");
+      }
     } catch (error: any) {
       toast({
         title: "Generation Failed",
