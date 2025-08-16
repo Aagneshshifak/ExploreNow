@@ -47,6 +47,7 @@ import TranslationPage from "./pages/TranslationPage";
 import TripDetails from "./pages/TripDetails";
 import HotelDetails from "./pages/HotelDetails";
 import HotelsList from "./pages/HotelsList";
+import AIAssistant from "./pages/AIAssistant";
 
 
 const queryClient = new QueryClient();
@@ -153,6 +154,7 @@ const App = () => {
                             <TripSubmission />
                           </ProtectedRoute>
                         } />
+                        <Route path="/ai-assistant" element={<AIAssistant />} />
                         <Route path="/ai-recommender" element={<AITripRecommender />} />
                         <Route path="/trips" element={<TripsList />} />
                         <Route path="/trip/:id" element={<TripDetails />} />

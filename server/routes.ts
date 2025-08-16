@@ -519,9 +519,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             type: 'trip',
             itemName: bookedTrip.title,
-            totalPrice: booking.amount,
-            checkIn: req.body.checkIn,
-            checkOut: req.body.checkOut,
+            totalPrice: booking.amount || '0',
+            checkIn: req.body.checkIn || '',
+            checkOut: req.body.checkOut || '',
             bookingId: booking.id.toString()
           }
         );
@@ -573,9 +573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             type: 'hotel',
             itemName: bookedHotel.name,
-            totalPrice: booking.amount,
-            checkIn,
-            checkOut,
+            totalPrice: booking.amount || '0',
+            checkIn: checkIn || '',
+            checkOut: checkOut || '',
             bookingId: booking.id.toString()
           }
         );
@@ -617,13 +617,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(createResponse(false, null, "Customer details (name, email, phone) are required"));
       }
       
+      // Determine booking type based on what's provided
+      const bookingType = tripId ? 'trip' : 'hotel';
+      
       // Verify item exists
-      if (type === 'trip') {
+      if (bookingType === 'trip' && tripId) {
         const trip = await storage.getTrip(tripId);
         if (!trip) {
           return res.status(404).json(createResponse(false, null, "Trip not found"));
         }
-      } else {
+      } else if (bookingType === 'hotel' && hotelId) {
         const hotel = await storage.getHotel(hotelId);
         if (!hotel) {
           return res.status(404).json(createResponse(false, null, "Hotel not found"));
@@ -632,28 +635,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const bookingData = {
         userId: req.user!.id,
-        tripId: type === 'trip' ? tripId : null,
-        hotelId: type === 'hotel' ? hotelId : null,
-        type: type as 'trip' | 'hotel',
-        amount: amount?.toString() || '0',
+        tripId: bookingType === 'trip' ? tripId : null,
+        hotelId: bookingType === 'hotel' ? hotelId : null,
+        type: bookingType as 'trip' | 'hotel',
+        amount: cost?.toString() || '0',
         currency: req.body.currency || 'USD',
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
         guests: guests || 1,
         customerName: customerName || req.user!.name,
         customerEmail: customerEmail || req.user!.email,
-        customerPhone,
-        specialRequests,
-        emergencyContact,
-        emergencyPhone,
-        transportMode,
+        customerPhone: customerPhone || '',
+        specialRequests: req.body.specialRequests || '',
+        emergencyContact: req.body.emergencyContact || '',
+        emergencyPhone: req.body.emergencyPhone || '',
+        transportMode: transportType || '',
         status: 'confirmed'
       };
       
       const booking = await storage.createBooking(bookingData);
       
       // Send booking confirmation email
-      const itemName = type === 'trip' 
+      const itemName = bookingType === 'trip' 
         ? (await storage.getTrip(tripId))?.title || 'Trip'
         : (await storage.getHotel(hotelId))?.name || 'Hotel';
         
@@ -662,9 +665,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerEmail || req.user.email,
           customerName || req.user.name,
           {
-            type,
+            type: bookingType,
             itemName,
-            totalPrice: booking.amount,
+            totalPrice: booking.amount || '0',
             checkIn: checkIn || '',
             checkOut: checkOut || '',
             bookingId: booking.id.toString()
@@ -745,12 +748,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : (await storage.getHotel(hotelId))?.name || 'Hotel';
         
       emailService.sendBookingConfirmation(
-        customerDetails.customerEmail,
-        customerDetails.customerName,
+        customerDetails?.customerEmail || req.user!.email,
+        customerDetails?.customerName || req.user!.name,
         {
           type,
           itemName,
-          totalPrice: booking.amount,
+          totalPrice: booking.amount || '0',
           checkIn: checkInDate,
           checkOut: checkOutDate,
           bookingId: booking.id.toString()
@@ -1111,122 +1114,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Trip Recommender - POST /api/ai/recommend
   app.post("/api/ai/recommend", requireUser, async (req, res) => {
     try {
-      const { budget, interests, duration, destination } = req.body;
+      const { budget, interests, duration, destination, travelStyle } = req.body;
       
-      // Mock AI recommendations for now - can be replaced with OpenAI integration later
-      const mockRecommendations = [
-        {
-          id: 1,
-          name: "Shimla Snow Trails",
-          location: "Shimla, India",
-          cost: 200,
-          duration: "3 days",
-          tags: ["Snow", "Mountains", "Adventure"],
-          description: "Experience the magic of snow-capped mountains in Shimla with adventure activities.",
-          rating: 4.5,
-          includes: ["Hotel", "Meals", "Sightseeing"]
-        },
-        {
-          id: 2,
-          name: "Goa Beach Paradise",
-          location: "Goa, India",
-          cost: 150,
-          duration: "4 days",
-          tags: ["Beach", "Relaxation", "Nightlife"],
-          description: "Relax on pristine beaches with vibrant nightlife and water sports.",
-          rating: 4.3,
-          includes: ["Beach Resort", "Water Sports", "Local Cuisine"]
-        },
-        {
-          id: 3,
-          name: "Kerala Backwater Cruise",
-          location: "Kerala, India",
-          cost: 300,
-          duration: "5 days",
-          tags: ["Nature", "Backwaters", "Culture"],
-          description: "Discover the serene backwaters of Kerala with houseboat stays.",
-          rating: 4.7,
-          includes: ["Houseboat", "Traditional Meals", "Cultural Tours"]
-        },
-        {
-          id: 4,
-          name: "Rajasthan Heritage Tour",
-          location: "Rajasthan, India",
-          cost: 250,
-          duration: "6 days",
-          tags: ["Heritage", "Culture", "Architecture"],
-          description: "Explore magnificent palaces and forts in the royal state of Rajasthan.",
-          rating: 4.6,
-          includes: ["Heritage Hotels", "Palace Tours", "Cultural Shows"]
-        }
-      ];
-
-      // Filter recommendations based on budget and interests
-      let filteredRecommendations = mockRecommendations;
-      
-      if (budget) {
-        filteredRecommendations = filteredRecommendations.filter(trip => trip.cost <= budget);
-      }
-      
-      if (interests && interests.length > 0) {
-        filteredRecommendations = filteredRecommendations.filter(trip => 
-          trip.tags.some(tag => interests.some((interest: string) => 
-            tag.toLowerCase().includes(interest.toLowerCase()) || 
-            interest.toLowerCase().includes(tag.toLowerCase())
-          ))
-        );
+      // Input validation
+      if (!budget || !interests || !duration) {
+        return res.status(400).json(createResponse(false, null, "Budget, interests, and duration are required"));
       }
 
-      // Sort by rating and cost
-      filteredRecommendations.sort((a, b) => b.rating - a.rating);
+      const { geminiService } = await import("./services/geminiService.js");
+      
+      const recommendations = await geminiService.generateTripRecommendations(
+        Number(budget),
+        Array.isArray(interests) ? interests : [interests],
+        Number(duration),
+        destination,
+        travelStyle
+      );
 
       res.json(createResponse(true, {
-        trips: filteredRecommendations.slice(0, 6),
-        totalFound: filteredRecommendations.length,
-        searchCriteria: { budget, interests, duration, destination }
-      }, "Trip recommendations generated successfully"));
+        trips: recommendations,
+        totalFound: recommendations.length,
+        searchCriteria: { budget, interests, duration, destination, travelStyle },
+        aiPowered: true
+      }, "AI-powered trip recommendations generated successfully"));
     } catch (error) {
       console.error("AI recommend error:", error);
-      res.status(500).json(createResponse(false, null, "Failed to generate recommendations"));
+      res.status(500).json(createResponse(false, null, "Failed to generate AI recommendations: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
 
   // AI Route Planner - POST /api/ai/route-planner
   app.post("/api/ai/route-planner", requireUser, async (req, res) => {
     try {
-      const { destinations, startLocation, travelMode, duration } = req.body;
+      const { destinations, startLocation, travelMode, duration, budget } = req.body;
       
-      // Mock route planning response - can be replaced with actual route optimization
-      const mockRoute = {
-        totalDistance: "1,250 km",
-        totalDuration: "15 hours driving",
-        estimatedCost: "$400",
-        route: destinations.map((dest: string, index: number) => ({
-          order: index + 1,
-          destination: dest,
-          arrivalTime: `Day ${index + 1}`,
-          stayDuration: "2 days",
-          activities: ["Sightseeing", "Local Cuisine", "Cultural Sites"],
-          estimatedCost: "$" + (50 + Math.floor(Math.random() * 100))
-        })),
-        recommendations: [
-          "Start early morning for better traffic conditions",
-          "Book accommodations in advance during peak season",
-          "Try local specialties at each destination",
-          "Keep emergency contacts and documents handy"
-        ]
-      };
+      // Input validation
+      if (!destinations || !Array.isArray(destinations) || destinations.length === 0) {
+        return res.status(400).json(createResponse(false, null, "At least one destination is required"));
+      }
+      if (!startLocation || !travelMode || !duration) {
+        return res.status(400).json(createResponse(false, null, "Start location, travel mode, and duration are required"));
+      }
 
-      res.json(createResponse(true, mockRoute, "Route planned successfully"));
+      const { geminiService } = await import("./services/geminiService.js");
+      
+      const optimizedRoute = await geminiService.optimizeRoute(
+        destinations,
+        startLocation,
+        travelMode,
+        Number(duration),
+        budget ? Number(budget) : undefined
+      );
+
+      res.json(createResponse(true, {
+        ...optimizedRoute,
+        aiPowered: true,
+        searchCriteria: { destinations, startLocation, travelMode, duration, budget }
+      }, "AI-optimized route generated successfully"));
     } catch (error) {
       console.error("Route planner error:", error);
-      res.status(500).json(createResponse(false, null, "Failed to plan route"));
+      res.status(500).json(createResponse(false, null, "Failed to generate AI route plan: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
 
-  // AI placeholder for other future AI routes
-  app.use("/api/ai/*", (req, res) => {
-    res.json(createResponse(true, null, "AI Feature Coming Soon"));
+  // AI Travel Assistant - POST /api/ai/assistant
+  app.post("/api/ai/assistant", requireUser, async (req, res) => {
+    try {
+      const { query, userContext } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json(createResponse(false, null, "Query is required"));
+      }
+
+      const { geminiService } = await import("./services/geminiService.js");
+      
+      const assistance = await geminiService.provideTravelAssistance(query, userContext);
+
+      res.json(createResponse(true, {
+        ...assistance,
+        aiPowered: true,
+        timestamp: new Date().toISOString()
+      }, "AI travel assistance provided successfully"));
+    } catch (error) {
+      console.error("AI assistant error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to provide AI assistance: " + (error instanceof Error ? error.message : 'Unknown error')));
+    }
+  });
+
+  // AI Destination Insights - GET /api/ai/destination/:destination
+  app.get("/api/ai/destination/:destination", requireUser, async (req, res) => {
+    try {
+      const { destination } = req.params;
+      
+      if (!destination) {
+        return res.status(400).json(createResponse(false, null, "Destination parameter is required"));
+      }
+
+      const { geminiService } = await import("./services/geminiService.js");
+      
+      const insights = await geminiService.generateDestinationInsights(decodeURIComponent(destination));
+
+      res.json(createResponse(true, {
+        destination,
+        ...insights,
+        aiPowered: true,
+        generatedAt: new Date().toISOString()
+      }, "AI destination insights generated successfully"));
+    } catch (error) {
+      console.error("AI destination insights error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to generate destination insights: " + (error instanceof Error ? error.message : 'Unknown error')));
+    }
+  });
+
+  // AI Chat Interface - POST /api/ai/chat
+  app.post("/api/ai/chat", requireUser, async (req, res) => {
+    try {
+      const { message, conversationHistory } = req.body;
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json(createResponse(false, null, "Message is required"));
+      }
+
+      // Build context from conversation history
+      let contextualQuery = message;
+      if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+        const recentContext = conversationHistory
+          .slice(-3) // Last 3 messages for context
+          .map((msg: any) => `${msg.role}: ${msg.content}`)
+          .join('\n');
+        contextualQuery = `Previous conversation:\n${recentContext}\n\nCurrent question: ${message}`;
+      }
+
+      const { geminiService } = await import("./services/geminiService.js");
+      
+      const response = await geminiService.provideTravelAssistance(contextualQuery, {
+        location: req.body.userLocation,
+        budget: req.body.userBudget,
+        travelDates: req.body.userTravelDates,
+        groupSize: req.body.userGroupSize
+      });
+
+      res.json(createResponse(true, {
+        message: response.response,
+        category: response.category,
+        confidence: response.confidence,
+        suggestions: response.relatedSuggestions,
+        aiPowered: true,
+        timestamp: new Date().toISOString()
+      }, "AI chat response generated successfully"));
+    } catch (error) {
+      console.error("AI chat error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to generate AI chat response: " + (error instanceof Error ? error.message : 'Unknown error')));
+    }
   });
   
   // Simple booking endpoint as requested - POST /api/bookings/new
@@ -1290,7 +1329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ) RETURNING *
       `;
       
-      const bookingResult = await db.execute(sql.raw(bookingInsertQuery, [
+      const bookingValues = [
         bookingId,
         req.user!.id,
         tripId || null,
@@ -1306,7 +1345,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         checkOut ? new Date(checkOut) : null,
         guests || 1,
         'confirmed'
-      ]));
+      ];
+      
+      const bookingResult = await db.execute(sql.raw(bookingInsertQuery, bookingValues));
       
       const booking = bookingResult.rows[0];
       
