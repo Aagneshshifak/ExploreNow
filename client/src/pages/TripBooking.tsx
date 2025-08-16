@@ -17,7 +17,10 @@ import {
   Plane,
   Train,
   Bus,
-  CheckCircle
+  CheckCircle,
+  CreditCard,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +46,20 @@ const bookingSchema = z.object({
   guests: z.number().min(1, 'At least 1 guest is required').max(10, 'Maximum 10 guests allowed'),
 });
 
+const paymentSchema = z.object({
+  cardHolderName: z.string().min(2, 'Cardholder name is required'),
+  cardNumber: z.string().min(16, 'Card number must be 16 digits').max(19, 'Invalid card number'),
+  expiryMonth: z.string().min(2, 'Expiry month is required'),
+  expiryYear: z.string().min(4, 'Expiry year is required'),
+  cvv: z.string().min(3, 'CVV must be 3-4 digits').max(4, 'CVV must be 3-4 digits'),
+  billingAddress: z.string().min(5, 'Billing address is required'),
+  city: z.string().min(2, 'City is required'),
+  zipCode: z.string().min(5, 'ZIP code is required'),
+  country: z.string().min(2, 'Country is required'),
+});
+
 type BookingForm = z.infer<typeof bookingSchema>;
+type PaymentForm = z.infer<typeof paymentSchema>;
 
 interface Trip {
   id: number;
@@ -75,11 +91,12 @@ export default function TripBooking() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<'form' | 'confirmation'>('form');
+  const [step, setStep] = useState<'booking' | 'payment' | 'confirmation'>('booking');
   const [selectedHotel, setSelectedHotel] = useState<number | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
+  const [paymentId, setPaymentId] = useState<number | null>(null);
 
-  const form = useForm<BookingForm>({
+  const bookingForm = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       tripId: tripId ? parseInt(tripId) : undefined,
@@ -90,6 +107,21 @@ export default function TripBooking() {
       customerPhone: '',
       checkIn: '',
       checkOut: '',
+    },
+  });
+
+  const paymentForm = useForm<PaymentForm>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      cardHolderName: '',
+      cardNumber: '',
+      expiryMonth: '',
+      expiryYear: '',
+      cvv: '',
+      billingAddress: '',
+      city: '',
+      zipCode: '',
+      country: '',
     },
   });
 
@@ -124,12 +156,12 @@ export default function TripBooking() {
   const calculateTotalCost = () => {
     const tripCost = trip?.price ? parseFloat(trip.price) : 0;
     const hotelCost = selectedHotel ? 
-      (hotels?.find(h => h.id === selectedHotel)?.price || 0) * form.watch('guests') : 0;
+      (hotels?.find(h => h.id === selectedHotel)?.price || 0) * bookingForm.watch('guests') : 0;
     const transportCost = {
       bus: 50,
       train: 100,
       flight: 300
-    }[form.watch('transportType')] || 0;
+    }[bookingForm.watch('transportType')] || 0;
 
     return tripCost + hotelCost + transportCost;
   };
@@ -155,11 +187,11 @@ export default function TripBooking() {
     },
     onSuccess: (data) => {
       setBookingId(data.data.id);
-      setStep('confirmation');
+      setStep('payment');
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
       toast({
-        title: "Booking Confirmed!",
-        description: "Your booking has been successfully created.",
+        title: "Booking Created!",
+        description: "Please proceed to payment to complete your booking.",
       });
     },
     onError: (error) => {
@@ -171,13 +203,57 @@ export default function TripBooking() {
     },
   });
 
-  const onSubmit = (data: BookingForm) => {
+  // Process payment mutation
+  const processPaymentMutation = useMutation({
+    mutationFn: async (data: PaymentForm) => {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...data,
+          bookingId,
+          amount: calculateTotalCost(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Payment failed');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setPaymentId(data.data.payment.id);
+      setStep('confirmation');
+      toast({
+        title: "Payment Successful!",
+        description: "Your booking has been confirmed and payment processed.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Payment Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onBookingSubmit = (data: BookingForm) => {
     const totalCost = calculateTotalCost();
     createBookingMutation.mutate({
       ...data,
       hotelId: selectedHotel || undefined,
       cost: totalCost,
     });
+  };
+
+  const onPaymentSubmit = (data: PaymentForm) => {
+    processPaymentMutation.mutate(data);
   };
 
   if (tripLoading || hotelsLoading) {
@@ -243,20 +319,26 @@ export default function TripBooking() {
                 </div>
                 <div className="flex justify-between">
                   <span>Transport:</span>
-                  <span className="capitalize">{form.getValues('transportType')}</span>
+                  <span className="capitalize">{bookingForm.getValues('transportType')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Guests:</span>
-                  <span>{form.getValues('guests')}</span>
+                  <span>{bookingForm.getValues('guests')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Check-in:</span>
-                  <span>{new Date(form.getValues('checkIn')).toLocaleDateString()}</span>
+                  <span>{new Date(bookingForm.getValues('checkIn')).toLocaleDateString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Check-out:</span>
-                  <span>{new Date(form.getValues('checkOut')).toLocaleDateString()}</span>
+                  <span>{new Date(bookingForm.getValues('checkOut')).toLocaleDateString()}</span>
                 </div>
+                {paymentId && (
+                  <div className="flex justify-between">
+                    <span>Payment ID:</span>
+                    <span className="font-mono text-sm">#{paymentId}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold border-t pt-2">
                   <span>Total Cost:</span>
                   <PriceDisplay price={calculateTotalCost()} originalCurrency="USD" />
@@ -277,6 +359,46 @@ export default function TripBooking() {
     );
   }
 
+  // Step indicator component
+  const StepIndicator = () => {
+    const getStepStatus = (currentStep: string, targetStep: string) => {
+      const steps = ['booking', 'payment', 'confirmation'];
+      const currentIndex = steps.indexOf(currentStep);
+      const targetIndex = steps.indexOf(targetStep);
+      
+      if (currentIndex > targetIndex) return 'completed';
+      if (currentIndex === targetIndex) return 'active';
+      return 'pending';
+    };
+
+    return (
+      <div className="flex items-center justify-center mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`flex items-center space-x-2 ${getStepStatus(step, 'booking') === 'completed' || getStepStatus(step, 'booking') === 'active' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStepStatus(step, 'booking') === 'active' ? 'bg-primary border-primary text-white' : getStepStatus(step, 'booking') === 'completed' ? 'bg-primary border-primary text-white' : 'border-muted-foreground'}`}>
+              {getStepStatus(step, 'booking') === 'completed' ? <CheckCircle className="h-4 w-4" /> : '1'}
+            </div>
+            <span className="hidden sm:block">Booking Details</span>
+          </div>
+          <div className="w-8 h-0.5 bg-muted-foreground"></div>
+          <div className={`flex items-center space-x-2 ${getStepStatus(step, 'payment') === 'completed' || getStepStatus(step, 'payment') === 'active' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStepStatus(step, 'payment') === 'active' ? 'bg-primary border-primary text-white' : getStepStatus(step, 'payment') === 'completed' ? 'bg-primary border-primary text-white' : 'border-muted-foreground'}`}>
+              {getStepStatus(step, 'payment') === 'completed' ? <CheckCircle className="h-4 w-4" /> : '2'}
+            </div>
+            <span className="hidden sm:block">Payment</span>
+          </div>
+          <div className="w-8 h-0.5 bg-muted-foreground"></div>
+          <div className={`flex items-center space-x-2 ${getStepStatus(step, 'confirmation') === 'active' ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStepStatus(step, 'confirmation') === 'active' ? 'bg-primary border-primary text-white' : 'border-muted-foreground'}`}>
+              {getStepStatus(step, 'confirmation') === 'active' ? <CheckCircle className="h-4 w-4" /> : '3'}
+            </div>
+            <span className="hidden sm:block">Confirmation</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background py-16">
       <SEOHead 
@@ -293,11 +415,15 @@ export default function TripBooking() {
           Back to Trips
         </Button>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid md:grid-cols-2 gap-8"
-        >
+        <StepIndicator />
+
+        {/* Booking Details Step */}
+        {step === 'booking' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid md:grid-cols-2 gap-8"
+          >
           {/* Trip Summary */}
           <div>
             <Card className="mb-6">
@@ -375,8 +501,8 @@ export default function TripBooking() {
                 <CardTitle>Booking Details</CardTitle>
               </CardHeader>
               <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Form {...bookingForm}>
+                  <form onSubmit={bookingForm.handleSubmit(onBookingSubmit)} className="space-y-6">
                     {/* Customer Details */}
                     <div className="space-y-4">
                       <h3 className="font-medium flex items-center gap-2">
@@ -385,7 +511,7 @@ export default function TripBooking() {
                       </h3>
                       
                       <FormField
-                        control={form.control}
+                        control={bookingForm.control}
                         name="customerName"
                         render={({ field }) => (
                           <FormItem>
@@ -399,7 +525,7 @@ export default function TripBooking() {
                       />
 
                       <FormField
-                        control={form.control}
+                        control={bookingForm.control}
                         name="customerEmail"
                         render={({ field }) => (
                           <FormItem>
@@ -413,7 +539,7 @@ export default function TripBooking() {
                       />
 
                       <FormField
-                        control={form.control}
+                        control={bookingForm.control}
                         name="customerPhone"
                         render={({ field }) => (
                           <FormItem>
@@ -432,7 +558,7 @@ export default function TripBooking() {
                       <h3 className="font-medium">Travel Details</h3>
 
                       <FormField
-                        control={form.control}
+                        control={bookingForm.control}
                         name="transportType"
                         render={({ field }) => (
                           <FormItem>
@@ -473,7 +599,7 @@ export default function TripBooking() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
-                          control={form.control}
+                          control={bookingForm.control}
                           name="checkIn"
                           render={({ field }) => (
                             <FormItem>
@@ -487,7 +613,7 @@ export default function TripBooking() {
                         />
 
                         <FormField
-                          control={form.control}
+                          control={bookingForm.control}
                           name="checkOut"
                           render={({ field }) => (
                             <FormItem>
@@ -502,7 +628,7 @@ export default function TripBooking() {
                       </div>
 
                       <FormField
-                        control={form.control}
+                        control={bookingForm.control}
                         name="guests"
                         render={({ field }) => (
                           <FormItem>
@@ -562,6 +688,238 @@ export default function TripBooking() {
             </Card>
           </div>
         </motion.div>
+        )}
+
+        {/* Payment Step */}
+        {step === 'payment' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-2xl mx-auto"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Payment Information
+                </CardTitle>
+                <p className="text-muted-foreground">Your payment is secure and encrypted</p>
+              </CardHeader>
+              <CardContent>
+                <Form {...paymentForm}>
+                  <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-6">
+                    {/* Payment Summary */}
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h3 className="font-medium mb-2">Payment Summary</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Trip Cost:</span>
+                          <PriceDisplay price={trip ? parseFloat(trip.price) : 0} originalCurrency="USD" />
+                        </div>
+                        {selectedHotel && (
+                          <div className="flex justify-between">
+                            <span>Hotel Cost:</span>
+                            <PriceDisplay price={(hotels?.find(h => h.id === selectedHotel)?.price || 0) * bookingForm.watch('guests')} originalCurrency="USD" />
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>Transport:</span>
+                          <span>${{
+                            bus: 50,
+                            train: 100,
+                            flight: 300
+                          }[bookingForm.watch('transportType')]}</span>
+                        </div>
+                        <div className="border-t pt-2 flex justify-between font-semibold">
+                          <span>Total:</span>
+                          <PriceDisplay price={calculateTotalCost()} originalCurrency="USD" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Information */}
+                    <div className="space-y-4">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Card Information
+                      </h3>
+                      
+                      <FormField
+                        control={paymentForm.control}
+                        name="cardHolderName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cardholder Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={paymentForm.control}
+                        name="cardNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Card Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="1234 5678 9012 3456" maxLength={19} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <FormField
+                          control={paymentForm.control}
+                          name="expiryMonth"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Month</FormLabel>
+                              <FormControl>
+                                <Input placeholder="MM" maxLength={2} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={paymentForm.control}
+                          name="expiryYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Year</FormLabel>
+                              <FormControl>
+                                <Input placeholder="YYYY" maxLength={4} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={paymentForm.control}
+                          name="cvv"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>CVV</FormLabel>
+                              <FormControl>
+                                <Input placeholder="123" maxLength={4} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Billing Address */}
+                    <div className="space-y-4">
+                      <h3 className="font-medium">Billing Address</h3>
+                      
+                      <FormField
+                        control={paymentForm.control}
+                        name="billingAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address</FormLabel>
+                            <FormControl>
+                              <Input placeholder="123 Main Street" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={paymentForm.control}
+                          name="city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City</FormLabel>
+                              <FormControl>
+                                <Input placeholder="New York" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={paymentForm.control}
+                          name="zipCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="10001" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <FormField
+                        control={paymentForm.control}
+                        name="country"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Country</FormLabel>
+                            <FormControl>
+                              <Input placeholder="United States" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setStep('booking')}
+                        className="flex-1"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Booking
+                      </Button>
+                      
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={processPaymentMutation.isPending}
+                      >
+                        {processPaymentMutation.isPending ? (
+                          <>
+                            <LoadingSpinner className="mr-2 h-4 w-4" />
+                            Processing Payment...
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="h-4 w-4 mr-2" />
+                            Pay ${calculateTotalCost()}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center">
+                      This is a demo payment form. No real payment will be processed.
+                    </p>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
     </div>
   );

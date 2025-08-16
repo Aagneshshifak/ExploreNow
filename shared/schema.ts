@@ -60,13 +60,31 @@ export const bookings = pgTable("bookings", {
   guests: integer("guests").default(1),
 });
 
+// Payments table for storing mock payment information
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
+  paymentMethod: text("payment_method").notNull(), // "credit_card", "debit_card", "paypal"
+  cardHolderName: text("card_holder_name").notNull(),
+  cardLastFour: text("card_last_four").notNull(), // Last 4 digits of card
+  cardType: text("card_type").notNull(), // "visa", "mastercard", "amex"
+  expiryMonth: text("expiry_month").notNull(),
+  expiryYear: text("expiry_year").notNull(),
+  status: text("status").notNull().default("completed"), // "pending", "completed", "failed"
+  transactionId: text("transaction_id").notNull(), // Mock transaction ID
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Reviews table
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   tripId: integer("trip_id").references(() => trips.id),
   hotelId: integer("hotel_id").references(() => hotels.id),
-  bookingId: text("booking_id").references(() => bookings.id),
+  bookingId: integer("booking_id").references(() => bookings.id),
   type: text("type").notNull(), // "trip" or "hotel"
   rating: integer("rating").notNull(), // 1-5 stars
   title: text("title").notNull(),
@@ -129,6 +147,11 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   createdAt: true,
 });
 
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
@@ -185,6 +208,19 @@ export const bookingFormSchema = insertBookingSchema.extend({
   specialRequests: z.string().optional(),
 });
 
+// Payment form schema
+export const paymentFormSchema = z.object({
+  cardHolderName: z.string().min(2, "Cardholder name is required"),
+  cardNumber: z.string().min(16, "Card number must be 16 digits").max(19, "Invalid card number"),
+  expiryMonth: z.string().min(2, "Expiry month is required"),
+  expiryYear: z.string().min(4, "Expiry year is required"),
+  cvv: z.string().min(3, "CVV must be 3-4 digits").max(4, "CVV must be 3-4 digits"),
+  billingAddress: z.string().min(5, "Billing address is required"),
+  city: z.string().min(2, "City is required"),
+  zipCode: z.string().min(5, "ZIP code is required"),
+  country: z.string().min(2, "Country is required"),
+});
+
 // Trip filtering schemas
 export const tripFilterSchema = z.object({
   country: z.string().optional(),
@@ -218,6 +254,8 @@ export type InsertHotel = z.infer<typeof insertHotelSchema>;
 export type Hotel = typeof hotels.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Payment = typeof payments.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
@@ -230,6 +268,7 @@ export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type CurrencyConversionRequest = z.infer<typeof currencyConversionSchema>;
 export type BookingFormData = z.infer<typeof bookingFormSchema>;
+export type PaymentFormData = z.infer<typeof paymentFormSchema>;
 export type TripFilterData = z.infer<typeof tripFilterSchema>;
 export type BudgetFilterData = z.infer<typeof budgetFilterSchema>;
 export type AIRecommendationData = z.infer<typeof aiRecommendationSchema>;

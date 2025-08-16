@@ -13,6 +13,8 @@ import {
   insertTripSchema, 
   insertHotelSchema, 
   insertBookingSchema,
+  insertPaymentSchema,
+  paymentFormSchema,
   currencyConversionSchema,
   tripFilterSchema,
   budgetFilterSchema,
@@ -22,7 +24,8 @@ import {
   type RegisterRequest,
   type TripFilterData,
   type BudgetFilterData,
-  type AIRecommendationData
+  type AIRecommendationData,
+  type PaymentFormData
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1297,6 +1300,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create booking error:", error);
       res.status(500).json(createResponse(false, null, "Failed to create booking"));
+    }
+  });
+
+  // ============================================
+  // PAYMENT ROUTES
+  // ============================================
+
+  // Process payment for booking - POST /api/payments
+  app.post("/api/payments", requireUser, async (req, res) => {
+    try {
+      const validation = paymentFormSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json(
+          createResponse(false, validation.error.errors, "Invalid payment data")
+        );
+      }
+
+      const { 
+        cardHolderName, 
+        cardNumber, 
+        expiryMonth, 
+        expiryYear, 
+        cvv, 
+        billingAddress, 
+        city, 
+        zipCode, 
+        country 
+      } = validation.data;
+      
+      const { bookingId, amount } = req.body;
+
+      if (!bookingId || !amount) {
+        return res.status(400).json(
+          createResponse(false, null, "Booking ID and amount are required")
+        );
+      }
+
+      // Verify booking exists and belongs to user
+      const booking = await storage.getBooking(bookingId.toString());
+      if (!booking || booking.userId !== req.user!.id) {
+        return res.status(404).json(
+          createResponse(false, null, "Booking not found or unauthorized")
+        );
+      }
+
+      // Mock payment processing
+      const cardType = cardNumber.startsWith('4') ? 'visa' : 
+                      cardNumber.startsWith('5') ? 'mastercard' : 
+                      cardNumber.startsWith('3') ? 'amex' : 'other';
+      
+      const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const cardLastFour = cardNumber.slice(-4);
+
+      // Create payment record
+      const payment = await storage.createPayment({
+        bookingId: parseInt(bookingId),
+        userId: req.user!.id,
+        amount: amount.toString(),
+        currency: 'USD',
+        paymentMethod: 'credit_card',
+        cardHolderName,
+        cardLastFour,
+        cardType,
+        expiryMonth,
+        expiryYear,
+        status: 'completed',
+        transactionId
+      });
+
+      res.status(201).json(
+        createResponse(true, {
+          payment: {
+            id: payment.id,
+            transactionId: payment.transactionId,
+            amount: payment.amount,
+            status: payment.status,
+            cardLastFour: payment.cardLastFour,
+            cardType: payment.cardType
+          }
+        }, "Payment processed successfully")
+      );
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      res.status(500).json(createResponse(false, null, "Payment processing failed"));
+    }
+  });
+
+  // Get payment details - GET /api/payments/:id
+  app.get("/api/payments/:id", requireUser, async (req, res) => {
+    try {
+      const paymentId = parseInt(req.params.id);
+      if (isNaN(paymentId)) {
+        return res.status(400).json(createResponse(false, null, "Invalid payment ID"));
+      }
+
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        return res.status(404).json(createResponse(false, null, "Payment not found"));
+      }
+
+      // Check if payment belongs to user
+      if (payment.userId !== req.user!.id) {
+        return res.status(403).json(createResponse(false, null, "Unauthorized"));
+      }
+
+      res.json(createResponse(true, payment, "Payment retrieved successfully"));
+    } catch (error) {
+      console.error("Get payment error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve payment"));
+    }
+  });
+
+  // Get user's payment history - GET /api/payments/user/history
+  app.get("/api/payments/user/history", requireUser, async (req, res) => {
+    try {
+      const payments = await storage.getUserPayments(req.user!.id);
+      res.json(createResponse(true, payments, "Payment history retrieved successfully"));
+    } catch (error) {
+      console.error("Get payment history error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve payment history"));
     }
   });
   

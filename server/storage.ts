@@ -1,12 +1,13 @@
 import { eq, desc, and, lte, gte, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { 
-  users, trips, hotels, bookings, reviews, userPreferences, translations, tripSuggestions,
+  users, trips, hotels, bookings, reviews, userPreferences, translations, tripSuggestions, payments,
   type User, type InsertUser,
   type Trip, type InsertTrip,
   type Hotel, type InsertHotel,
   type Booking, type InsertBooking,
   type Review, type InsertReview,
+  type Payment, type InsertPayment,
   type UserPreferences, type InsertUserPreferences,
   type Translation, type InsertTranslation,
   type TripSuggestion, type InsertTripSuggestion,
@@ -70,6 +71,12 @@ export interface IStorage {
   // Translation methods
   getTranslations(language: string, category?: string): Promise<Translation[]>;
   createTranslation(translation: InsertTranslation): Promise<Translation>;
+  
+  // Payment methods
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPayment(id: number): Promise<Payment | undefined>;
+  getPaymentByBookingId(bookingId: number): Promise<Payment | undefined>;
+  getUserPayments(userId: number): Promise<Payment[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -435,6 +442,26 @@ export class DatabaseStorage implements IStorage {
   async createTranslation(translation: InsertTranslation): Promise<Translation> {
     const result = await db.insert(translations).values(translation).returning();
     return result[0];
+  }
+
+  // Payment methods
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+
+  async getPayment(id: number): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment;
+  }
+
+  async getPaymentByBookingId(bookingId: number): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.bookingId, bookingId));
+    return payment;
+  }
+
+  async getUserPayments(userId: number): Promise<Payment[]> {
+    return db.select().from(payments).where(eq(payments.userId, userId)).orderBy(desc(payments.createdAt));
   }
 }
 
