@@ -87,7 +87,7 @@ interface Hotel {
 }
 
 export default function TripBooking() {
-  const { tripId } = useParams<{ tripId: string }>();
+  const { id: tripId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
