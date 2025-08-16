@@ -141,15 +141,17 @@ export default function TripBooking() {
 
   // Fetch available hotels
   const { data: hotels, isLoading: hotelsLoading } = useQuery({
-    queryKey: ['/api/hotels'],
+    queryKey: ['/api/hotels/location', trip?.location],
     queryFn: async () => {
-      const response = await fetch('/api/hotels', {
+      if (!trip?.location) return [];
+      const response = await fetch(`/api/hotels/location/${encodeURIComponent(trip.location)}`, {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to fetch hotels');
+      if (!response.ok) throw new Error('Failed to fetch hotels for this location');
       const result = await response.json();
       return result.data as Hotel[];
     },
+    enabled: !!trip?.location,
   });
 
   // Calculate total cost

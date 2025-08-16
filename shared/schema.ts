@@ -43,27 +43,36 @@ export const hotels = pgTable("hotels", {
 
 // Bookings table  
 export const bookings = pgTable("bookings", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey(), // Keep as text to avoid data loss
   userId: integer("userId").notNull().references(() => users.id),
   tripId: integer("tripId").references(() => trips.id),
   hotelId: integer("hotelId").references(() => hotels.id),
-  transportType: text("transportType").notNull(), // "bus", "train", "flight"
-  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
+  type: text("type"), // "trip" or "hotel" - optional to avoid breaking changes
+  transportType: text("transportType"), // Make optional to avoid breaking changes
+  cost: decimal("cost", { precision: 10, scale: 2 }), // Make optional
+  amount: decimal("amount", { precision: 10, scale: 2 }), // For compatibility
+  currency: text("currency").default("USD"),
   status: text("status").notNull().default("confirmed"),
   createdAt: timestamp("createdAt").defaultNow(),
-  // Additional fields for enhanced functionality
+  // Customer details
   customerName: text("customerName"),
   customerEmail: text("customerEmail"),
   customerPhone: text("customerPhone"),
   checkIn: timestamp("checkIn"),
   checkOut: timestamp("checkOut"),
   guests: integer("guests").default(1),
+  // Additional booking details
+  specialRequests: text("specialRequests"),
+  emergencyContact: text("emergencyContact"),
+  emergencyPhone: text("emergencyPhone"),
+  transportMode: text("transportMode"),
+  transportDetails: text("transportDetails"),
 });
 
 // Payments table for storing mock payment information
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  bookingId: text("booking_id").notNull().references(() => bookings.id),
   userId: integer("user_id").notNull().references(() => users.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("USD"),

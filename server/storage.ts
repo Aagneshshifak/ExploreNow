@@ -1,4 +1,4 @@
-import { eq, desc, and, lte, gte, inArray } from "drizzle-orm";
+import { eq, desc, and, lte, gte, inArray, ilike, asc } from "drizzle-orm";
 import { db } from "./db";
 import { 
   users, trips, hotels, bookings, reviews, userPreferences, translations, tripSuggestions, payments,
@@ -144,6 +144,12 @@ export class DatabaseStorage implements IStorage {
   async deleteHotel(id: number): Promise<boolean> {
     const result = await db.delete(hotels).where(eq(hotels.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getHotelsByLocation(location: string): Promise<Hotel[]> {
+    return await db.select().from(hotels)
+      .where(ilike(hotels.location, `%${location}%`))
+      .orderBy(desc(hotels.rating), asc(hotels.price));
   }
 
 

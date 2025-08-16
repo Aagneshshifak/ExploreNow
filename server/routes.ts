@@ -1280,13 +1280,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Create booking with new simplified schema
+      // Generate a unique booking ID
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Determine booking type
+      const bookingType = tripId ? 'trip' : 'hotel';
+      
+      // Create booking with proper schema
       const [booking] = await db.insert(bookings).values({
+        id: bookingId,
         userId: req.user!.id,
         tripId: tripId || null,
         hotelId: hotelId || null,
-        transportType,
+        type: bookingType,
+        transportType: transportType || 'flight',
         cost: cost.toString(),
+        amount: cost.toString(),
+        currency: 'USD',
         customerName,
         customerEmail,
         customerPhone,
@@ -1300,6 +1310,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Create booking error:", error);
       res.status(500).json(createResponse(false, null, "Failed to create booking"));
+    }
+  });
+
+  // Get hotels by location - GET /api/hotels/location/:location
+  app.get("/api/hotels/location/:location", async (req, res) => {
+    try {
+      const location = req.params.location;
+      if (!location) {
+        return res.status(400).json(createResponse(false, null, "Location parameter is required"));
+      }
+      
+      const hotels = await storage.getHotelsByLocation(location);
+      res.json(createResponse(true, hotels, "Hotels retrieved successfully"));
+    } catch (error) {
+      console.error("Get hotels by location error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve hotels"));
     }
   });
 
@@ -1355,7 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create payment record
       const payment = await storage.createPayment({
-        bookingId: parseInt(bookingId),
+        bookingId: bookingId,
         userId: req.user!.id,
         amount: amount.toString(),
         currency: 'USD',
