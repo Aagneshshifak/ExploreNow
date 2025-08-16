@@ -198,8 +198,9 @@ export default function TripBooking() {
       });
     },
     onError: (error) => {
+      console.error('Booking error:', error);
       toast({
-        title: "Booking Failed",
+        title: "Booking Failed ❌",
         description: error.message,
         variant: "destructive",
       });

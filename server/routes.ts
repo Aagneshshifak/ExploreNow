@@ -603,11 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guests
       } = req.body;
       
-      // Validation
-      if (!transportType || !['bus', 'train', 'flight'].includes(transportType)) {
-        return res.status(400).json(createResponse(false, null, "Valid transport type is required (bus, train, flight)"));
-      }
-      
+      // Validation - transportType is optional, cost is required
       if (!cost || isNaN(parseFloat(cost))) {
         return res.status(400).json(createResponse(false, null, "Valid cost is required"));
       }
@@ -1248,11 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guests
       } = req.body;
       
-      // Validation
-      if (!transportType || !['bus', 'train', 'flight'].includes(transportType)) {
-        return res.status(400).json(createResponse(false, null, "Valid transport type is required (bus, train, flight)"));
-      }
-      
+      // Validation - transportType is optional, cost is required
       if (!cost || isNaN(parseFloat(cost))) {
         return res.status(400).json(createResponse(false, null, "Valid cost is required"));
       }
@@ -1370,13 +1362,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Mock payment processing
+      console.log('Processing payment for booking:', bookingId, 'amount:', amount);
+      
+      // Mock payment processing - simulate card validation
       const cardType = cardNumber.startsWith('4') ? 'visa' : 
                       cardNumber.startsWith('5') ? 'mastercard' : 
                       cardNumber.startsWith('3') ? 'amex' : 'other';
       
       const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const cardLastFour = cardNumber.slice(-4);
+      
+      console.log('Payment processing details:', { cardType, transactionId, cardLastFour });
 
       // Create payment record
       const payment = await storage.createPayment({
