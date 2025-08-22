@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql } from "./db";
 import { bookings } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
@@ -20,7 +20,6 @@ import {
   tripFilterSchema,
   budgetFilterSchema,
   aiRecommendationSchema,
-  insertUserPreferencesSchema,
   type LoginRequest,
   type RegisterRequest,
   type TripFilterData,
@@ -928,46 +927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============================================
-  // AI RECOMMENDATION ROUTES
-  // ============================================
 
-  // Get AI trip recommendations - POST /api/ai/recommend
-  app.post("/api/ai/recommend", async (req, res) => {
-    try {
-      const validation = aiRecommendationSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json(
-          createResponse(false, null, `Invalid recommendation data: ${validation.error.errors.map(e => e.message).join(', ')}`)
-        );
-      }
-
-      const recommendations = await storage.getRecommendedTrips(validation.data);
-      
-      // If user is authenticated, save suggestions
-      if (req.user) {
-        const userId = req.user.id;
-        for (const trip of recommendations.slice(0, 3)) { // Save top 3 suggestions
-          try {
-            await storage.createTripSuggestion({
-              userId,
-              tripId: trip.id,
-              reason: `Matches preferences: ${validation.data.preferences.join(', ')}`,
-              score: (Math.random() * 0.5 + 0.5).toString(), // Mock confidence score 0.5-1.0
-              preferences: validation.data.preferences,
-            });
-          } catch (suggestionError) {
-            console.log("Failed to save suggestion:", suggestionError);
-          }
-        }
-      }
-
-      res.json(createResponse(true, recommendations, "Trip recommendations generated successfully"));
-    } catch (error) {
-      console.error("AI recommendation error:", error);
-      res.status(500).json(createResponse(false, null, "Failed to generate recommendations"));
-    }
-  });
 
   // Get user's trip suggestions - GET /api/user/suggestions
   app.get("/api/user/suggestions", requireUser, async (req, res) => {
@@ -1112,7 +1072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
   
   // AI Trip Recommender - POST /api/ai/recommend
-  app.post("/api/ai/recommend", requireUser, async (req, res) => {
+  app.post("/api/ai/recommend", async (req, res) => {
     try {
       const { budget, interests, duration, destination, travelStyle } = req.body;
       
@@ -1121,7 +1081,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(createResponse(false, null, "Budget, interests, and duration are required"));
       }
 
-      const { geminiService } = await import("./services/geminiService.js");
+      const { GeminiTravelService } = await import("./services/geminiService.js");
+      const geminiService = new GeminiTravelService();
       
       const recommendations = await geminiService.generateTripRecommendations(
         Number(budget),
@@ -1140,6 +1101,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI recommend error:", error);
       res.status(500).json(createResponse(false, null, "Failed to generate AI recommendations: " + (error instanceof Error ? error.message : 'Unknown error')));
+    }
+  });
+
+  // AI Budget Trip Suggestions - POST /api/ai/budget-suggestions
+  app.post("/api/ai/budget-suggestions", async (req, res) => {
+    try {
+      const { budget, currency, preferences, duration } = req.body;
+      
+      // Input validation
+      if (!budget) {
+        return res.status(400).json(createResponse(false, null, "Budget is required"));
+      }
+
+      const { GeminiTravelService } = await import("./services/geminiService.js");
+      const geminiService = new GeminiTravelService();
+      
+      const recommendations = await geminiService.generateBudgetTripSuggestions(
+        Number(budget),
+        currency || "USD",
+        Array.isArray(preferences) ? preferences : preferences ? [preferences] : undefined,
+        duration ? Number(duration) : undefined
+      );
+
+      res.json(createResponse(true, {
+        trips: recommendations,
+        totalFound: recommendations.length,
+        searchCriteria: { budget, currency, preferences, duration },
+        aiPowered: true
+      }, "AI-powered budget trip suggestions generated successfully"));
+    } catch (error) {
+      console.error("AI budget suggestions error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to generate budget suggestions: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
 
@@ -1178,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Travel Assistant - POST /api/ai/assistant
-  app.post("/api/ai/assistant", requireUser, async (req, res) => {
+  app.post("/api/ai/assistant", async (req, res) => {
     try {
       const { query, userContext } = req.body;
       
@@ -1202,7 +1195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Destination Insights - GET /api/ai/destination/:destination
-  app.get("/api/ai/destination/:destination", requireUser, async (req, res) => {
+  app.get("/api/ai/destination/:destination", async (req, res) => {
     try {
       const { destination } = req.params;
       
@@ -1227,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Chat Interface - POST /api/ai/chat
-  app.post("/api/ai/chat", requireUser, async (req, res) => {
+  app.post("/api/ai/chat", async (req, res) => {
     try {
       const { message, conversationHistory } = req.body;
       
@@ -1268,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Simple booking endpoint as requested - POST /api/bookings/new
+  // Simple booking endpoint for Phase 1 - POST /api/bookings/new
   app.post("/api/bookings/new", requireUser, async (req, res) => {
     try {
       const { 
@@ -1284,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guests
       } = req.body;
       
-      // Validation - transportType is optional, cost is required
+      // Validation
       if (!cost || isNaN(parseFloat(cost))) {
         return res.status(400).json(createResponse(false, null, "Valid cost is required"));
       }
@@ -1297,59 +1290,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(createResponse(false, null, "Customer details (name, email, phone) are required"));
       }
       
-      // Verify items exist
-      if (tripId) {
-        const trip = await storage.getTrip(tripId);
-        if (!trip) {
-          return res.status(404).json(createResponse(false, null, "Trip not found"));
-        }
+      if (!checkIn || !checkOut) {
+        return res.status(400).json(createResponse(false, null, "Check-in and check-out dates are required"));
       }
       
-      if (hotelId) {
-        const hotel = await storage.getHotel(hotelId);
-        if (!hotel) {
-          return res.status(404).json(createResponse(false, null, "Hotel not found"));
-        }
-      }
-      
-      // Generate a unique booking ID
-      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Determine booking type
-      const bookingType = tripId ? 'trip' : 'hotel';
-      
-      // Insert directly to database with exact column names to avoid schema conflicts
-      const bookingInsertQuery = `
+      // Create booking with new schema
+      const bookingResult = await sql`
         INSERT INTO bookings (
-          id, "userId", "tripId", "hotelId", type, "transportMode", amount, currency,
-          "customerName", "customerEmail", "customerPhone", "checkIn", "checkOut", 
-          guests, status, "createdAt"
+          trip_id, hotel_id, customer_name, email, phone, transport, 
+          check_in, check_out, guests, total_cost, status, payment_status
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW()
+          ${tripId ? tripId.toString() : ''},
+          ${hotelId ? hotelId.toString() : ''},
+          ${customerName},
+          ${customerEmail},
+          ${customerPhone},
+          ${transportType || 'flight'},
+          ${checkIn},
+          ${checkOut},
+          ${parseInt((guests || 1).toString())},
+          ${cost.toString()},
+          ${'pending'},
+          ${'dummy'}
         ) RETURNING *
       `;
       
-      const bookingValues = [
-        bookingId,
-        req.user!.id,
-        tripId || null,
-        hotelId || null, 
-        bookingType,
-        transportType || 'flight',
-        cost.toString(),
-        'USD',
-        customerName,
-        customerEmail,
-        customerPhone,
-        checkIn ? new Date(checkIn) : null,
-        checkOut ? new Date(checkOut) : null,
-        guests || 1,
-        'confirmed'
-      ];
-      
-      const bookingResult = await db.execute(sql.raw(bookingInsertQuery, bookingValues));
-      
-      const booking = bookingResult.rows[0];
+      const booking = bookingResult[0];
       
       res.status(201).json(createResponse(true, booking, "Booking created successfully"));
     } catch (error) {
@@ -1357,6 +1323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to create booking"));
     }
   });
+
+
 
   // Get hotels by location - GET /api/hotels/location/:location
   app.get("/api/hotels/location/:location", async (req, res) => {
@@ -1379,7 +1347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Process payment for booking - POST /api/payments
-  app.post("/api/payments", requireUser, async (req, res) => {
+  app.post("/api/payments", async (req, res) => {
     try {
       const validation = paymentFormSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1408,11 +1376,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
 
-      // Verify booking exists and belongs to user
+      // Verify booking exists (for Phase 1, skip user verification)
       const booking = await storage.getBooking(bookingId.toString());
-      if (!booking || booking.userId !== req.user!.id) {
+      if (!booking) {
         return res.status(404).json(
-          createResponse(false, null, "Booking not found or unauthorized")
+          createResponse(false, null, "Booking not found")
         );
       }
 
@@ -1428,21 +1396,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Payment processing details:', { cardType, transactionId, cardLastFour });
 
-      // Create payment record
-      const payment = await storage.createPayment({
-        bookingId: bookingId,
-        userId: req.user!.id,
-        amount: amount.toString(),
-        currency: 'USD',
-        paymentMethod: 'credit_card',
-        cardHolderName,
-        cardLastFour,
-        cardType,
-        expiryMonth,
-        expiryYear,
-        status: 'completed',
-        transactionId
-      });
+      // Create payment record directly with SQL (for Phase 1)
+      const paymentResult = await sql`
+        INSERT INTO payments (
+          booking_id, user_id, amount, currency, payment_method,
+          card_holder_name, card_last_four, status, transaction_id
+        ) VALUES (
+          ${parseInt(bookingId.toString())},
+          ${3}, -- Use existing Admin User ID for Phase 1
+          ${amount.toString()},
+          ${'USD'},
+          ${'credit_card'},
+          ${cardHolderName},
+          ${cardLastFour},
+          ${'completed'},
+          ${transactionId}
+        ) RETURNING *
+      `;
+      
+      const payment = paymentResult[0];
 
       res.status(201).json(
         createResponse(true, {

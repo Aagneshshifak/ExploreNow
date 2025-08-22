@@ -34,57 +34,48 @@ export default function TripSuggestionByBudget() {
 
     setIsSearching(true);
     try {
-      // First try AI-powered recommendations
-      const aiResponse = await fetch("/api/ai/assistant", {
+      // Use the new AI budget suggestions endpoint
+      const aiResponse = await fetch("/api/ai/budget-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `Recommend travel destinations and trips that fit within a budget of ${budget} ${currency}. Include specific destinations, estimated costs, and brief descriptions.`,
-          userContext: {
-            budget: parseFloat(budget),
-            currency: currency,
-            requestType: "budget_search"
-          }
+          budget: parseFloat(budget),
+          currency: currency,
+          preferences: ["Budget", "Value", "Culture", "Adventure"],
+          duration: 7
         }),
       });
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
-        if (aiData.success) {
-          // Create AI-enhanced results
-          const aiTrips = [
-            {
-              id: `ai-1-${Date.now()}`,
-              title: `AI Budget Trip: Cultural Discovery`,
-              description: `AI-curated cultural experience within your ${budget} ${currency} budget: ${aiData.data.response.substring(0, 150)}...`,
-              destination: "AI Recommended Destinations",
-              duration: "5-7 days",
-              price: (parseFloat(budget) * 0.8).toString(),
-              currency: currency,
-              images: ["/placeholder.svg"],
-              rating: 4.6,
-              difficulty: "Moderate" as const,
-              groupSize: "2-8 people",
-              transportation: "Various",
-              accommodation: "Hotels/Guesthouses",
-            },
-            {
-              id: `ai-2-${Date.now()}`,
-              title: `AI Budget Trip: Adventure Explorer`,
-              description: `AI-designed adventure package for ${budget} ${currency}: Mix of adventure and relaxation activities.`,
-              destination: "AI Selected Adventures",
-              duration: "4-6 days", 
-              price: (parseFloat(budget) * 0.9).toString(),
-              currency: currency,
-              images: ["/placeholder.svg"],
-              rating: 4.4,
-              difficulty: "Moderate" as const,
-              groupSize: "2-6 people",
-              transportation: "Various",
-              accommodation: "Mixed",
-            }
-          ];
+        if (aiData.success && aiData.data.trips) {
+          // Convert AI recommendations to trip format
+          const aiTrips = aiData.data.trips.map((trip: any, index: number) => ({
+            id: trip.id || `ai-${index + 1}`,
+            title: trip.name,
+            description: trip.description,
+            destination: trip.location,
+            duration: trip.duration,
+            price: trip.cost.toString(),
+            currency: currency,
+            images: ["/placeholder.svg"],
+            rating: trip.rating,
+            difficulty: "Moderate" as const,
+            groupSize: "2-8 people",
+            transportation: "Various",
+            accommodation: "Hotels/Guesthouses",
+            tags: trip.tags,
+            includes: trip.includes,
+            bestTimeToVisit: trip.bestTimeToVisit,
+            weatherInfo: trip.weatherInfo,
+            culturalHighlights: trip.culturalHighlights
+          }));
           setSearchResults(aiTrips);
+          
+          toast({
+            title: "AI Budget Suggestions Generated!",
+            description: `Found ${aiTrips.length} budget-friendly trips within your ${budget} ${currency} budget.`,
+          });
         }
       }
 

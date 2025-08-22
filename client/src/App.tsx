@@ -11,6 +11,7 @@ import { ScrollToTop } from './components/ui/scroll-to-top';
 import { AuthProvider } from './hooks/use-auth';
 import { ProtectedRoute } from './components/ui/protected-route';
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import Layout from './components/Layout';
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -100,105 +101,95 @@ const App = () => {
                 <Route path="/admin/signup" element={<AdminSignup />} />
                 
                 {/* Routes with navigation */}
-                <Route path="/" element={
-                  <>
-                    <Navigation darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-                    <main className="pt-20">
-                      <Home />
-                    </main>
-                    <Footer />
-                  </>
+                <Route path="/" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><Home /></Layout>} />
+                <Route path="/tools" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><Tools /></Layout>} />
+                <Route path="/tools/expense-estimator" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExpenseEstimator /></Layout>} />
+                <Route path="/tools/visa-checker" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><VisaChecker /></Layout>} />
+                <Route path="/tools/compass" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TravelCompass /></Layout>} />
+                <Route path="/tools/route-finder" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><RouteFinder /></Layout>} />
+                <Route path="/tools/document-wallet" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><DocumentWallet /></Layout>} />
+                <Route path="/tools/tourist-crowd-map" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TouristCrowdMap /></Layout>} />
+                <Route path="/tools/trip-suggestion-by-budget" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripSuggestionByBudget /></Layout>} />
+                <Route path="/tools/text-translator" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TextTranslator /></Layout>} />
+                <Route path="/tools/explore-guide" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExploreGuide /></Layout>} />
+                <Route path="/tools/recommend-trip" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripRecommender /></Layout>} />
+                <Route path="/tools/translate" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TextTranslator /></Layout>} />
+                <Route path="/tools/explorer" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><LocalExplorer /></Layout>} />
+                <Route path="/search" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><SearchFilter /></Layout>} />
+                <Route path="/ai-assistant" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><AIAssistant /></Layout>} />
+                <Route path="/ai-recommender" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><AITripRecommender /></Layout>} />
+                <Route path="/trips" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripsList /></Layout>} />
+                <Route path="/trip/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripDetails /></Layout>} />
+                <Route path="/hotel/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelDetails /></Layout>} />
+                <Route path="/currency-converter" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExpenseConverter /></Layout>} />
+                <Route path="/translate" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TranslationPage /></Layout>} />
+                <Route path="/reviews" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ReviewsPage /></Layout>} />
+                <Route path="/hotels" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
+                <Route path="/about" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div></Layout>} />
+                <Route path="/book-now" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><BookNowPage /></Layout>} />
+                
+                {/* Admin Routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute requireAuth={true} requiredRole="admin">
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <AdminUploadDashboard />
+                    </Layout>
+                  </ProtectedRoute>
                 } />
-                <Route path="/*" element={
-                  <>
-                    <Navigation darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-                    <main className="pt-20">
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/tools" element={<Tools />} />
-                        <Route path="/tools/expense-estimator" element={<ExpenseEstimator />} />
-                        <Route path="/tools/visa-checker" element={<VisaChecker />} />
-                        <Route path="/tools/compass" element={<TravelCompass />} />
-                        <Route path="/tools/route-finder" element={<RouteFinder />} />
-                        <Route path="/tools/document-wallet" element={<DocumentWallet />} />
-                        <Route path="/tools/tourist-crowd-map" element={<TouristCrowdMap />} />
-                        <Route path="/tools/trip-suggestion-by-budget" element={<TripSuggestionByBudget />} />
-        <Route path="/tools/text-translator" element={<TextTranslator />} />
-        <Route path="/tools/explore-guide" element={<ExploreGuide />} />
-        <Route path="/tools/recommend-trip" element={<TripRecommender />} />
-        <Route path="/tools/translate" element={<TextTranslator />} />
-        <Route path="/tools/explorer" element={<LocalExplorer />} />
-        <Route path="/search" element={<SearchFilter />} />
-        
-        {/* Admin Routes */}
-        <Route 
-          path="/admin" 
-          element={
-            <ProtectedRoute requireAuth={true} requiredRole="admin">
-              <AdminUploadDashboard />
-            </ProtectedRoute>
-          } 
-        />
-                        <Route path="/admin/dashboard" element={
-                          <ProtectedRoute requiredRole="admin">
-                            <AdminDashboard />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/submit-hotel" element={
-                          <ProtectedRoute requireAuth={true} requiredRole="admin">
-                            <HotelSubmission />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/submit-trip" element={
-                          <ProtectedRoute requireAuth={true} requiredRole="admin">
-                            <TripSubmission />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/ai-assistant" element={<AIAssistant />} />
-                        <Route path="/ai-recommender" element={<AITripRecommender />} />
-                        <Route path="/trips" element={<TripsList />} />
-                        <Route path="/trip/:id" element={<TripDetails />} />
-                        <Route path="/hotel/:id" element={<HotelDetails />} />
-                        <Route path="/currency-converter" element={<ExpenseConverter />} />
-                        <Route path="/translate" element={<TranslationPage />} />
-                        <Route path="/reviews" element={<ReviewsPage />} />
-                        <Route path="/book/:id" element={
-                          <ProtectedRoute requireAuth={true}>
-                            <BookingFlow />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/trip/:id/book" element={
-                          <ProtectedRoute requireAuth={true}>
-                            <TripBooking />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/hotels" element={<HotelsList />} />
-                        <Route path="/about" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div>} />
-                        <Route path="/profile" element={
-                          <ProtectedRoute requireAuth={true}>
-                            <Profile />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/dashboard" element={
-                          <ProtectedRoute requireAuth={true}>
-                            <Dashboard />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/ai-recommender" element={
-                          <ProtectedRoute requireAuth={true}>
-                            <AITripRecommender />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/settings" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Settings Coming Soon</h1></div>} />
-                        <Route path="/unauthorized" element={<Unauthorized />} />
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </main>
-                    <Footer />
-                    <ScrollToTop />
-                  </>
+                <Route path="/admin/dashboard" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <AdminDashboard />
+                    </Layout>
+                  </ProtectedRoute>
                 } />
+                <Route path="/submit-hotel" element={
+                  <ProtectedRoute requireAuth={true} requiredRole="admin">
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <HotelSubmission />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/submit-trip" element={
+                  <ProtectedRoute requireAuth={true} requiredRole="admin">
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <TripSubmission />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/book/:id" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <BookingFlow />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/trip/:id/book" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <TripBooking />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <Profile />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <Dashboard />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><div className="min-h-screen flex items-center justify-center"><h1 className="text-display">Settings Coming Soon</h1></div></Layout>} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
+              <ScrollToTop />
             </div>
           </BrowserRouter>
             </TooltipProvider>

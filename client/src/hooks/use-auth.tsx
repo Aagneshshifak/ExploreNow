@@ -39,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.success && data.data) {
           setUser(data.data);
         }
+      } else if (response.status === 401) {
+        // User is not authenticated, which is fine
+        console.log('User not authenticated - this is normal for new visitors');
       }
     } catch (error) {
       console.error('Auth check failed:', error);

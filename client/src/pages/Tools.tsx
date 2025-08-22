@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Calculator, 
@@ -24,6 +24,7 @@ interface Tool {
   adminOnly?: boolean;
   category: string;
   tag: string;
+  comingSoon?: boolean;
 }
 
 const tools: Tool[] = [
@@ -34,7 +35,8 @@ const tools: Tool[] = [
     path: '/ai-recommender',
     icon: Compass,
     category: 'planning',
-    tag: 'AI Powered'
+    tag: 'AI Powered',
+    comingSoon: false
   },
   {
     id: 'currency-converter',
@@ -43,7 +45,8 @@ const tools: Tool[] = [
     path: '/currency-converter',
     icon: IndianRupee,
     category: 'planning',
-    tag: 'Finance Tool'
+    tag: 'Finance Tool',
+    comingSoon: false
   },
   {
     id: 'expense-estimator',
@@ -52,7 +55,8 @@ const tools: Tool[] = [
     path: '/tools/expense-estimator',
     icon: Calculator,
     category: 'planning',
-    tag: 'Planning Tool'
+    tag: 'Planning Tool',
+    comingSoon: true
   },
   {
     id: 'trip-suggestion-by-budget',
@@ -61,7 +65,8 @@ const tools: Tool[] = [
     path: '/tools/trip-suggestion-by-budget',
     icon: IndianRupee,
     category: 'planning',
-    tag: 'Smart Suggestion'
+    tag: 'Smart Suggestion',
+    comingSoon: false
   },
   {
     id: 'visa-checker',
@@ -70,7 +75,8 @@ const tools: Tool[] = [
     path: '/tools/visa-checker',
     icon: FileCheck,
     category: 'essentials',
-    tag: 'Travel Essential'
+    tag: 'Travel Essential',
+    comingSoon: true
   },
   {
     id: 'document-wallet',
@@ -79,7 +85,8 @@ const tools: Tool[] = [
     path: '/tools/document-wallet',
     icon: FolderOpen,
     category: 'essentials',
-    tag: 'Security Tool'
+    tag: 'Security Tool',
+    comingSoon: true
   },
   {
     id: 'text-translator',
@@ -88,7 +95,8 @@ const tools: Tool[] = [
     path: '/tools/text-translator',
     icon: Globe,
     category: 'essentials',
-    tag: 'Language Helper'
+    tag: 'Language Helper',
+    comingSoon: false
   },
   {
     id: 'route-finder',
@@ -97,7 +105,8 @@ const tools: Tool[] = [
     path: '/tools/route-finder',
     icon: Route,
     category: 'navigation',
-    tag: 'Navigation Tool'
+    tag: 'Navigation Tool',
+    comingSoon: true
   },
   {
     id: 'travel-compass',
@@ -106,7 +115,8 @@ const tools: Tool[] = [
     path: '/tools/compass',
     icon: Compass,
     category: 'navigation',
-    tag: 'Discovery Tool'
+    tag: 'Discovery Tool',
+    comingSoon: true
   },
   {
     id: 'tourist-crowd-map',
@@ -115,7 +125,8 @@ const tools: Tool[] = [
     path: '/tools/tourist-crowd-map',
     icon: MapPin,
     category: 'navigation',
-    tag: 'Local Insights'
+    tag: 'Local Insights',
+    comingSoon: true
   },
   {
     id: 'explore-guide',
@@ -124,7 +135,8 @@ const tools: Tool[] = [
     path: '/tools/explore-guide',
     icon: Navigation,
     category: 'navigation',
-    tag: 'Travel Assistant'
+    tag: 'Travel Assistant',
+    comingSoon: true
   },
   {
     id: 'trip-recommender',
@@ -133,7 +145,8 @@ const tools: Tool[] = [
     path: '/tools/recommend-trip',
     icon: MapPin,
     category: 'planning',
-    tag: 'Smart Suggestion'
+    tag: 'Smart Suggestion',
+    comingSoon: true
   },
   {
     id: 'local-explorer',
@@ -142,7 +155,8 @@ const tools: Tool[] = [
     path: '/tools/explorer',
     icon: Navigation,
     category: 'navigation',
-    tag: 'Local Guide'
+    tag: 'Local Guide',
+    comingSoon: true
   },
   {
     id: 'admin-dashboard',
@@ -152,7 +166,8 @@ const tools: Tool[] = [
     icon: Shield,
     adminOnly: true,
     category: 'admin',
-    tag: 'Admin Control'
+    tag: 'Admin Control',
+    comingSoon: true
   }
 ];
 
@@ -207,7 +222,11 @@ const Tools = () => {
                   return (
                     <Card 
                       key={tool.id} 
-                      className="group hover:shadow-lg hover:scale-105 hover:ring-1 hover:ring-offset-2 hover:ring-gray-400 dark:hover:ring-gray-600 transition-all duration-300 border-t-4 border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-black/90"
+                      className={`group transition-all duration-300 border-t-4 border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-black/90 ${
+                        tool.comingSoon 
+                          ? 'opacity-75 hover:opacity-90' 
+                          : 'hover:shadow-lg hover:scale-105 hover:ring-1 hover:ring-offset-2 hover:ring-gray-400 dark:hover:ring-gray-600'
+                      }`}
                     >
                       <CardHeader className="text-center pb-4">
                         <span className="text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-md mb-2 inline-block">
@@ -222,16 +241,31 @@ const Tools = () => {
                         <CardDescription className="text-sm text-muted-foreground leading-relaxed">
                           {tool.description}
                         </CardDescription>
+                        {tool.comingSoon && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                            {tool.title.toLowerCase()} will be available soon
+                          </p>
+                        )}
                       </CardHeader>
                       <CardContent className="pt-0">
-                        <Link to={tool.path} className="block">
+                        {tool.comingSoon ? (
                           <button 
-                            className="w-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition-all duration-300"
-                            aria-label={`Explore ${tool.title}`}
+                            className="w-full bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md font-semibold shadow-sm transition-all duration-300 cursor-not-allowed"
+                            disabled
+                            aria-label={`${tool.title} coming soon`}
                           >
-                            Explore
+                            Coming Soon
                           </button>
-                        </Link>
+                        ) : (
+                          <Link to={tool.path} className="block">
+                            <button 
+                              className="w-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition-all duration-300"
+                              aria-label={`Explore ${tool.title}`}
+                            >
+                              Explore
+                            </button>
+                          </Link>
+                        )}
                       </CardContent>
                     </Card>
                   );

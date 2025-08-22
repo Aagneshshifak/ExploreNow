@@ -1,16 +1,13 @@
 import { eq, desc, and, lte, gte, inArray, ilike, asc } from "drizzle-orm";
 import { db } from "./db";
 import { 
-  users, trips, hotels, bookings, reviews, userPreferences, translations, tripSuggestions, payments,
+  users, trips, hotels, bookings, reviews, payments,
   type User, type InsertUser,
   type Trip, type InsertTrip,
   type Hotel, type InsertHotel,
   type Booking, type InsertBooking,
   type Review, type InsertReview,
   type Payment, type InsertPayment,
-  type UserPreferences, type InsertUserPreferences,
-  type Translation, type InsertTranslation,
-  type TripSuggestion, type InsertTripSuggestion,
   type TripFilterData, type BudgetFilterData, type AIRecommendationData
 } from "@shared/schema";
 
@@ -53,24 +50,10 @@ export interface IStorage {
     totalBookings: number;
   }>;
 
-  // User preferences methods
-  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
-  createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
-  updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
-
   // Trip filtering methods
   getFilteredTrips(filters: TripFilterData): Promise<Trip[]>;
   getTripsByBudget(budget: number, currency?: string): Promise<Trip[]>;
   getTripsByTags(tags: string[]): Promise<Trip[]>;
-  
-  // AI recommendation methods
-  getRecommendedTrips(data: AIRecommendationData): Promise<Trip[]>;
-  createTripSuggestion(suggestion: InsertTripSuggestion): Promise<TripSuggestion>;
-  getUserSuggestions(userId: number): Promise<TripSuggestion[]>;
-
-  // Translation methods
-  getTranslations(language: string, category?: string): Promise<Translation[]>;
-  createTranslation(translation: InsertTranslation): Promise<Translation>;
   
   // Payment methods
   createPayment(payment: InsertPayment): Promise<Payment>;

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
@@ -6,6 +7,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
+import { createGraphQLServer } from "./graphql";
 
 const app = express();
 
@@ -13,7 +15,7 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://explorenow.vercel.app', 'https://*.vercel.app'] 
-    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5000'],
+    : ['http://localhost:3000', 'http://localhost:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
@@ -58,6 +60,10 @@ app.use((req, res, next) => {
   
   // Use translation routes
   app.use('/api', translateRoutes);
+  
+  // Setup GraphQL - must be before Vite setup
+  const yoga = createGraphQLServer();
+  app.use('/graphql', yoga);
 
   app.use(errorHandler);
 
@@ -70,14 +76,12 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Serve the app on port 3000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 3000;
   server.listen({
     port,
-    host: "0.0.0.0",
-    reusePort: true,
+    host: "localhost",
   }, () => {
     log(`serving on port ${port}`);
   });

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, date, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -41,97 +41,52 @@ export const hotels = pgTable("hotels", {
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
-// Bookings table  
+// Bookings table - Updated for Phase 1
 export const bookings = pgTable("bookings", {
-  id: text("id").primaryKey(), // Keep as text to avoid data loss
-  userId: integer("userId").notNull().references(() => users.id),
-  tripId: integer("tripId").references(() => trips.id),
-  hotelId: integer("hotelId").references(() => hotels.id),
-  type: text("type"), // "trip" or "hotel" - optional to avoid breaking changes
-  amount: decimal("amount", { precision: 10, scale: 2 }), // For compatibility
-  currency: text("currency").default("USD"),
-  status: text("status").notNull().default("confirmed"),
-  createdAt: timestamp("createdAt").defaultNow(),
-  // Customer details
-  customerName: text("customerName"),
-  customerEmail: text("customerEmail"),
-  customerPhone: text("customerPhone"),
-  checkIn: timestamp("checkIn"),
-  checkOut: timestamp("checkOut"),
-  guests: integer("guests").default(1),
-  // Additional booking details
-  specialRequests: text("specialRequests"),
-  emergencyContact: text("emergencyContact"),
-  emergencyPhone: text("emergencyPhone"),
-  transportMode: text("transportMode"),
-  transportDetails: text("transportDetails"),
-});
-
-// Payments table for storing mock payment information
-export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  bookingId: text("booking_id").notNull().references(() => bookings.id),
-  userId: integer("user_id").notNull().references(() => users.id),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  currency: text("currency").notNull().default("USD"),
-  paymentMethod: text("payment_method").notNull(), // "credit_card", "debit_card", "paypal"
-  cardHolderName: text("card_holder_name").notNull(),
-  cardLastFour: text("card_last_four").notNull(), // Last 4 digits of card
-  cardType: text("card_type").notNull(), // "visa", "mastercard", "amex"
-  expiryMonth: text("expiry_month").notNull(),
-  expiryYear: text("expiry_year").notNull(),
-  status: text("status").notNull().default("completed"), // "pending", "completed", "failed"
-  transactionId: text("transaction_id").notNull(), // Mock transaction ID
+  tripId: varchar("trip_id").notNull(),
+  hotelId: varchar("hotel_id").notNull(),
+  customerName: varchar("customer_name").notNull(),
+  email: varchar("email").notNull(),
+  phone: varchar("phone").notNull(),
+  transport: varchar("transport").notNull(),
+  checkIn: date("check_in").notNull(),
+  checkOut: date("check_out").notNull(),
+  guests: integer("guests").notNull(),
+  totalCost: numeric("total_cost").notNull(),
+  status: varchar("status").default("confirmed"),
+  paymentStatus: varchar("payment_status").default("dummy"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Reviews table
+// Payments table - Cleaned up
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
+  paymentMethod: text("payment_method").notNull(),
+  cardHolderName: text("card_holder_name").notNull(),
+  cardLastFour: text("card_last_four").notNull(),
+  status: text("status").notNull().default("completed"),
+  transactionId: text("transaction_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reviews table - Cleaned up
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   tripId: integer("trip_id").references(() => trips.id),
   hotelId: integer("hotel_id").references(() => hotels.id),
-  bookingId: integer("booking_id").references(() => bookings.id),
-  type: text("type").notNull(), // "trip" or "hotel"
-  rating: integer("rating").notNull(), // 1-5 stars
+  rating: integer("rating").notNull(),
   title: text("title").notNull(),
   comment: text("comment").notNull(),
-  isVerified: boolean("is_verified").default(false), // true if user actually booked
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// User preferences table for travel recommendations
-export const userPreferences = pgTable("user_preferences", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  preferences: text("preferences").array(), // ["beach", "adventure", "culture", "food", "nature"]
-  budget: decimal("budget", { precision: 10, scale: 2 }),
-  preferredCurrency: text("preferred_currency").default("USD"),
-  language: text("language").default("en"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
 
-// Translations table for multi-language support
-export const translations = pgTable("translations", {
-  id: serial("id").primaryKey(),
-  key: text("key").notNull(), // translation key like "welcome_message"
-  language: text("language").notNull(), // "fr", "de", "hi", "es", "ru", "zh", "ar", "pt"
-  value: text("value").notNull(), // translated text
-  category: text("category").default("general"), // "trips", "hotels", "ui", "general"
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Trip suggestions table for AI recommendations
-export const tripSuggestions = pgTable("trip_suggestions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  tripId: integer("trip_id").notNull().references(() => trips.id),
-  reason: text("reason"), // why this trip was suggested
-  score: decimal("score", { precision: 3, scale: 2 }), // recommendation confidence 0.00-1.00
-  preferences: text("preferences").array(), // preferences that matched
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -165,21 +120,7 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   isVerified: true,
 });
 
-export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
 
-export const insertTranslationSchema = createInsertSchema(translations).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertTripSuggestionSchema = createInsertSchema(tripSuggestions).omit({
-  id: true,
-  createdAt: true,
-});
 
 // Auth schemas
 export const loginSchema = z.object({
@@ -265,12 +206,7 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
-export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
-export type UserPreferences = typeof userPreferences.$inferSelect;
-export type InsertTranslation = z.infer<typeof insertTranslationSchema>;
-export type Translation = typeof translations.$inferSelect;
-export type InsertTripSuggestion = z.infer<typeof insertTripSuggestionSchema>;
-export type TripSuggestion = typeof tripSuggestions.$inferSelect;
+
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;
 export type CurrencyConversionRequest = z.infer<typeof currencyConversionSchema>;

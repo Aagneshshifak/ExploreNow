@@ -78,7 +78,13 @@ export default function AITripRecommender() {
       const response = await fetch("/api/ai/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          budget: parseFloat(budget),
+          interests: preferences,
+          duration: parseInt(duration),
+          destination: "",
+          travelStyle: "Standard"
+        }),
       });
 
       if (!response.ok) {
@@ -86,13 +92,29 @@ export default function AITripRecommender() {
       }
 
       const data = await response.json();
-      if (data.success) {
-        setRecommendations(data.data.recommendations || []);
+      if (data.success && data.data.trips) {
+        // Convert AI recommendations to trip format
+        const aiTrips = data.data.trips.map((trip: any) => ({
+          id: trip.id,
+          title: trip.name,
+          description: trip.description,
+          location: trip.location,
+          price: trip.cost.toString(),
+          duration: trip.duration,
+          tags: trip.tags,
+          rating: trip.rating,
+          includes: trip.includes,
+          bestTimeToVisit: trip.bestTimeToVisit,
+          weatherInfo: trip.weatherInfo,
+          culturalHighlights: trip.culturalHighlights
+        }));
+        
+        setRecommendations(aiTrips);
         setHasGenerated(true);
         
         toast({
           title: "AI Recommendations Generated!",
-          description: `Found ${data.data.recommendations?.length || 0} personalized trip recommendations powered by AI.`,
+          description: `Found ${aiTrips.length} personalized trip recommendations powered by Gemini AI.`,
         });
       } else {
         throw new Error(data.message || "Failed to generate recommendations");
