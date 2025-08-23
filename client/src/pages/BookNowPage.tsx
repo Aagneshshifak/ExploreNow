@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { gql, useMutation } from "@apollo/client";
+import { graphqlClient, executeMutation } from "../lib/graphql";
 import Lottie from "lottie-react";
 
 // Success animation data (you can replace this with your actual animation file)
@@ -78,7 +78,7 @@ const successAnim = {
   ]
 };
 
-const CREATE_BOOKING = gql`
+const CREATE_BOOKING = `
   mutation CreateBooking($input: BookingInput!) {
     createBooking(input: $input) {
       success
@@ -130,7 +130,9 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
     guests: 1
   });
 
-  const [createBooking] = useMutation(CREATE_BOOKING);
+  const createBooking = async (variables: any) => {
+    return await executeMutation(CREATE_BOOKING, variables);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -156,19 +158,17 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
     
     try {
       const result = await createBooking({
-        variables: {
-          input: {
-            tripId: trip.id,
-            hotelId: hotel.id,
-            customerName: bookingDetails.customerName,
-            email: bookingDetails.email,
-            phone: bookingDetails.phone,
-            transport: bookingDetails.transport,
-            checkIn: bookingDetails.checkIn,
-            checkOut: bookingDetails.checkOut,
-            guests: bookingDetails.guests,
-            totalCost: calculateTotalCost(),
-          }
+        input: {
+          tripId: trip.id,
+          hotelId: hotel.id,
+          customerName: bookingDetails.customerName,
+          email: bookingDetails.email,
+          phone: bookingDetails.phone,
+          transport: bookingDetails.transport,
+          checkIn: bookingDetails.checkIn,
+          checkOut: bookingDetails.checkOut,
+          guests: bookingDetails.guests,
+          totalCost: calculateTotalCost(),
         }
       });
 
@@ -178,7 +178,7 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
         alert("Booking failed: " + result.data?.createBooking?.message);
       }
     } catch (err: any) {
-      alert("Booking failed: " + err.message);
+      alert("Booking failed: " + (err.message || "Unknown error"));
     } finally {
       setConfirming(false);
     }

@@ -49,6 +49,7 @@ import TripDetails from "./pages/TripDetails";
 import HotelDetails from "./pages/HotelDetails";
 import HotelsList from "./pages/HotelsList";
 import AIAssistant from "./pages/AIAssistant";
+import BookNowPage from "./pages/BookNowPage";
 
 
 const queryClient = new QueryClient();

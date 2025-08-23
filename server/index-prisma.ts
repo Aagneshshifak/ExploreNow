@@ -6,11 +6,11 @@ import prismaRoutes from './prisma-routes';
 import { seedDatabase } from './prisma-seed-runner';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  origin: process.env.CLIENT_URL || "http://localhost:5000",
   credentials: true,
 }));
 app.use(express.json());

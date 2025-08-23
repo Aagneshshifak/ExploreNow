@@ -2,13 +2,13 @@ import { createClient } from 'graphql-ws';
 import { GraphQLClient } from 'graphql-request';
 
 // GraphQL HTTP client for queries and mutations
-export const graphqlClient = new GraphQLClient('http://localhost:3000/graphql', {
+export const graphqlClient = new GraphQLClient('http://localhost:5000/graphql', {
   credentials: 'include', // Include cookies for authentication
 });
 
 // GraphQL WebSocket client for subscriptions (if needed later)
 export const wsClient = createClient({
-  url: 'ws://localhost:3000/graphql',
+  url: 'ws://localhost:5000/graphql',
 });
 
 // Common GraphQL queries
