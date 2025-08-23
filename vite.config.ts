@@ -15,8 +15,21 @@ export default defineConfig({
       : []),
   ],
   server: {
+    port: 5173,
     hmr: {
       overlay: false
+    },
+    proxy: {
+      '/graphql': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      }
     }
   },
   resolve: {

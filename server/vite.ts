@@ -41,8 +41,17 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+  
+  // Only fallback to index.html for non-API, non-static file routes
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+
+    // Skip API routes and static files that should be handled by Vite
+    if (url.startsWith('/api') || 
+        url.startsWith('/graphql') || 
+        url.includes('.') && !url.endsWith('.html')) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(

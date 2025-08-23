@@ -41,34 +41,41 @@ export const hotels = pgTable("hotels", {
   createdAt: timestamp("createdAt").defaultNow(),
 });
 
-// Bookings table - Updated for Phase 1
+// Bookings table - Updated for Phase 1 (matching actual database structure)
 export const bookings = pgTable("bookings", {
-  id: serial("id").primaryKey(),
-  tripId: varchar("trip_id").notNull(),
-  hotelId: varchar("hotel_id").notNull(),
-  customerName: varchar("customer_name").notNull(),
-  email: varchar("email").notNull(),
-  phone: varchar("phone").notNull(),
-  transport: varchar("transport").notNull(),
-  checkIn: date("check_in").notNull(),
-  checkOut: date("check_out").notNull(),
+  id: varchar("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  tripId: varchar("tripId").notNull(),
+  hotelId: varchar("hotelId").notNull(),
+  type: varchar("type").notNull(),
+  customerName: varchar("customerName").notNull(),
+  customerEmail: varchar("customerEmail").notNull(),
+  customerPhone: varchar("customerPhone").notNull(),
+  transportMode: varchar("transportMode").notNull(),
+  checkIn: date("checkIn").notNull(),
+  checkOut: date("checkOut").notNull(),
   guests: integer("guests").notNull(),
-  totalCost: numeric("total_cost").notNull(),
+  amount: numeric("amount").notNull(),
   status: varchar("status").default("confirmed"),
-  paymentStatus: varchar("payment_status").default("dummy"),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  specialRequests: varchar("specialRequests"),
+  emergencyContact: varchar("emergencyContact"),
+  emergencyPhone: varchar("emergencyPhone"),
+  transportDetails: varchar("transportDetails"),
+  currency: varchar("currency"),
 });
 
 // Payments table - Cleaned up
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  bookingId: integer("booking_id").notNull().references(() => bookings.id),
+  bookingId: varchar("booking_id").notNull(), // Changed to varchar to match booking IDs
   userId: integer("user_id").notNull().references(() => users.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("USD"),
   paymentMethod: text("payment_method").notNull(),
   cardHolderName: text("card_holder_name").notNull(),
   cardLastFour: text("card_last_four").notNull(),
+  cardType: text("card_type").notNull(), // Added card_type field
   status: text("status").notNull().default("completed"),
   transactionId: text("transaction_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),

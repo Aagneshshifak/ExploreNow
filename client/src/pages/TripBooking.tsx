@@ -96,7 +96,7 @@ export default function TripBooking() {
   const [selectedHotel, setSelectedHotel] = useState<number | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
-  const [useGraphQL, setUseGraphQL] = useState(false); // Toggle between REST and GraphQL
+  // Removed API method toggle - using GraphQL only
 
   const bookingForm = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
@@ -170,73 +170,42 @@ export default function TripBooking() {
     return tripCost + hotelCost + transportCost;
   };
 
-  // Create booking mutation (REST)
-  const createBookingMutation = useMutation({
-    mutationFn: async (data: BookingForm & { cost: number }) => {
-      const response = await fetch('/api/bookings/new', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create booking');
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      console.log('Booking created successfully:', data);
-      setBookingId(data.data.id);
-      setStep('payment');
-      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-      toast({
-        title: "Booking Created! 🎉",
-        description: "Please proceed to payment to complete your booking.",
-      });
-    },
-    onError: (error) => {
-      console.error('Booking error:', error);
-      toast({
-        title: "Booking Failed ❌",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Create booking mutation (GraphQL)
   const createBookingGraphQLMutation = useMutation({
     mutationFn: async (data: BookingForm & { cost: number }) => {
-      const bookingInput = {
-        tripId: tripId?.toString() || '',
-        hotelId: data.hotelId?.toString() || '',
-        customerName: data.customerName,
-        email: data.customerEmail,
-        phone: data.customerPhone,
-        transport: data.transportType,
-        checkIn: data.checkIn,
-        checkOut: data.checkOut,
-        guests: data.guests,
-        totalCost: data.cost
-      };
+      try {
+        const bookingInput = {
+          tripId: tripId?.toString() || '',
+          hotelId: data.hotelId?.toString() || '',
+          customerName: data.customerName,
+          email: data.customerEmail,
+          phone: data.customerPhone,
+          transport: data.transportType,
+          checkIn: data.checkIn,
+          checkOut: data.checkOut,
+          guests: data.guests,
+          totalCost: data.cost
+        };
 
-      const variables = { input: bookingInput };
-      const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
+        const variables = { input: bookingInput };
+        const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
 
-      if (!result.createBooking.success) {
-        throw new Error(result.createBooking.message || 'Failed to create booking');
+        if (!result.createBooking) {
+          throw new Error('Failed to create booking');
+        }
+
+        return {
+          success: true,
+          data: result.createBooking,
+          message: 'Booking created successfully'
+        };
+      } catch (error) {
+        console.error('GraphQL mutation error:', error);
+        if (error instanceof Error) {
+          throw new Error(`GraphQL booking failed: ${error.message}`);
+        }
+        throw new Error('GraphQL booking failed: Unknown error');
       }
-
-      return {
-        success: true,
-        data: result.createBooking.booking,
-        message: result.createBooking.message
-      };
     },
     onSuccess: (data) => {
       console.log('GraphQL Booking created successfully:', data);
@@ -306,11 +275,8 @@ export default function TripBooking() {
       cost: totalCost,
     };
     
-    if (useGraphQL) {
-      createBookingGraphQLMutation.mutate(bookingData);
-    } else {
-      createBookingMutation.mutate(bookingData);
-    }
+    // Use GraphQL for booking
+    createBookingGraphQLMutation.mutate(bookingData);
   };
 
   const onPaymentSubmit = (data: PaymentForm) => {
@@ -714,30 +680,7 @@ export default function TripBooking() {
                       />
                     </div>
 
-                    {/* API Toggle */}
-                    <div className="border-t pt-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <Label className="text-sm font-medium">API Method:</Label>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            type="button"
-                            variant={!useGraphQL ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setUseGraphQL(false)}
-                          >
-                            REST
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={useGraphQL ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setUseGraphQL(true)}
-                          >
-                            GraphQL
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+
 
                     {/* Total Cost */}
                     <div className="border-t pt-4">
@@ -751,15 +694,15 @@ export default function TripBooking() {
                       type="submit"
                       size="lg"
                       className="w-full"
-                      disabled={(createBookingMutation.isPending || createBookingGraphQLMutation.isPending) || !selectedHotel}
+                      disabled={createBookingGraphQLMutation.isPending || !selectedHotel}
                     >
-                      {(createBookingMutation.isPending || createBookingGraphQLMutation.isPending) ? (
+                      {createBookingGraphQLMutation.isPending ? (
                         <>
                           <LoadingSpinner className="mr-2 h-4 w-4" />
-                          Creating Booking via {useGraphQL ? 'GraphQL' : 'REST'}...
+                          Creating Booking...
                         </>
                       ) : (
-                        `Confirm Booking (${useGraphQL ? 'GraphQL' : 'REST'})`
+                        "Confirm Booking"
                       )}
                     </Button>
 

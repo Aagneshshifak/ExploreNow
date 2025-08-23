@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { PriceDisplay } from '@/components/ui/price-display';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { graphqlClient } from '@/lib/graphql-client';
 // import { apiRequest } from '@/lib/queryClient';
 
 interface BookingDetails {
@@ -53,6 +54,24 @@ interface BookingReceipt {
   bookingDate: string;
   status: string;
 }
+
+const CREATE_BOOKING_MUTATION = `
+  mutation CreateBooking($input: BookingInput!) {
+    createBooking(input: $input) {
+      success
+      message
+      booking {
+        id
+        customerName
+        tripId
+        hotelId
+        totalCost
+        status
+        paymentStatus
+      }
+    }
+  }
+`;
 
 export default function BookingFlow() {
   const params = useParams();
@@ -109,40 +128,45 @@ export default function BookingFlow() {
     }
   });
 
-  // Create booking mutation
+  // Create booking mutation (GraphQL)
   const createBooking = useMutation({
     mutationFn: async (data: BookingDetails) => {
       const totalAmount = calculateTotal();
-      const bookingData = {
-        [itemType + 'Id']: itemId,
-        type: itemType,
-        checkInDate: data.checkInDate,
-        checkOutDate: data.checkOutDate,
+      
+      // Prepare booking input for GraphQL
+      const bookingInput = {
+        tripId: itemType === 'trip' ? itemId.toString() : '',
+        hotelId: itemType === 'hotel' ? itemId.toString() : '',
+        customerName: data.customerName,
+        email: data.customerEmail,
+        phone: data.customerPhone,
+        transport: 'flight', // Default transport mode
+        checkIn: data.checkInDate,
+        checkOut: data.checkOutDate,
         guests: data.guests,
-        customerDetails: {
-          customerName: data.customerName,
-          customerEmail: data.customerEmail,
-          customerPhone: data.customerPhone,
-          specialRequests: data.specialRequests,
-          emergencyContact: data.emergencyContact,
-          emergencyPhone: data.emergencyPhone
-        },
-        amount: totalAmount,
-        currency: currency // Store the currency used for the booking
+        totalCost: totalAmount
       };
-      
-      const response = await fetch('/api/bookings/detailed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Booking failed');
+
+      try {
+        const variables = { input: bookingInput };
+        const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
+
+        if (!result.createBooking) {
+          throw new Error('Failed to create booking');
+        }
+
+        return {
+          success: true,
+          data: result.createBooking,
+          message: 'Booking created successfully'
+        };
+      } catch (error) {
+        console.error('GraphQL mutation error:', error);
+        if (error instanceof Error) {
+          throw new Error(`GraphQL booking failed: ${error.message}`);
+        }
+        throw new Error('GraphQL booking failed: Unknown error');
       }
-      return response.json();
     },
     onSuccess: (data) => {
       const bookingReceipt: BookingReceipt = {
@@ -158,6 +182,10 @@ export default function BookingFlow() {
       setReceipt(bookingReceipt);
       setStep(3);
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking Created Successfully! 🎉",
+        description: data.message || "Your booking has been confirmed.",
+      });
     },
     onError: (error: Error) => {
       console.error('Booking error:', error);

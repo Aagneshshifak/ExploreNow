@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { graphqlClient, executeMutation } from "../lib/graphql";
 import Lottie from "lottie-react";
 
@@ -81,17 +82,12 @@ const successAnim = {
 const CREATE_BOOKING = `
   mutation CreateBooking($input: BookingInput!) {
     createBooking(input: $input) {
-      success
-      message
-      booking {
-        id
-        customerName
-        tripId
-        hotelId
-        totalCost
-        status
-        paymentStatus
-      }
+      id
+      customerName
+      tripId
+      hotelId
+      totalCost
+      status
     }
   }
 `;
@@ -113,11 +109,20 @@ interface Hotel {
 }
 
 interface BookNowPageProps {
-  trip: Trip;
-  hotel: Hotel;
+  trip?: Trip;
+  hotel?: Hotel;
 }
 
-export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
+export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNowPageProps) {
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
+  const [trip, setTrip] = useState<Trip | null>(propTrip || null);
+  const [hotel, setHotel] = useState<Hotel | null>(propHotel || null);
+  const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
+  const [availableHotels, setAvailableHotels] = useState<Hotel[]>([]);
+  const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [success, setSuccess] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({
@@ -129,6 +134,52 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
     checkOut: "",
     guests: 1
   });
+
+  // Fetch trips and hotels if not provided as props
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!propTrip || !propHotel) {
+        setLoading(true);
+        try {
+          // Fetch trips
+          const tripsResponse = await fetch('/api/trips');
+          if (tripsResponse.ok) {
+            const tripsData = await tripsResponse.json();
+            setAvailableTrips(tripsData.data || []);
+          }
+
+          // Fetch hotels
+          const hotelsResponse = await fetch('/api/hotels');
+          if (hotelsResponse.ok) {
+            const hotelsData = await hotelsResponse.json();
+            setAvailableHotels(hotelsData.data || []);
+          }
+        } catch (error) {
+          console.error('Error fetching data:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchData();
+  }, [propTrip, propHotel]);
+
+  // Set trip and hotel from URL parameters if available
+  useEffect(() => {
+    const tripId = params.tripId || searchParams.get('tripId');
+    const hotelId = params.hotelId || searchParams.get('hotelId');
+
+    if (tripId && availableTrips.length > 0) {
+      const selectedTrip = availableTrips.find(t => t.id === tripId);
+      if (selectedTrip) setTrip(selectedTrip);
+    }
+
+    if (hotelId && availableHotels.length > 0) {
+      const selectedHotel = availableHotels.find(h => h.id === hotelId);
+      if (selectedHotel) setHotel(selectedHotel);
+    }
+  }, [params, searchParams, availableTrips, availableHotels]);
 
   const createBooking = async (variables: any) => {
     return await executeMutation(CREATE_BOOKING, variables);
@@ -143,6 +194,7 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
   };
 
   const calculateTotalCost = () => {
+    if (!trip || !hotel) return 0;
     const transportCosts = {
       flight: 300,
       train: 100,
@@ -154,13 +206,18 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!trip || !hotel) {
+      alert("Please select both a trip and hotel before booking.");
+      return;
+    }
+    
     setConfirming(true);
     
     try {
       const result = await createBooking({
         input: {
-          tripId: trip.id,
-          hotelId: hotel.id,
+          tripId: trip.id.toString(),
+          hotelId: hotel.id.toString(),
           customerName: bookingDetails.customerName,
           email: bookingDetails.email,
           phone: bookingDetails.phone,
@@ -172,10 +229,11 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
         }
       });
 
-      if (result.data?.createBooking?.success) {
-        setSuccess(true);
+      if (result.data?.createBooking) {
+        // Redirect to confirmation page
+        navigate(`/confirmation/${result.data.createBooking.id}`);
       } else {
-        alert("Booking failed: " + result.data?.createBooking?.message);
+        alert("Booking failed: " + (result.error?.message || "Unknown error"));
       }
     } catch (err: any) {
       alert("Booking failed: " + (err.message || "Unknown error"));
@@ -183,6 +241,85 @@ export default function BookNowPage({ trip, hotel }: BookNowPageProps) {
       setConfirming(false);
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600">Loading booking options...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show trip/hotel selection if not provided
+  if (!trip || !hotel) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+              <h1 className="text-3xl font-bold">Select Your Trip & Hotel</h1>
+              <p className="text-blue-100 mt-2">Choose your destination and accommodation</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 p-6">
+              {/* Trip Selection */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-800">Select Trip</h2>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    const selectedTrip = availableTrips.find(t => t.id === e.target.value);
+                    setTrip(selectedTrip || null);
+                  }}
+                  value={trip?.id || ''}
+                >
+                  <option value="">Choose a trip...</option>
+                  {availableTrips.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.title} - {t.location} (${t.price})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Hotel Selection */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-800">Select Hotel</h2>
+                <select 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    const selectedHotel = availableHotels.find(h => h.id === e.target.value);
+                    setHotel(selectedHotel || null);
+                  }}
+                  value={hotel?.id || ''}
+                >
+                  <option value="">Choose a hotel...</option>
+                  {availableHotels.map(h => (
+                    <option key={h.id} value={h.id}>
+                      {h.name} - {h.location} (${h.price})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="p-6 bg-gray-50">
+              <button
+                onClick={() => navigate('/trips')}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200"
+              >
+                Browse All Trips
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (

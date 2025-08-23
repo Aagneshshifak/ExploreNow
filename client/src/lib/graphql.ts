@@ -1,14 +1,37 @@
 import { createClient } from 'graphql-ws';
 import { GraphQLClient } from 'graphql-request';
 
+// Get the API URL from environment variables or fallback to localhost
+const getApiUrl = () => {
+  // In Vite, environment variables are prefixed with VITE_
+  const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL;
+  
+  if (apiUrl && apiUrl.trim() !== '') {
+    return apiUrl;
+  }
+  
+  // Always use absolute URL for development
+  return 'http://localhost:5000';
+};
+
+const baseUrl = getApiUrl();
+
+// Ensure the base URL is always valid
+if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+  console.warn('Invalid GraphQL base URL, using fallback:', baseUrl);
+}
+
 // GraphQL HTTP client for queries and mutations
-export const graphqlClient = new GraphQLClient('http://localhost:5000/graphql', {
+export const graphqlClient = new GraphQLClient(`${baseUrl}/graphql`, {
   credentials: 'include', // Include cookies for authentication
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // GraphQL WebSocket client for subscriptions (if needed later)
 export const wsClient = createClient({
-  url: 'ws://localhost:5000/graphql',
+  url: `${baseUrl.replace('http', 'ws')}/graphql`,
 });
 
 // Common GraphQL queries
@@ -149,24 +172,18 @@ export const REGISTER_MUTATION = `
 export const CREATE_BOOKING_MUTATION = `
   mutation CreateBooking($input: BookingInput!) {
     createBooking(input: $input) {
-      success
-      message
-      booking {
-        id
-        tripId
-        hotelId
-        customerName
-        email
-        phone
-        transport
-        checkIn
-        checkOut
-        guests
-        totalCost
-        status
-        paymentStatus
-        createdAt
-      }
+      id
+      tripId
+      hotelId
+      customerName
+      email
+      phone
+      transport
+      checkIn
+      checkOut
+      guests
+      totalCost
+      status
     }
   }
 `;

@@ -52,6 +52,11 @@ app.use((req, res, next) => {
     }
   });
 
+  // Log 403 errors for debugging
+  if (res.statusCode === 403) {
+    console.log(`403 Error: ${req.method} ${req.path} - ${req.headers['user-agent']}`);
+  }
+
   next();
 });
 
@@ -65,6 +70,8 @@ app.use((req, res, next) => {
   app.use('/graphql', yoga);
 
   app.use(errorHandler);
+
+
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
