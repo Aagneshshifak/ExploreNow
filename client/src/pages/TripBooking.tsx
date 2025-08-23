@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SEOHead } from '@/components/ui/seo-head';
+import { graphqlClient, CREATE_BOOKING_MUTATION } from '@/lib/graphql-client';
 
 const bookingSchema = z.object({
   tripId: z.number().optional(),
@@ -95,6 +96,7 @@ export default function TripBooking() {
   const [selectedHotel, setSelectedHotel] = useState<number | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
+  const [useGraphQL, setUseGraphQL] = useState(false); // Toggle between REST and GraphQL
 
   const bookingForm = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
@@ -168,7 +170,7 @@ export default function TripBooking() {
     return tripCost + hotelCost + transportCost;
   };
 
-  // Create booking mutation
+  // Create booking mutation (REST)
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingForm & { cost: number }) => {
       const response = await fetch('/api/bookings/new', {
@@ -199,6 +201,55 @@ export default function TripBooking() {
     },
     onError: (error) => {
       console.error('Booking error:', error);
+      toast({
+        title: "Booking Failed ❌",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create booking mutation (GraphQL)
+  const createBookingGraphQLMutation = useMutation({
+    mutationFn: async (data: BookingForm & { cost: number }) => {
+      const bookingInput = {
+        tripId: tripId?.toString() || '',
+        hotelId: data.hotelId?.toString() || '',
+        customerName: data.customerName,
+        email: data.customerEmail,
+        phone: data.customerPhone,
+        transport: data.transportType,
+        checkIn: data.checkIn,
+        checkOut: data.checkOut,
+        guests: data.guests,
+        totalCost: data.cost
+      };
+
+      const variables = { input: bookingInput };
+      const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
+
+      if (!result.createBooking.success) {
+        throw new Error(result.createBooking.message || 'Failed to create booking');
+      }
+
+      return {
+        success: true,
+        data: result.createBooking.booking,
+        message: result.createBooking.message
+      };
+    },
+    onSuccess: (data) => {
+      console.log('GraphQL Booking created successfully:', data);
+      setBookingId(data.data.id);
+      setStep('payment');
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking Created! 🎉",
+        description: "Please proceed to payment to complete your booking.",
+      });
+    },
+    onError: (error) => {
+      console.error('GraphQL Booking error:', error);
       toast({
         title: "Booking Failed ❌",
         description: error.message,
@@ -249,11 +300,17 @@ export default function TripBooking() {
 
   const onBookingSubmit = (data: BookingForm) => {
     const totalCost = calculateTotalCost();
-    createBookingMutation.mutate({
+    const bookingData = {
       ...data,
       hotelId: selectedHotel || undefined,
       cost: totalCost,
-    });
+    };
+    
+    if (useGraphQL) {
+      createBookingGraphQLMutation.mutate(bookingData);
+    } else {
+      createBookingMutation.mutate(bookingData);
+    }
   };
 
   const onPaymentSubmit = (data: PaymentForm) => {
@@ -657,6 +714,31 @@ export default function TripBooking() {
                       />
                     </div>
 
+                    {/* API Toggle */}
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="text-sm font-medium">API Method:</Label>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            type="button"
+                            variant={!useGraphQL ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setUseGraphQL(false)}
+                          >
+                            REST
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={useGraphQL ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setUseGraphQL(true)}
+                          >
+                            GraphQL
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Total Cost */}
                     <div className="border-t pt-4">
                       <div className="flex justify-between items-center text-lg font-semibold">
@@ -669,15 +751,15 @@ export default function TripBooking() {
                       type="submit"
                       size="lg"
                       className="w-full"
-                      disabled={createBookingMutation.isPending || !selectedHotel}
+                      disabled={(createBookingMutation.isPending || createBookingGraphQLMutation.isPending) || !selectedHotel}
                     >
-                      {createBookingMutation.isPending ? (
+                      {(createBookingMutation.isPending || createBookingGraphQLMutation.isPending) ? (
                         <>
                           <LoadingSpinner className="mr-2 h-4 w-4" />
-                          Creating Booking...
+                          Creating Booking via {useGraphQL ? 'GraphQL' : 'REST'}...
                         </>
                       ) : (
-                        'Confirm Booking'
+                        `Confirm Booking (${useGraphQL ? 'GraphQL' : 'REST'})`
                       )}
                     </Button>
 

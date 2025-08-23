@@ -20,35 +20,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for existing session by calling /api/auth/me
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include', // Include cookies
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setUser(data.data);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setUser(data.data);
+          }
         }
-      } else if (response.status === 401) {
-        // User is not authenticated, which is fine
-        console.log('User not authenticated - this is normal for new visitors');
+      } catch (error) {
+        console.error('Auth check failed:', error);
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    
+    checkAuth();
+  }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -65,17 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await response.json();
-      console.log('Login response:', data);
       
       if (data.success && data.data?.user) {
         setUser(data.data.user);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
       } else {
         throw new Error(data.message || 'Login failed');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      console.error('Login error:', error);
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -123,11 +114,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      localStorage.removeItem('user');
     }
   };
 
+  const value: AuthContextType = {
+    user,
+    login,
+    register,
+    logout,
+    isLoading,
+    error,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading, error }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

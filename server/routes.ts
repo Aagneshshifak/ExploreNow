@@ -1310,7 +1310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ${checkOut},
           ${parseInt((guests || 1).toString())},
           ${cost.toString()},
-          ${'pending'},
+          ${'confirmed'},
           ${'dummy'}
         ) RETURNING *
       `;

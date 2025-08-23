@@ -7,7 +7,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
-import { createGraphQLServer } from "./graphql";
+import { yoga } from "./graphql";
 
 const app = express();
 
@@ -62,7 +62,6 @@ app.use((req, res, next) => {
   app.use('/api', translateRoutes);
   
   // Setup GraphQL - must be before Vite setup
-  const yoga = createGraphQLServer();
   app.use('/graphql', yoga);
 
   app.use(errorHandler);

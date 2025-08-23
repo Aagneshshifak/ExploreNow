@@ -11,8 +11,6 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@apollo/client": "^4.0.0",
-    "@apollo/server": "^5.0.0",
     "@google/genai": "^1.14.0",
     "@google/generative-ai": "^0.24.1",
     "@graphql-tools/schema": "^10.0.25",
