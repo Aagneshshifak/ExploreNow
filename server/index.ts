@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import cors from "cors";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
@@ -15,15 +16,27 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://explorenow.vercel.app', 'https://*.vercel.app'] 
-    : ['http://localhost:5000', 'http://localhost:5173'],
+    : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+  // Add debugging middleware to log all requests
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path} - User-Agent: ${req.headers['user-agent']}`);
+    
+    // Handle 403 errors more gracefully
+    if (req.path.includes('.tsx') || req.path.includes('.ts') || req.path.includes('.jsx') || req.path.includes('.js')) {
+      console.log(`Static file request: ${req.path}`);
+    }
+    
+    next();
+  });
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -69,16 +82,27 @@ app.use((req, res, next) => {
   // Setup GraphQL - must be before Vite setup
   app.use('/graphql', yoga);
 
+  // Add a simple test route to verify server is working
+  app.get('/test', (req, res) => {
+    res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
+  });
+
   app.use(errorHandler);
 
 
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  // Check if we're running in integrated mode (Vite + Express together)
+  const isIntegratedMode = process.env.INTEGRATED_MODE === 'true';
+  
+  if (app.get("env") === "development" && isIntegratedMode) {
+    console.log('Setting up Vite development server in integrated mode...');
     await setupVite(app, server);
+  } else if (app.get("env") === "development") {
+    console.log('Running in separate mode - Vite dev server should be running on port 5173');
+    // Serve static files for development when running separately
+    app.use(express.static(path.resolve(import.meta.dirname, '..', 'client', 'public')));
   } else {
+    console.log('Setting up static file serving for production...');
     serveStatic(app);
   }
 

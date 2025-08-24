@@ -26,18 +26,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('Checking authentication...');
+        
+        // First check if we have a user in localStorage as fallback
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            console.log('Found saved user in localStorage:', parsedUser);
+            setUser(parsedUser);
+          } catch (e) {
+            console.error('Failed to parse saved user:', e);
+          }
+        }
+
+        // Then verify with the server
+        console.log('Making request to /api/auth/me...');
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
         });
         
+        console.log('Auth response status:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('Auth response data:', data);
           if (data.success && data.data) {
             setUser(data.data);
+            // Update localStorage with fresh data
+            localStorage.setItem('user', JSON.stringify(data.data));
           }
+        } else {
+          console.log('Server auth failed, clearing localStorage');
+          // If server auth fails, clear localStorage
+          localStorage.removeItem('user');
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        // On network error, keep the user if we have one in localStorage
+        // This prevents logout on temporary network issues
       }
     };
     
@@ -62,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (data.success && data.data?.user) {
         setUser(data.data.user);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
       } else {
         throw new Error(data.message || 'Login failed');
       }
@@ -92,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (data.success && data.data?.user) {
         setUser(data.data.user);
+        localStorage.setItem('user', JSON.stringify(data.data.user));
       } else {
         throw new Error(data.message || 'Registration failed');
       }

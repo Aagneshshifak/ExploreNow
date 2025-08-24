@@ -25,8 +25,12 @@ import {
   type TripFilterData,
   type BudgetFilterData,
   type AIRecommendationData,
-  type PaymentFormData
+  type PaymentFormData,
+  bookings,
+  trips,
+  hotels
 } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -160,6 +164,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", requireUser, (req, res) => {
     const { password: _, ...userWithoutPassword } = req.user!;
     res.json(createResponse(true, userWithoutPassword, "User data retrieved"));
+  });
+
+  // Test endpoint to check cookies - GET /api/auth/test
+  app.get("/api/auth/test", (req, res) => {
+    console.log('Cookies:', req.cookies);
+    console.log('Headers:', req.headers);
+    res.json(createResponse(true, { 
+      cookies: req.cookies, 
+      hasToken: !!req.cookies.token,
+      userAgent: req.headers['user-agent']
+    }, "Test endpoint"));
+  });
+
+  // Get user bookings with details - GET /api/bookings/dashboard
+  app.get("/api/bookings/dashboard", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Fetch bookings with trip and hotel details using Drizzle
+      const userBookings = await db
+        .select({
+          id: bookings.id,
+          type: bookings.type,
+          status: bookings.status,
+          amount: bookings.amount,
+          checkIn: bookings.checkIn,
+          checkOut: bookings.checkOut,
+          createdAt: bookings.createdAt,
+          tripId: trips.id,
+          tripTitle: trips.title,
+          tripLocation: trips.location,
+          tripImageUrl: trips.imageUrl,
+          hotelId: hotels.id,
+          hotelName: hotels.name,
+          hotelLocation: hotels.location,
+          hotelImageUrl: hotels.imageUrl,
+        })
+        .from(bookings)
+        .leftJoin(trips, eq(bookings.tripId, trips.id))
+        .leftJoin(hotels, eq(bookings.hotelId, hotels.id))
+        .where(eq(bookings.userId, userId))
+        .orderBy(desc(bookings.createdAt));
+
+      // Group bookings by status
+      const upcoming = userBookings.filter(b => b.status === 'confirmed' && new Date(b.checkIn!) > new Date());
+      const completed = userBookings.filter(b => b.status === 'completed');
+      const cancelled = userBookings.filter(b => b.status === 'cancelled');
+
+      res.json(createResponse(true, {
+        upcoming,
+        completed,
+        cancelled,
+        stats: {
+          totalBookings: userBookings.length,
+          totalSpent: userBookings.reduce((sum, b) => sum + b.amount, 0),
+          upcomingTrips: upcoming.length,
+          completedTrips: completed.length,
+          cancelledTrips: cancelled.length
+        }
+      }, "Dashboard data retrieved successfully"));
+    } catch (error) {
+      console.error("Dashboard data error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve dashboard data"));
+    }
   });
   
   // ============================================

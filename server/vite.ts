@@ -46,12 +46,13 @@ export async function setupVite(app: Express, server: Server) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
-    // Skip API routes and static files that should be handled by Vite
-    if (url.startsWith('/api') || 
-        url.startsWith('/graphql') || 
-        url.includes('.') && !url.endsWith('.html')) {
+    // Skip API routes and GraphQL routes
+    if (url.startsWith('/api') || url.startsWith('/graphql')) {
       return next();
     }
+
+    // Allow Vite to handle all other routes including static files
+    // This ensures proper handling of .tsx, .css, .js, .png, etc. files
 
     try {
       const clientTemplate = path.resolve(

@@ -38,6 +38,7 @@ import AdminUploadDashboard from "./pages/AdminUploadDashboard";
 import SearchFilter from "./pages/SearchFilter";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
+import DashboardPage from "./pages/DashboardPage";
 import AITripRecommender from "./pages/AITripRecommender";
 import TripsList from "./pages/TripsList";
 import ExpenseConverter from "./pages/ExpenseConverter";
@@ -184,7 +185,7 @@ const App = () => {
                 <Route path="/dashboard" element={
                   <ProtectedRoute requireAuth={true}>
                     <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-                      <Dashboard />
+                      <DashboardPage />
                     </Layout>
                   </ProtectedRoute>
                 } />
