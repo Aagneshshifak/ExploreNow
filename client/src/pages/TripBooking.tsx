@@ -178,26 +178,27 @@ export default function TripBooking() {
           tripId: tripId?.toString() || '',
           hotelId: data.hotelId?.toString() || '',
           customerName: data.customerName,
-          email: data.customerEmail,
-          phone: data.customerPhone,
-          transport: data.transportType,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          transportMode: data.transportType,
           checkIn: data.checkIn,
           checkOut: data.checkOut,
           guests: data.guests,
-          totalCost: data.cost
+          amount: data.cost,
+          currency: 'USD'
         };
 
         const variables = { input: bookingInput };
         const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
 
-        if (!result.createBooking) {
-          throw new Error('Failed to create booking');
+        if (!result.createBooking || !result.createBooking.success) {
+          throw new Error(result.createBooking?.message || 'Failed to create booking');
         }
 
         return {
           success: true,
-          data: result.createBooking,
-          message: 'Booking created successfully'
+          data: result.createBooking.booking,
+          message: result.createBooking.message
         };
       } catch (error) {
         console.error('GraphQL mutation error:', error);

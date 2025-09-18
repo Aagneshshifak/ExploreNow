@@ -6,30 +6,36 @@ import { eq } from 'drizzle-orm';
 const typeDefs = `
   type Booking {
     id: ID!
-    tripId: String!
-    hotelId: String!
+    tripId: String
+    hotelId: String
     customerName: String!
-    email: String!
-    phone: String!
-    transport: String!
+    customerEmail: String!
+    customerPhone: String!
+    transportMode: String
     checkIn: String!
     checkOut: String!
     guests: Int!
-    totalCost: Float!
+    amount: Float!
     status: String!
+    currency: String
   }
 
   input BookingInput {
-    tripId: String!
-    hotelId: String!
+    tripId: String
+    hotelId: String
     customerName: String!
-    email: String!
-    phone: String!
-    transport: String!
+    customerEmail: String!
+    customerPhone: String!
+    transportMode: String
     checkIn: String!
     checkOut: String!
     guests: Int!
-    totalCost: Float!
+    amount: Float!
+    currency: String
+    specialRequests: String
+    emergencyContact: String
+    emergencyPhone: String
+    transportDetails: String
   }
 
   type Query {
@@ -38,7 +44,13 @@ const typeDefs = `
   }
 
   type Mutation {
-    createBooking(input: BookingInput!): Booking!
+    createBooking(input: BookingInput!): BookingResponse!
+  }
+
+  type BookingResponse {
+    success: Boolean!
+    booking: Booking
+    message: String!
   }
 `;
 
@@ -65,9 +77,9 @@ const resolvers = {
     tripId: (parent) => parent.tripId,
     hotelId: (parent) => parent.hotelId,
     customerName: (parent) => parent.customerName,
-    email: (parent) => parent.customerEmail,
-    phone: (parent) => parent.customerPhone,
-    transport: (parent) => parent.transportMode,
+    customerEmail: (parent) => parent.customerEmail,
+    customerPhone: (parent) => parent.customerPhone,
+    transportMode: (parent) => parent.transportMode,
     checkIn: (parent) => {
       if (!parent.checkIn) return '';
       if (parent.checkIn instanceof Date) {
@@ -83,36 +95,95 @@ const resolvers = {
       return parent.checkOut.toString();
     },
     guests: (parent) => parent.guests,
-    totalCost: (parent) => parseFloat(parent.amount.toString()),
+    amount: (parent) => parseFloat(parent.amount.toString()),
     status: (parent) => parent.status,
+    currency: (parent) => parent.currency,
   },
 
   Mutation: {
-    createBooking: async (_: any, { input }: { input: any }) => {
+    createBooking: async (_: any, { input }: { input: any }, context: any) => {
       try {
-        const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const booking = await db.insert(bookings).values({
-          id: bookingId,
-          userId: 1, // Default user ID for Phase 1
-          tripId: input.tripId,
-          hotelId: input.hotelId,
-          type: 'trip', // Default type for Phase 1
-          customerName: input.customerName,
-          customerEmail: input.email,
-          customerPhone: input.phone,
-          transportMode: input.transport,
-          checkIn: input.checkIn,
-          checkOut: input.checkOut,
-          guests: input.guests,
-          amount: input.totalCost,
-          status: "confirmed",
-          currency: "USD", // Default currency for Phase 1
-        }).returning();
+        // Get user from context (temporarily allow without auth for testing)
+        const token = context?.req?.cookies?.token;
+        let userId = 17; // Default fallback
         
-        return booking[0];
+        if (token) {
+          try {
+            const jwt = require('jsonwebtoken');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+            userId = decoded.userId;
+          } catch (error) {
+            console.log('Token verification failed, using default user ID');
+          }
+        }
+        
+        const {
+          tripId,
+          hotelId,
+          customerName,
+          customerEmail,
+          customerPhone,
+          transportMode,
+          checkIn,
+          checkOut,
+          guests,
+          amount,
+          currency = 'USD',
+          specialRequests,
+          emergencyContact,
+          emergencyPhone,
+          transportDetails
+        } = input;
+        
+        // Generate unique booking ID
+        const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Determine booking type
+        const type = tripId ? 'trip' : 'hotel';
+        
+        const result = await sql`
+          INSERT INTO bookings (
+            id, "userId", "tripId", "hotelId", type, "customerName", "customerEmail", 
+            "customerPhone", "transportMode", "checkIn", "checkOut", guests, amount, 
+            status, "specialRequests", "emergencyContact", "emergencyPhone", 
+            "transportDetails", currency
+          ) VALUES (
+            ${bookingId},
+            ${userId},
+            ${tripId || null},
+            ${hotelId || null},
+            ${type},
+            ${customerName},
+            ${customerEmail},
+            ${customerPhone},
+            ${transportMode || 'flight'},
+            ${checkIn},
+            ${checkOut},
+            ${guests},
+            ${amount},
+            ${'confirmed'},
+            ${specialRequests || null},
+            ${emergencyContact || null},
+            ${emergencyPhone || null},
+            ${transportDetails || null},
+            ${currency}
+          ) RETURNING *
+        `;
+        
+        const booking = result[0];
+        
+        return {
+          success: true,
+          booking,
+          message: 'Booking created successfully'
+        };
       } catch (error: any) {
         console.error("GraphQL createBooking error:", error);
-        throw new Error("Failed to create booking: " + error.message);
+        return {
+          success: false,
+          booking: null,
+          message: 'Failed to create booking: ' + error.message
+        };
       }
     }
   }

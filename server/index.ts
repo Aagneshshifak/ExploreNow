@@ -87,6 +87,20 @@ app.use((req, res, next) => {
     res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
   });
 
+  // Add root route to redirect to Vite dev server in development
+  app.get('/', (req, res) => {
+    if (app.get("env") === "development") {
+      res.redirect('http://localhost:5173/');
+    } else {
+      res.json({ 
+        message: 'ExploreNow API Server', 
+        status: 'running',
+        timestamp: new Date().toISOString(),
+        docs: '/graphql'
+      });
+    }
+  });
+
   app.use(errorHandler);
 
 
@@ -114,5 +128,13 @@ app.use((req, res, next) => {
     host: "localhost",
   }, () => {
     log(`serving on port ${port}`);
+    if (app.get("env") === "development") {
+      console.log('\n🚀 Development servers running:');
+      console.log('   Frontend (Vite): http://localhost:5173/');
+      console.log('   Backend (API):   http://localhost:5000/');
+      console.log('   GraphQL:         http://localhost:5000/graphql');
+      console.log('   Test endpoint:   http://localhost:5000/test');
+      console.log('\n💡 Use http://localhost:5173/ for the main application\n');
+    }
   });
 })();

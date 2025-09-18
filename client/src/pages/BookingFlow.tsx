@@ -62,12 +62,18 @@ const CREATE_BOOKING_MUTATION = `
       message
       booking {
         id
-        customerName
         tripId
         hotelId
-        totalCost
+        customerName
+        customerEmail
+        customerPhone
+        transportMode
+        checkIn
+        checkOut
+        guests
+        amount
         status
-        paymentStatus
+        currency
       }
     }
   }
@@ -138,27 +144,28 @@ export default function BookingFlow() {
         tripId: itemType === 'trip' ? itemId.toString() : '',
         hotelId: itemType === 'hotel' ? itemId.toString() : '',
         customerName: data.customerName,
-        email: data.customerEmail,
-        phone: data.customerPhone,
-        transport: 'flight', // Default transport mode
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        transportMode: 'flight', // Default transport mode
         checkIn: data.checkInDate,
         checkOut: data.checkOutDate,
         guests: data.guests,
-        totalCost: totalAmount
+        amount: totalAmount,
+        currency: 'USD'
       };
 
       try {
         const variables = { input: bookingInput };
         const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
 
-        if (!result.createBooking) {
-          throw new Error('Failed to create booking');
+        if (!result.createBooking || !result.createBooking.success) {
+          throw new Error(result.createBooking?.message || 'Failed to create booking');
         }
 
         return {
           success: true,
-          data: result.createBooking,
-          message: 'Booking created successfully'
+          data: result.createBooking.booking,
+          message: result.createBooking.message
         };
       } catch (error) {
         console.error('GraphQL mutation error:', error);

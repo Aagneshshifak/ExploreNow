@@ -93,7 +93,7 @@ export const resolvers = {
       const user = getUserFromContext(context);
       if (!user) throw new Error('Unauthorized');
       
-      const result = await sql`SELECT * FROM bookings WHERE email = (SELECT email FROM users WHERE id = ${user.userId}) ORDER BY "created_at" DESC`;
+      const result = await sql`SELECT * FROM bookings WHERE "userId" = ${user.userId} ORDER BY "createdAt" DESC`;
       return result;
     },
 
@@ -271,46 +271,60 @@ export const resolvers = {
     // Booking mutations
     createBooking: async (_: any, { input }: { input: any }, context: any) => {
       try {
-        // Temporarily allow booking without authentication for testing
-        // const user = getUserFromContext(context);
-        // if (!user) {
-        //   return {
-        //     success: false,
-        //     booking: null,
-        //     message: 'Unauthorized'
-        //   };
-        // }
+        // Get user from context (temporarily allow without auth for testing)
+        const user = getUserFromContext(context);
+        const userId = user?.userId || 17; // Fallback to user ID 17 for testing
         
         const {
           tripId,
           hotelId,
           customerName,
-          email,
-          phone,
-          transport,
+          customerEmail,
+          customerPhone,
+          transportMode,
           checkIn,
           checkOut,
           guests,
-          totalCost
+          amount,
+          currency = 'USD',
+          specialRequests,
+          emergencyContact,
+          emergencyPhone,
+          transportDetails
         } = input;
+        
+        // Generate unique booking ID
+        const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Determine booking type
+        const type = tripId ? 'trip' : 'hotel';
         
         const result = await sql`
           INSERT INTO bookings (
-            trip_id, hotel_id, customer_name, email, phone, transport,
-            check_in, check_out, guests, total_cost, status, payment_status
+            id, "userId", "tripId", "hotelId", type, "customerName", "customerEmail", 
+            "customerPhone", "transportMode", "checkIn", "checkOut", guests, amount, 
+            status, "specialRequests", "emergencyContact", "emergencyPhone", 
+            "transportDetails", currency
           ) VALUES (
-            ${tripId},
-            ${hotelId},
+            ${bookingId},
+            ${userId},
+            ${tripId || null},
+            ${hotelId || null},
+            ${type},
             ${customerName},
-            ${email},
-            ${phone},
-            ${transport},
+            ${customerEmail},
+            ${customerPhone},
+            ${transportMode || 'flight'},
             ${checkIn},
             ${checkOut},
             ${guests},
-            ${totalCost},
+            ${amount},
             ${'confirmed'},
-            ${'dummy'}
+            ${specialRequests || null},
+            ${emergencyContact || null},
+            ${emergencyPhone || null},
+            ${transportDetails || null},
+            ${currency}
           ) RETURNING *
         `;
         

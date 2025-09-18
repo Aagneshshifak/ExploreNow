@@ -45,8 +45,8 @@ export const hotels = pgTable("hotels", {
 export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey(),
   userId: integer("userId").notNull(),
-  tripId: varchar("tripId").notNull(),
-  hotelId: varchar("hotelId").notNull(),
+  tripId: varchar("tripId"),
+  hotelId: varchar("hotelId"),
   type: varchar("type").notNull(),
   customerName: varchar("customerName").notNull(),
   customerEmail: varchar("customerEmail").notNull(),

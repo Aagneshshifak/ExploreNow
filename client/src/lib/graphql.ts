@@ -172,18 +172,23 @@ export const REGISTER_MUTATION = `
 export const CREATE_BOOKING_MUTATION = `
   mutation CreateBooking($input: BookingInput!) {
     createBooking(input: $input) {
-      id
-      tripId
-      hotelId
-      customerName
-      email
-      phone
-      transport
-      checkIn
-      checkOut
-      guests
-      totalCost
-      status
+      success
+      message
+      booking {
+        id
+        tripId
+        hotelId
+        customerName
+        customerEmail
+        customerPhone
+        transportMode
+        checkIn
+        checkOut
+        guests
+        amount
+        status
+        currency
+      }
     }
   }
 `;

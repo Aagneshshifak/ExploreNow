@@ -96,7 +96,7 @@ const mockBookings: Booking[] = [
     tripId: '1',
     tripTitle: 'Paris Adventure',
     tripLocation: 'Paris, France',
-    tripImageUrl: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop'
+    tripImageUrl: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=400&h=300&fit=crop'
   },
   {
     id: '2',

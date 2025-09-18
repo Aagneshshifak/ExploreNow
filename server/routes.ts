@@ -25,10 +25,7 @@ import {
   type TripFilterData,
   type BudgetFilterData,
   type AIRecommendationData,
-  type PaymentFormData,
-  bookings,
-  trips,
-  hotels
+  type PaymentFormData
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -181,6 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bookings/dashboard", requireUser, async (req, res) => {
     try {
       const userId = req.user!.id;
+      
+      // Import the schema tables
+      const { bookings, trips, hotels } = schema;
       
       // Fetch bookings with trip and hotel details using Drizzle
       const userBookings = await db
