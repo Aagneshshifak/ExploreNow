@@ -104,16 +104,31 @@ export class GeminiTravelService {
       // Try to parse JSON from the response
       let recommendations: TripRecommendation[] = [];
       try {
-        // Extract JSON from the response (handle cases where AI adds extra text)
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        // Clean the response text first
+        let cleanText = text.trim();
+        
+        // Remove any markdown code blocks
+        cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Extract JSON array from the response
+        const jsonMatch = cleanText.match(/\[[\s\S]*?\]/);
         if (jsonMatch) {
-          recommendations = JSON.parse(jsonMatch[0]) as TripRecommendation[];
+          let jsonString = jsonMatch[0];
+          
+          // Try to fix common JSON issues
+          jsonString = jsonString
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+            .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
+            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
+          
+          recommendations = JSON.parse(jsonString) as TripRecommendation[];
         } else {
           // Fallback: create mock recommendations
           recommendations = this.createMockRecommendations(budget, interests, duration, destination, travelStyle);
         }
       } catch (parseError) {
         console.error("JSON parsing error:", parseError);
+        console.error("Raw response text:", text);
         // Fallback: create mock recommendations
         recommendations = this.createMockRecommendations(budget, interests, duration, destination, travelStyle);
       }

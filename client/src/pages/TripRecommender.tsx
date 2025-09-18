@@ -73,79 +73,67 @@ const TripRecommender = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch("/api/ai/assistant", {
+      // Convert duration to number for API
+      const durationDays = duration === '1-3' ? 3 : duration === '4-7' ? 7 : 10;
+      
+      const response = await fetch("/api/ai/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `Recommend travel destinations for someone with interests in ${selectedInterests.join(', ')} with a budget of ₹${budget} for ${duration} duration. Provide specific destinations with budget ranges and ratings.`,
-          userContext: {
-            budget: parseInt(budget),
-            preferences: selectedInterests,
-            duration: duration
-          }
+          budget: parseInt(budget),
+          interests: selectedInterests,
+          duration: durationDays,
+          destination: "",
+          travelStyle: "Standard"
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
-          // Parse AI response and create recommendations
-          const aiResponse = data.data.response;
+        if (data.success && data.data.trips) {
+          // Convert Gemini API response to our format
+          const geminiRecommendations = data.data.trips.map((trip: any, index: number) => ({
+            id: trip.id || index + 1,
+            destination: trip.name || trip.location,
+            description: trip.description || 'AI-generated travel recommendation',
+            budgetRange: `₹${trip.cost || budget}`,
+            duration: trip.duration || duration,
+            rating: trip.rating || 4.5,
+            // Additional Gemini data
+            location: trip.location,
+            tags: trip.tags || selectedInterests,
+            includes: trip.includes || [],
+            bestTimeToVisit: trip.bestTimeToVisit || 'Year-round',
+            weatherInfo: trip.weatherInfo || 'Pleasant weather',
+            culturalHighlights: trip.culturalHighlights || []
+          }));
           
-          // Create recommendations based on AI response
-          const aiRecommendations = [
-            {
-              id: 1,
-              destination: 'AI Recommended: Cultural Heritage Trip',
-              description: aiResponse.substring(0, 100) + '...',
-              budgetRange: `₹${budget}`,
-              duration: duration,
-              rating: 4.7
-            },
-            {
-              id: 2, 
-              destination: 'AI Suggested: Adventure Experience',
-              description: 'Personalized recommendations based on your interests',
-              budgetRange: `₹${budget}`,
-              duration: duration,
-              rating: 4.5
-            }
-          ];
-          
-          setRecommendations(aiRecommendations);
+          setRecommendations(geminiRecommendations);
           
           toast({
             title: "AI Recommendations Ready!",
-            description: "Generated personalized travel suggestions for you.",
+            description: `Generated ${geminiRecommendations.length} personalized travel suggestions using Gemini AI.`,
           });
         } else {
           throw new Error(data.message || "Failed to get recommendations");
         }
       } else {
-        throw new Error("Failed to connect to AI service");
+        throw new Error("Failed to connect to Gemini AI service");
       }
     } catch (error) {
-      console.error("Recommendation error:", error);
-      // Fallback to mock data if AI fails
+      console.error("Gemini AI recommendation error:", error);
+      // Fallback to mock data if Gemini AI fails
       setRecommendations(mockRecommendations.filter(rec => 
         rec.duration === duration || rec.budgetRange.includes(budget.slice(0, 2))
       ));
       
       toast({
         title: "Recommendations Generated",
-        description: "Showing available travel options for your criteria.",
+        description: "Showing available travel options for your criteria (using fallback data).",
       });
     } finally {
       setIsLoading(false);
     }
-    setTimeout(() => {
-      setRecommendations(mockRecommendations);
-      setIsLoading(false);
-      toast({
-        title: "Recommendations Ready!",
-        description: "Found 3 trips matching your preferences."
-      });
-    }, 1500);
   };
 
   return (
@@ -157,10 +145,10 @@ const TripRecommender = () => {
             <MapPin className="w-8 h-8 text-foreground" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Trip Recommender
+            AI Trip Recommender
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Get personalized travel recommendations based on your budget, interests, and duration preferences.
+            Get personalized travel recommendations powered by Gemini AI based on your budget, interests, and duration preferences.
           </p>
         </div>
 
@@ -233,9 +221,9 @@ const TripRecommender = () => {
                 onClick={handleGetRecommendations}
                 disabled={isLoading}
                 className="w-full bg-foreground text-background hover:opacity-90 font-semibold text-lg py-6"
-                aria-label="Get trip recommendations"
+                aria-label="Get AI trip recommendations"
               >
-                {isLoading ? "Finding Recommendations..." : "Get Recommendations"}
+                {isLoading ? "Generating AI Recommendations..." : "Get AI Recommendations"}
               </Button>
             </CardContent>
           </Card>
@@ -267,6 +255,31 @@ const TripRecommender = () => {
                         <Star className="w-4 h-4 text-muted-foreground" />
                         <span className="text-sm text-foreground">{trip.rating}/5</span>
                       </div>
+                      
+                      {/* Show additional Gemini AI data if available */}
+                      {trip.location && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">{trip.location}</span>
+                        </div>
+                      )}
+                      
+                      {trip.tags && trip.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {trip.tags.slice(0, 3).map((tag: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {trip.bestTimeToVisit && (
+                        <div className="text-xs text-muted-foreground">
+                          Best time: {trip.bestTimeToVisit}
+                        </div>
+                      )}
+                      
                       <Button 
                         variant="outline" 
                         className="w-full mt-4"

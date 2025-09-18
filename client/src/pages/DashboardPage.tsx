@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { 
   Calendar, 
   MapPin, 
@@ -137,17 +138,11 @@ const planningCards = [
 ];
 
 const sidebarItems = [
-  { icon: BookOpen, label: 'My Bookings', href: '/dashboard' },
   { icon: BookOpen, label: 'All Bookings', href: '/dashboard', active: true },
-  { icon: Building2, label: 'Hotels', href: '/hotels' },
-  { icon: PlaneTakeoff, label: 'Flights', href: '/flights' },
-  { icon: Activity, label: 'Activities', href: '/activities' },
-  { icon: MessageSquare, label: 'Messages', href: '/messages' },
+  { icon: Building2, label: 'My Hotels', href: '/dashboard/hotels' },
+  { icon: Car, label: 'My Transports', href: '/dashboard/transports' },
   { icon: Star, label: 'Reviews', href: '/reviews' },
-  { icon: Crown, label: 'ExploreVIP', href: '/vip' },
-  { icon: Coins, label: 'ExploreCash', href: '/cash' },
   { icon: Gift, label: 'Rewards', href: '/rewards' },
-  { icon: User, label: 'Profile', href: '/profile' },
 ];
 
 // Custom Hook
@@ -241,15 +236,17 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean; setIsC
               <Tooltip>
                 <TooltipTrigger asChild>
                   <li>
-                    <Button
-                      variant={item.active ? "secondary" : "ghost"}
-                      className={`w-full justify-start text-white hover:bg-gray-700 ${
-                        item.active ? 'bg-gray-700' : ''
-                      }`}
-                    >
-                      <item.icon className="w-4 h-4" />
-                      {!isCollapsed && <span className="ml-2">{item.label}</span>}
-                    </Button>
+                    <Link to={item.href}>
+                      <Button
+                        variant={item.active ? "secondary" : "ghost"}
+                        className={`w-full justify-start text-white hover:bg-gray-700 ${
+                          item.active ? 'bg-gray-700' : ''
+                        }`}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        {!isCollapsed && <span className="ml-2">{item.label}</span>}
+                      </Button>
+                    </Link>
                   </li>
                 </TooltipTrigger>
                 {isCollapsed && (
@@ -490,14 +487,23 @@ export default function DashboardPage() {
           {/* Tabs */}
           <div className="mb-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="bg-gray-800 border-gray-700">
-                <TabsTrigger value="upcoming" className="text-white data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsList className="grid w-full grid-cols-3 bg-gray-800 border-gray-700">
+                <TabsTrigger 
+                  value="upcoming" 
+                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                >
                   Upcoming ({data?.stats.upcomingTrips || 0})
                 </TabsTrigger>
-                <TabsTrigger value="completed" className="text-white data-[state=active]:bg-primary data-[state=active]:text-white">
+                <TabsTrigger 
+                  value="completed" 
+                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                >
                   Completed ({data?.stats.completedTrips || 0})
                 </TabsTrigger>
-                <TabsTrigger value="cancelled" className="text-white data-[state=active]:bg-primary data-[state=active]:text-white">
+                <TabsTrigger 
+                  value="cancelled" 
+                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                >
                   Cancelled ({data?.stats.cancelledTrips || 0})
                 </TabsTrigger>
               </TabsList>
@@ -505,119 +511,118 @@ export default function DashboardPage() {
           </div>
 
           {/* Content */}
-          <AnimatePresence mode="wait">
-            {isLoading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="bg-gray-800 border-gray-700">
-                      <CardContent className="p-0">
-                        <Skeleton className="w-full h-48 rounded-t-lg" />
-                        <div className="p-4 space-y-2">
-                          <Skeleton className="h-6 w-3/4" />
-                          <Skeleton className="h-4 w-1/2" />
-                          <Skeleton className="h-4 w-2/3" />
-                          <div className="flex justify-between">
-                            <Skeleton className="h-6 w-20" />
-                            <Skeleton className="h-8 w-24" />
-                          </div>
+          {isLoading ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="bg-gray-800 border-gray-700">
+                    <CardContent className="p-0">
+                      <Skeleton className="w-full h-48 rounded-t-lg" />
+                      <div className="p-4 space-y-2">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-4 w-2/3" />
+                        <div className="flex justify-between">
+                          <Skeleton className="h-6 w-20" />
+                          <Skeleton className="h-8 w-24" />
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </motion.div>
-            ) : isError ? (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <Alert className="bg-red-900/20 border-red-700 text-red-200">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Failed to load dashboard data
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={refetch}
-                      className="ml-4 border-red-600 text-red-200 hover:bg-red-800"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Retry
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {/* Show bookings based on active tab */}
-                {(() => {
-                  let bookings: Booking[] = [];
-                  let isEmpty = false;
-                  
-                  switch (activeTab) {
-                    case 'upcoming':
-                      bookings = data?.upcoming || [];
-                      isEmpty = bookings.length === 0;
-                      break;
-                    case 'completed':
-                      bookings = data?.completed || [];
-                      isEmpty = bookings.length === 0;
-                      break;
-                    case 'cancelled':
-                      bookings = data?.cancelled || [];
-                      isEmpty = bookings.length === 0;
-                      break;
-                    default:
-                      bookings = data?.upcoming || [];
-                      isEmpty = bookings.length === 0;
-                  }
-                  
-                  if (isEmpty) {
-                    return (
-                      <div className="text-center py-12">
-                        <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
-                          <Plane className="w-12 h-12 text-gray-400" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-white mb-2">No {activeTab} bookings</h3>
-                        <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                          {activeTab === 'upcoming' && "You don't have any upcoming bookings yet."}
-                          {activeTab === 'completed' && "You haven't completed any trips yet."}
-                          {activeTab === 'cancelled' && "You don't have any cancelled bookings."}
-                        </p>
-                        <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
-                          Explore Bookings
-                        </Button>
                       </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {bookings.map((booking) => (
-                        <BookingCard key={booking.id} booking={booking} />
-                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : isError ? (
+            <Alert className="bg-red-900/20 border-red-700 text-red-200">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to load dashboard data
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refetch}
+                  className="ml-4 border-red-600 text-red-200 hover:bg-red-800"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsContent value="upcoming" className="mt-6">
+                {data?.upcoming && data.upcoming.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {data.upcoming.map((booking) => (
+                      <BookingCard key={booking.id} booking={booking} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
+                      <Plane className="w-12 h-12 text-gray-400" />
                     </div>
-                  );
-                })()}
-                
-                <StartPlanningSection />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <h3 className="text-xl font-semibold text-white mb-2">No upcoming bookings</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      You don't have any upcoming bookings yet.
+                    </p>
+                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                      Explore Bookings
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="completed" className="mt-6">
+                {data?.completed && data.completed.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {data.completed.map((booking) => (
+                      <BookingCard key={booking.id} booking={booking} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-12 h-12 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">No completed bookings</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      You haven't completed any trips yet.
+                    </p>
+                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                      Explore Bookings
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="cancelled" className="mt-6">
+                {data?.cancelled && data.cancelled.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {data.cancelled.map((booking) => (
+                      <BookingCard key={booking.id} booking={booking} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
+                      <XCircle className="w-12 h-12 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">No cancelled bookings</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      You don't have any cancelled bookings.
+                    </p>
+                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                      Explore Bookings
+                    </Button>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {/* Start Planning Section */}
+          {!isLoading && !isError && <StartPlanningSection />}
         </main>
       </div>
     </div>

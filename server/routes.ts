@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "./db";
-import { bookings } from "@shared/schema";
+import { bookings, trips, hotels } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
 import { emailService } from "./services/emailService";
@@ -179,9 +179,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       
-      // Import the schema tables
-      const { bookings, trips, hotels } = schema;
-      
       // Fetch bookings with trip and hotel details using Drizzle
       const userBookings = await db
         .select({
@@ -227,6 +224,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Dashboard data error:", error);
       res.status(500).json(createResponse(false, null, "Failed to retrieve dashboard data"));
+    }
+  });
+
+  // Get user hotel bookings - GET /api/bookings/hotels
+  app.get("/api/bookings/hotels", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Fetch all bookings for the user
+      const userBookings = await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.userId, userId))
+        .orderBy(desc(bookings.createdAt));
+      
+      // Process bookings to get hotel-related data
+      const hotelBookings = [];
+      for (const booking of userBookings) {
+        if (booking.hotelId) {
+          // Direct hotel booking
+          const hotel = await db
+            .select()
+            .from(hotels)
+            .where(eq(hotels.id, parseInt(booking.hotelId)))
+            .limit(1);
+          
+          if (hotel[0]) {
+            hotelBookings.push({
+              id: booking.id,
+              type: booking.type,
+              status: booking.status,
+              amount: parseFloat(booking.amount),
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              createdAt: booking.createdAt,
+              hotelId: hotel[0].id,
+              hotelName: hotel[0].name,
+              hotelLocation: hotel[0].location,
+              hotelImageUrl: hotel[0].imageUrl,
+              hotelRating: hotel[0].rating ? parseFloat(hotel[0].rating) : null,
+              hotelPrice: hotel[0].price ? parseFloat(hotel[0].price) : null,
+              customerName: booking.customerName,
+              customerEmail: booking.customerEmail,
+              guests: booking.guests,
+              specialRequests: booking.specialRequests
+            });
+          }
+        } else if (booking.tripId && booking.type === 'hotel') {
+          // Trip booking that includes hotel
+          const trip = await db
+            .select()
+            .from(trips)
+            .where(eq(trips.id, parseInt(booking.tripId)))
+            .limit(1);
+          
+          if (trip[0]) {
+            hotelBookings.push({
+              id: booking.id,
+              type: booking.type,
+              status: booking.status,
+              amount: parseFloat(booking.amount),
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              createdAt: booking.createdAt,
+              tripId: trip[0].id,
+              tripTitle: trip[0].title,
+              tripLocation: trip[0].location,
+              tripImageUrl: trip[0].imageUrl,
+              customerName: booking.customerName,
+              customerEmail: booking.customerEmail,
+              guests: booking.guests,
+              specialRequests: booking.specialRequests
+            });
+          }
+        }
+      }
+      
+      const filteredHotelBookings = hotelBookings;
+
+      res.json(createResponse(true, {
+        hotels: filteredHotelBookings,
+        totalHotels: filteredHotelBookings.length,
+        totalSpent: filteredHotelBookings.reduce((sum, b) => sum + b.amount, 0)
+      }, "Hotel bookings retrieved successfully"));
+    } catch (error) {
+      console.error("Hotel bookings error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve hotel bookings"));
+    }
+  });
+
+  // Get user transport bookings - GET /api/bookings/transports
+  app.get("/api/bookings/transports", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Fetch all bookings for the user
+      const userBookings = await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.userId, userId))
+        .orderBy(desc(bookings.createdAt));
+      
+      // Process bookings to get transport-related data
+      const transportBookings = [];
+      for (const booking of userBookings) {
+        if (booking.tripId) {
+          // Trip booking with transport
+          const trip = await db
+            .select()
+            .from(trips)
+            .where(eq(trips.id, parseInt(booking.tripId)))
+            .limit(1);
+          
+          if (trip[0]) {
+            transportBookings.push({
+              id: booking.id,
+              type: booking.type,
+              status: booking.status,
+              amount: parseFloat(booking.amount),
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              createdAt: booking.createdAt,
+              transportType: booking.transportMode, // Map transportMode to transportType
+              tripId: trip[0].id,
+              tripTitle: trip[0].title,
+              tripLocation: trip[0].location,
+              tripImageUrl: trip[0].imageUrl,
+              customerName: booking.customerName,
+              customerEmail: booking.customerEmail,
+              guests: booking.guests,
+              transportDetails: booking.transportDetails
+            });
+          }
+        } else if (booking.type === 'transport') {
+          // Direct transport booking
+          transportBookings.push({
+            id: booking.id,
+            type: booking.type,
+            status: booking.status,
+            amount: parseFloat(booking.amount),
+            checkIn: booking.checkIn,
+            checkOut: booking.checkOut,
+            createdAt: booking.createdAt,
+            transportType: booking.transportMode, // Map transportMode to transportType
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail,
+            guests: booking.guests,
+            transportDetails: booking.transportDetails
+          });
+        }
+      }
+
+      // Group by transport type
+      const flights = transportBookings.filter(b => b.transportType === 'flight');
+      const trains = transportBookings.filter(b => b.transportType === 'train');
+      const buses = transportBookings.filter(b => b.transportType === 'bus');
+
+      res.json(createResponse(true, {
+        flights,
+        trains,
+        buses,
+        allTransports: transportBookings,
+        stats: {
+          totalTransports: transportBookings.length,
+          totalSpent: transportBookings.reduce((sum, b) => sum + b.amount, 0),
+          flightCount: flights.length,
+          trainCount: trains.length,
+          busCount: buses.length
+        }
+      }, "Transport bookings retrieved successfully"));
+    } catch (error) {
+      console.error("Transport bookings error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve transport bookings"));
     }
   });
   

@@ -97,10 +97,10 @@ export default function HotelsList() {
           className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Discover Amazing Hotels
+            Book Amazing Hotels
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Find the perfect accommodation for your journey with our curated selection of hotels
+            Find and book the perfect accommodation for your journey with our curated selection of hotels
           </p>
         </motion.div>
 

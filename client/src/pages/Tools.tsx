@@ -146,7 +146,7 @@ const tools: Tool[] = [
     icon: MapPin,
     category: 'planning',
     tag: 'Smart Suggestion',
-    comingSoon: true
+    comingSoon: false
   },
   {
     id: 'local-explorer',

@@ -1,82 +1,182 @@
-import { db } from "./db";
-import { bookings, hotels, trips, users } from "../shared/schema";
-import { eq } from "drizzle-orm";
+import { db } from './db';
+import { bookings, users, trips, hotels } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 async function seedBookings() {
-  console.log("🌱 Seeding bookings...");
-  
-  // Find the test user
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, "user@explorenow.com"),
-  });
+  try {
+    console.log('🌱 Seeding booking data...');
 
-  if (!user) {
-    console.error("❌ Test user not found. Please run seed.ts first.");
-    return;
-  }
+    // Get the first user
+    const user = await db.select().from(users).limit(1);
+    if (!user[0]) {
+      console.log('❌ No users found. Please seed users first.');
+      return;
+    }
 
-  console.log(`👤 Found user: ${user.name} (${user.email})`);
+    const userId = user[0].id;
+    console.log(`👤 Using user: ${user[0].name} (ID: ${userId})`);
 
-  // Get all trips and hotels
-  const allTrips = await db.select().from(trips);
-  const allHotels = await db.select().from(hotels);
+    // Get some trips and hotels
+    const existingTrips = await db.select().from(trips).limit(3);
+    const existingHotels = await db.select().from(hotels).limit(3);
 
-  if (allTrips.length === 0 || allHotels.length === 0) {
-    console.error("❌ No trips or hotels found. Please run seed.ts first.");
-    return;
-  }
+    console.log(`📋 Found ${existingTrips.length} trips and ${existingHotels.length} hotels`);
 
-  // Check if bookings already exist for this user
-  const existingBookings = await db.select().from(bookings).where(eq(bookings.userId, user.id));
-  
-  if (existingBookings.length > 0) {
-    console.log("ℹ️ Bookings already exist for this user");
-    console.log(`📊 Found ${existingBookings.length} existing bookings`);
-    return;
-  }
+    // Sample booking data
+    const sampleBookings = [
+      // Hotel bookings
+      {
+        id: 'hotel-booking-1',
+        userId: userId,
+        hotelId: existingHotels[0]?.id?.toString() || '1',
+        type: 'hotel',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'flight',
+        checkIn: '2024-02-15',
+        checkOut: '2024-02-18',
+        guests: 2,
+        amount: '450.00',
+        status: 'confirmed',
+        specialRequests: 'Late checkout requested',
+        emergencyContact: 'John Doe',
+        emergencyPhone: '+1234567891',
+        transportDetails: 'Flight from NYC to LAX',
+        currency: 'USD'
+      },
+      {
+        id: 'hotel-booking-2',
+        userId: userId,
+        hotelId: existingHotels[1]?.id?.toString() || '2',
+        type: 'hotel',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'train',
+        checkIn: '2024-03-10',
+        checkOut: '2024-03-12',
+        guests: 1,
+        amount: '280.00',
+        status: 'completed',
+        specialRequests: 'High floor room preferred',
+        emergencyContact: 'Jane Smith',
+        emergencyPhone: '+1234567892',
+        transportDetails: 'Train from Boston to NYC',
+        currency: 'USD'
+      },
+      // Trip bookings
+      {
+        id: 'trip-booking-1',
+        userId: userId,
+        tripId: existingTrips[0]?.id?.toString() || '1',
+        type: 'trip',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'flight',
+        checkIn: '2024-04-05',
+        checkOut: '2024-04-10',
+        guests: 2,
+        amount: '1200.00',
+        status: 'confirmed',
+        specialRequests: 'Vegetarian meals',
+        emergencyContact: 'Bob Johnson',
+        emergencyPhone: '+1234567893',
+        transportDetails: 'Round trip flights included',
+        currency: 'USD'
+      },
+      {
+        id: 'trip-booking-2',
+        userId: userId,
+        tripId: existingTrips[1]?.id?.toString() || '2',
+        type: 'trip',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'bus',
+        checkIn: '2024-01-20',
+        checkOut: '2024-01-25',
+        guests: 4,
+        amount: '800.00',
+        status: 'completed',
+        specialRequests: 'Family room needed',
+        emergencyContact: 'Alice Brown',
+        emergencyPhone: '+1234567894',
+        transportDetails: 'Bus tour with guide',
+        currency: 'USD'
+      },
+      // Transport-only bookings
+      {
+        id: 'transport-booking-1',
+        userId: userId,
+        type: 'transport',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'flight',
+        checkIn: '2024-05-15',
+        checkOut: '2024-05-15',
+        guests: 1,
+        amount: '350.00',
+        status: 'confirmed',
+        specialRequests: 'Window seat preferred',
+        emergencyContact: 'Charlie Wilson',
+        emergencyPhone: '+1234567895',
+        transportDetails: 'Flight from LAX to JFK',
+        currency: 'USD'
+      },
+      {
+        id: 'transport-booking-2',
+        userId: userId,
+        type: 'transport',
+        customerName: user[0].name,
+        customerEmail: user[0].email,
+        customerPhone: '+1234567890',
+        transportMode: 'train',
+        checkIn: '2024-06-01',
+        checkOut: '2024-06-01',
+        guests: 2,
+        amount: '120.00',
+        status: 'confirmed',
+        specialRequests: 'Quiet car preferred',
+        emergencyContact: 'Diana Lee',
+        emergencyPhone: '+1234567896',
+        transportDetails: 'Train from DC to NYC',
+        currency: 'USD'
+      }
+    ];
 
-  const newBookings = [];
+    // Insert bookings
+    for (const booking of sampleBookings) {
+      try {
+        await db.insert(bookings).values(booking);
+        console.log(`✅ Created booking: ${booking.id} (${booking.type})`);
+      } catch (error) {
+        console.log(`⚠️  Booking ${booking.id} might already exist, skipping...`);
+      }
+    }
 
-  // Create trip bookings
-  for (let i = 0; i < Math.min(2, allTrips.length); i++) {
-    const trip = allTrips[i];
-    newBookings.push({
-      userId: user.id,
-      tripId: trip.id,
-      hotelId: null,
-      type: "trip" as const,
-      status: i === 0 ? "confirmed" : "pending",
-      totalPrice: trip.price,
-      checkIn: new Date(Date.now() + (i + 1) * 7 * 24 * 60 * 60 * 1000), // Future dates
-      checkOut: new Date(Date.now() + (i + 1) * 14 * 24 * 60 * 60 * 1000),
-    });
-  }
-
-  // Create hotel bookings
-  for (let i = 0; i < Math.min(2, allHotels.length); i++) {
-    const hotel = allHotels[i];
-    newBookings.push({
-      userId: user.id,
-      tripId: null,
-      hotelId: hotel.id,
-      type: "hotel" as const,
-      status: i === 0 ? "confirmed" : "cancelled",
-      totalPrice: (parseFloat(hotel.price) * 2).toString(), // 2 nights
-      checkIn: new Date(Date.now() + (i + 3) * 7 * 24 * 60 * 60 * 1000),
-      checkOut: new Date(Date.now() + (i + 3) * 7 * 24 * 60 * 60 * 1000 + 2 * 24 * 60 * 60 * 1000),
-    });
-  }
-
-  if (newBookings.length > 0) {
-    await db.insert(bookings).values(newBookings);
-    console.log(`✅ ${newBookings.length} sample bookings inserted successfully.`);
-    console.log("📊 Booking breakdown:");
-    console.log(`   - Trip bookings: ${newBookings.filter(b => b.type === 'trip').length}`);
-    console.log(`   - Hotel bookings: ${newBookings.filter(b => b.type === 'hotel').length}`);
-  } else {
-    console.log("⚠️ No bookings created");
+    console.log('🎉 Booking seeding completed!');
+    
+    // Show summary
+    const totalBookings = await db.select().from(bookings).where(eq(bookings.userId, userId));
+    console.log(`📊 Total bookings for user: ${totalBookings.length}`);
+    
+  } catch (error) {
+    console.error('❌ Error seeding bookings:', error);
   }
 }
 
-// Run the seeding function
-seedBookings().catch(console.error);
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  seedBookings().then(() => {
+    console.log('✅ Seeding completed');
+    process.exit(0);
+  }).catch((error) => {
+    console.error('❌ Seeding failed:', error);
+    process.exit(1);
+  });
+}
+
+export default seedBookings;

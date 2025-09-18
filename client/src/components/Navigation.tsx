@@ -40,7 +40,7 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
     { name: 'Reviews', href: '/reviews' },
     { name: 'Currency', href: '/currency-converter' },
     { name: 'Tools', href: '/tools' },
-    { name: 'Hotels', href: '/hotels' },
+    { name: 'Hotels', href: '/hotels-list' },
   ];
 
   const languages = [

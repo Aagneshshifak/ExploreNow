@@ -49,6 +49,9 @@ import TranslationPage from "./pages/TranslationPage";
 import TripDetails from "./pages/TripDetails";
 import HotelDetails from "./pages/HotelDetails";
 import HotelsList from "./pages/HotelsList";
+import HotelsPage from "./pages/HotelsPage";
+import TransportsPage from "./pages/TransportsPage";
+import RewardsPage from "./pages/RewardsPage";
 import AIAssistant from "./pages/AIAssistant";
 import BookNowPage from "./pages/BookNowPage";
 import BookingConfirmation from "./pages/BookingConfirmation";
@@ -124,10 +127,12 @@ const App = () => {
                 <Route path="/trips" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripsList /></Layout>} />
                 <Route path="/trip/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripDetails /></Layout>} />
                 <Route path="/hotel/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelDetails /></Layout>} />
+                <Route path="/hotels-list" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
+                <Route path="/transports" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TransportsPage /></Layout>} />
                 <Route path="/currency-converter" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExpenseConverter /></Layout>} />
                 <Route path="/translate" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TranslationPage /></Layout>} />
                 <Route path="/reviews" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ReviewsPage /></Layout>} />
-                <Route path="/hotels" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
+                <Route path="/rewards" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><RewardsPage /></Layout>} />
                 <Route path="/about" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div></Layout>} />
                 <Route path="/book-now" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><BookNowPage /></Layout>} />
                 <Route path="/confirmation/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><BookingConfirmation /></Layout>} />
@@ -186,6 +191,20 @@ const App = () => {
                   <ProtectedRoute requireAuth={true}>
                     <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
                       <DashboardPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/hotels" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <HotelsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/dashboard/transports" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <TransportsPage />
                     </Layout>
                   </ProtectedRoute>
                 } />
