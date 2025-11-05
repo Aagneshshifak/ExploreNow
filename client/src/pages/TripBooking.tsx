@@ -34,6 +34,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SEOHead } from '@/components/ui/seo-head';
 import { graphqlClient, CREATE_BOOKING_MUTATION } from '@/lib/graphql-client';
+import { useAuth } from '@/hooks/use-auth';
+import { Navigate } from 'react-router-dom';
 
 const bookingSchema = z.object({
   tripId: z.number().optional(),
@@ -92,11 +94,46 @@ export default function TripBooking() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, isLoading: authLoading } = useAuth();
   const [step, setStep] = useState<'booking' | 'payment' | 'confirmation'>('booking');
   const [selectedHotel, setSelectedHotel] = useState<number | null>(null);
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
   // Removed API method toggle - using GraphQL only
+  
+  // Check authentication before allowing booking
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md w-full mx-4">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              You need to be logged in to book a trip. Please log in or create an account to continue.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate('/login')} className="flex-1">
+                Log In
+              </Button>
+              <Button onClick={() => navigate('/signup')} variant="outline" className="flex-1">
+                Sign Up
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const bookingForm = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
@@ -174,6 +211,23 @@ export default function TripBooking() {
   const createBookingGraphQLMutation = useMutation({
     mutationFn: async (data: BookingForm & { cost: number }) => {
       try {
+        // Verify authentication before making request
+        if (!user) {
+          throw new Error('You must be logged in to create a booking');
+        }
+        
+        // Log authentication status and cookie presence
+        console.log('=== Booking Request Debug ===');
+        console.log('User authenticated:', !!user);
+        console.log('User ID:', user?.id);
+        console.log('User email:', user?.email);
+        
+        // Check if cookies are available
+        const cookies = document.cookie;
+        console.log('Cookies available:', !!cookies);
+        console.log('Cookie string:', cookies ? cookies.substring(0, 100) + '...' : 'No cookies');
+        console.log('Has token cookie:', cookies.includes('token='));
+        
         const bookingInput = {
           tripId: tripId?.toString() || '',
           hotelId: data.hotelId?.toString() || '',
@@ -188,8 +242,13 @@ export default function TripBooking() {
           currency: 'USD'
         };
 
+        console.log('GraphQL request endpoint:', 'http://localhost:5000/graphql');
+        console.log('GraphQL request variables:', { input: bookingInput });
+        
         const variables = { input: bookingInput };
         const result = await graphqlClient.request(CREATE_BOOKING_MUTATION, variables);
+        
+        console.log('GraphQL response received:', result);
 
         if (!result.createBooking || !result.createBooking.success) {
           throw new Error(result.createBooking?.message || 'Failed to create booking');

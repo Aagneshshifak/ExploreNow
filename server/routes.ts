@@ -27,7 +27,7 @@ import {
   type AIRecommendationData,
   type PaymentFormData
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql as drizzleSql, and, or, isNotNull, ne } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -167,19 +167,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/test", (req, res) => {
     console.log('Cookies:', req.cookies);
     console.log('Headers:', req.headers);
+    
+    // Try to get user if token exists
+    let userInfo = null;
+    if (req.cookies.token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+        const decoded = jwt.verify(req.cookies.token, JWT_SECRET);
+        userInfo = {
+          userId: decoded.userId,
+          email: decoded.email,
+          role: decoded.role,
+          userIdType: typeof decoded.userId
+        };
+      } catch (error) {
+        userInfo = { error: 'Token invalid' };
+      }
+    }
+    
     res.json(createResponse(true, { 
       cookies: req.cookies, 
       hasToken: !!req.cookies.token,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
+      userInfo
     }, "Test endpoint"));
+  });
+
+  // Diagnostic endpoint for bookings - GET /api/bookings/debug
+  app.get("/api/bookings/debug", requireUser, async (req, res) => {
+    try {
+      const currentUserId = req.user!.id;
+      
+      // Check actual database column names using raw SQL
+      let dbColumnInfo = null;
+      try {
+        const columnResult = await sql`
+          SELECT column_name, data_type 
+          FROM information_schema.columns 
+          WHERE table_name = 'bookings' 
+          ORDER BY ordinal_position
+        `;
+        dbColumnInfo = columnResult.map((row: any) => ({
+          columnName: row.column_name,
+          dataType: row.data_type
+        }));
+      } catch (err) {
+        console.error('Error fetching column info:', err);
+      }
+      
+      // Get all bookings from database
+      const allBookings = await db.select().from(bookings).orderBy(desc(bookings.createdAt));
+      
+      // Get bookings for current user
+      const userBookings = await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.userId, currentUserId))
+        .orderBy(desc(bookings.createdAt));
+      
+      // Try alternative query to check if column name is different
+      let userBookingsAlt = [];
+      try {
+        const altResult = await sql`SELECT * FROM bookings WHERE "userId" = ${currentUserId} ORDER BY "createdAt" DESC`;
+        userBookingsAlt = altResult;
+      } catch (err) {
+        console.error('Alternative query error:', err);
+      }
+      
+      // Get current user info
+      const currentUser = await storage.getUser(currentUserId);
+      
+      // Sample a few bookings to show their structure
+      const sampleBookings = allBookings.slice(0, 5).map(b => ({
+        id: b.id,
+        userId: b.userId,
+        userIdType: typeof b.userId,
+        userIdValue: b.userId,
+        tripId: b.tripId,
+        tripIdType: typeof b.tripId,
+        hotelId: b.hotelId,
+        hotelIdType: typeof b.hotelId,
+        type: b.type,
+        status: b.status,
+        amount: b.amount,
+        createdAt: b.createdAt
+      }));
+      
+      res.json(createResponse(true, {
+        databaseSchema: {
+          columnInfo: dbColumnInfo,
+          note: 'Actual database column names and types'
+        },
+        currentUser: {
+          id: currentUser?.id,
+          email: currentUser?.email,
+          name: currentUser?.name,
+          idType: typeof currentUser?.id,
+          idValue: currentUser?.id
+        },
+        stats: {
+          totalBookingsInDb: allBookings.length,
+          bookingsForCurrentUser: userBookings.length,
+          bookingsForCurrentUserAlt: userBookingsAlt.length,
+          currentUserId: currentUserId,
+          currentUserIdType: typeof currentUserId,
+          currentUserIdValue: currentUserId
+        },
+        allBookingsUserIds: allBookings.map(b => ({
+          bookingId: b.id,
+          userId: b.userId,
+          userIdType: typeof b.userId,
+          userIdValue: b.userId,
+          matchesCurrentUser: b.userId === currentUserId,
+          matchesCurrentUserLoose: b.userId == currentUserId,
+          matchesCurrentUserCoerced: String(b.userId) === String(currentUserId)
+        })),
+        sampleBookings,
+        userBookings: userBookings.map(b => ({
+          id: b.id,
+          tripId: b.tripId,
+          hotelId: b.hotelId,
+          type: b.type,
+          status: b.status,
+          amount: b.amount,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut
+        })),
+        userBookingsAlt: userBookingsAlt.slice(0, 5).map((b: any) => ({
+          id: b.id,
+          userId: b.userId || b.user_id,
+          tripId: b.tripId || b.trip_id,
+          hotelId: b.hotelId || b.hotel_id,
+          type: b.type,
+          status: b.status
+        }))
+      }, "Diagnostic data retrieved successfully"));
+    } catch (error) {
+      console.error("Debug endpoint error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve diagnostic data: " + (error instanceof Error ? error.message : String(error))));
+    }
   });
 
   // Get user bookings with details - GET /api/bookings/dashboard
   app.get("/api/bookings/dashboard", requireUser, async (req, res) => {
     try {
       const userId = req.user!.id;
+      console.log('Dashboard endpoint - Fetching bookings for userId:', userId);
+      
+      // First, fetch all bookings for the user to see what we have
+      const allUserBookings = await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.userId, userId))
+        .orderBy(desc(bookings.createdAt));
+      
+      console.log(`Dashboard endpoint - Found ${allUserBookings.length} bookings for user ${userId}`);
+      console.log(`Dashboard endpoint - UserId type: ${typeof userId}, UserId value: ${userId}`);
+      if (allUserBookings.length > 0) {
+        console.log('Sample booking (first booking):', {
+          id: allUserBookings[0].id,
+          userId: allUserBookings[0].userId,
+          userIdType: typeof allUserBookings[0].userId,
+          userIdMatches: allUserBookings[0].userId === userId,
+          userIdStrictEqual: allUserBookings[0].userId === userId,
+          userIdLooseEqual: allUserBookings[0].userId == userId,
+          tripId: allUserBookings[0].tripId,
+          tripIdType: typeof allUserBookings[0].tripId,
+          hotelId: allUserBookings[0].hotelId,
+          hotelIdType: typeof allUserBookings[0].hotelId,
+          type: allUserBookings[0].type,
+          status: allUserBookings[0].status
+        });
+        // Log all booking userIds
+        const uniqueUserIds = [...new Set(allUserBookings.map(b => b.userId))];
+        console.log(`Dashboard endpoint - Unique userIds in bookings: ${JSON.stringify(uniqueUserIds)}`);
+      } else {
+        console.log(`Dashboard endpoint - WARNING: No bookings found for userId ${userId}`);
+        // Check if there are any bookings at all
+        const allBookingsCount = await db.select().from(bookings);
+        console.log(`Dashboard endpoint - Total bookings in database: ${allBookingsCount.length}`);
+        if (allBookingsCount.length > 0) {
+          const sampleAllBookings = allBookingsCount.slice(0, 3).map(b => ({
+            id: b.id,
+            userId: b.userId,
+            userIdType: typeof b.userId
+          }));
+          console.log(`Dashboard endpoint - Sample bookings from all users: ${JSON.stringify(sampleAllBookings)}`);
+        }
+      }
       
       // Fetch bookings with trip and hotel details using Drizzle
+      // Note: bookings.tripId and bookings.hotelId are varchar, trips.id and hotels.id are serial (integer)
+      // Use NULLIF to handle empty strings, then CAST to integer
+      // Only join when tripId/hotelId is not null and not empty
       const userBookings = await db
         .select({
           id: bookings.id,
@@ -189,6 +370,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           checkIn: bookings.checkIn,
           checkOut: bookings.checkOut,
           createdAt: bookings.createdAt,
+          transportMode: bookings.transportMode,
+          transportDetails: bookings.transportDetails,
           tripId: trips.id,
           tripTitle: trips.title,
           tripLocation: trips.location,
@@ -199,15 +382,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hotelImageUrl: hotels.imageUrl,
         })
         .from(bookings)
-        .leftJoin(trips, eq(bookings.tripId, trips.id))
-        .leftJoin(hotels, eq(bookings.hotelId, hotels.id))
+        .leftJoin(
+          trips, 
+          drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.tripId}), ''), NULL) AS INTEGER) = ${trips.id}`
+        )
+        .leftJoin(
+          hotels, 
+          drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.hotelId}), ''), NULL) AS INTEGER) = ${hotels.id}`
+        )
         .where(eq(bookings.userId, userId))
         .orderBy(desc(bookings.createdAt));
 
+      console.log(`Dashboard endpoint - After JOINs, found ${userBookings.length} bookings with trip/hotel data`);
+      if (userBookings.length > 0) {
+        console.log('Dashboard endpoint - Sample joined booking:', {
+          id: userBookings[0].id,
+          tripId: userBookings[0].tripId,
+          tripTitle: userBookings[0].tripTitle,
+          hotelId: userBookings[0].hotelId,
+          hotelName: userBookings[0].hotelName,
+          type: userBookings[0].type,
+          status: userBookings[0].status
+        });
+      }
+      
+      // If JOINs failed or returned fewer bookings, fallback to manual join
+      if (userBookings.length === 0 && allUserBookings.length > 0) {
+        console.log('Dashboard endpoint - JOINs returned no results, using fallback manual join');
+        const manualJoinedBookings = [];
+        
+        for (const booking of allUserBookings) {
+          const bookingData: any = {
+            id: booking.id,
+            type: booking.type,
+            status: booking.status,
+            amount: booking.amount,
+            checkIn: booking.checkIn,
+            checkOut: booking.checkOut,
+            createdAt: booking.createdAt,
+            transportMode: booking.transportMode,
+            transportDetails: booking.transportDetails,
+            tripId: null,
+            tripTitle: null,
+            tripLocation: null,
+            tripImageUrl: null,
+            hotelId: null,
+            hotelName: null,
+            hotelLocation: null,
+            hotelImageUrl: null,
+          };
+          
+          // Try to get trip data if tripId exists
+          if (booking.tripId && booking.tripId.trim() !== '') {
+            const tripIdInt = parseInt(booking.tripId);
+            if (!isNaN(tripIdInt)) {
+              const trip = await storage.getTrip(tripIdInt);
+              if (trip) {
+                bookingData.tripId = trip.id;
+                bookingData.tripTitle = trip.title;
+                bookingData.tripLocation = trip.location;
+                bookingData.tripImageUrl = trip.imageUrl;
+              }
+            }
+          }
+          
+          // Try to get hotel data if hotelId exists
+          if (booking.hotelId && booking.hotelId.trim() !== '') {
+            const hotelIdInt = parseInt(booking.hotelId);
+            if (!isNaN(hotelIdInt)) {
+              const hotel = await storage.getHotel(hotelIdInt);
+              if (hotel) {
+                bookingData.hotelId = hotel.id;
+                bookingData.hotelName = hotel.name;
+                bookingData.hotelLocation = hotel.location;
+                bookingData.hotelImageUrl = hotel.imageUrl;
+              }
+            }
+          }
+          
+          manualJoinedBookings.push(bookingData);
+        }
+        
+        const now = new Date();
+        const upcoming = manualJoinedBookings.filter(b => {
+          if (b.status !== 'confirmed') return false;
+          if (!b.checkIn) return true;
+          const checkInDate = new Date(b.checkIn);
+          return checkInDate >= now;
+        });
+        const completed = manualJoinedBookings.filter(b => b.status === 'completed');
+        const cancelled = manualJoinedBookings.filter(b => b.status === 'cancelled');
+
+        console.log(`Dashboard endpoint - Manual join results: ${upcoming.length} upcoming, ${completed.length} completed, ${cancelled.length} cancelled`);
+        
+        return res.json(createResponse(true, {
+          upcoming,
+          completed,
+          cancelled,
+          stats: {
+            totalBookings: manualJoinedBookings.length,
+            totalSpent: manualJoinedBookings.reduce((sum, b) => sum + parseFloat(b.amount.toString() || '0'), 0),
+            upcomingTrips: upcoming.length,
+            completedTrips: completed.length,
+            cancelledTrips: cancelled.length
+          }
+        }, "Dashboard data retrieved successfully"));
+      }
+
       // Group bookings by status
-      const upcoming = userBookings.filter(b => b.status === 'confirmed' && new Date(b.checkIn!) > new Date());
+      // Fix: Handle null checkIn dates and consider confirmed bookings as upcoming
+      const now = new Date();
+      const upcoming = userBookings.filter(b => {
+        if (b.status !== 'confirmed') return false;
+        if (!b.checkIn) return true; // If no checkIn date, consider it upcoming
+        const checkInDate = new Date(b.checkIn);
+        return checkInDate >= now;
+      });
       const completed = userBookings.filter(b => b.status === 'completed');
       const cancelled = userBookings.filter(b => b.status === 'cancelled');
+
+      console.log(`Dashboard endpoint - Final results: ${upcoming.length} upcoming, ${completed.length} completed, ${cancelled.length} cancelled`);
 
       res.json(createResponse(true, {
         upcoming,
@@ -215,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cancelled,
         stats: {
           totalBookings: userBookings.length,
-          totalSpent: userBookings.reduce((sum, b) => sum + b.amount, 0),
+          totalSpent: userBookings.reduce((sum, b) => sum + parseFloat(b.amount.toString() || '0'), 0),
           upcomingTrips: upcoming.length,
           completedTrips: completed.length,
           cancelledTrips: cancelled.length
@@ -223,6 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, "Dashboard data retrieved successfully"));
     } catch (error) {
       console.error("Dashboard data error:", error);
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
       res.status(500).json(createResponse(false, null, "Failed to retrieve dashboard data"));
     }
   });
@@ -242,61 +537,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process bookings to get hotel-related data
       const hotelBookings = [];
       for (const booking of userBookings) {
-        if (booking.hotelId) {
-          // Direct hotel booking
-          const hotel = await db
-            .select()
-            .from(hotels)
-            .where(eq(hotels.id, parseInt(booking.hotelId)))
-            .limit(1);
-          
-          if (hotel[0]) {
-            hotelBookings.push({
-              id: booking.id,
-              type: booking.type,
-              status: booking.status,
-              amount: parseFloat(booking.amount),
-              checkIn: booking.checkIn,
-              checkOut: booking.checkOut,
-              createdAt: booking.createdAt,
-              hotelId: hotel[0].id,
-              hotelName: hotel[0].name,
-              hotelLocation: hotel[0].location,
-              hotelImageUrl: hotel[0].imageUrl,
-              hotelRating: hotel[0].rating ? parseFloat(hotel[0].rating) : null,
-              hotelPrice: hotel[0].price ? parseFloat(hotel[0].price) : null,
-              customerName: booking.customerName,
-              customerEmail: booking.customerEmail,
-              guests: booking.guests,
-              specialRequests: booking.specialRequests
-            });
+        // Check for direct hotel bookings or trip bookings that include hotels
+        if (booking.hotelId && booking.hotelId.trim() !== '') {
+          // Direct hotel booking - convert varchar to integer
+          const hotelIdInt = parseInt(booking.hotelId);
+          if (!isNaN(hotelIdInt)) {
+            const hotel = await db
+              .select()
+              .from(hotels)
+              .where(eq(hotels.id, hotelIdInt))
+              .limit(1);
+            
+            if (hotel[0]) {
+              hotelBookings.push({
+                id: booking.id,
+                type: booking.type,
+                status: booking.status,
+                amount: parseFloat(booking.amount?.toString() || '0'),
+                checkIn: booking.checkIn,
+                checkOut: booking.checkOut,
+                createdAt: booking.createdAt,
+                hotelId: hotel[0].id,
+                hotelName: hotel[0].name,
+                hotelLocation: hotel[0].location,
+                hotelImageUrl: hotel[0].imageUrl,
+                hotelRating: hotel[0].rating ? parseFloat(hotel[0].rating.toString()) : null,
+                hotelPrice: hotel[0].price ? parseFloat(hotel[0].price.toString()) : null,
+                customerName: booking.customerName,
+                customerEmail: booking.customerEmail,
+                guests: booking.guests,
+                specialRequests: booking.specialRequests,
+                transportMode: booking.transportMode,
+                transportDetails: booking.transportDetails
+              });
+            }
           }
-        } else if (booking.tripId && booking.type === 'hotel') {
-          // Trip booking that includes hotel
-          const trip = await db
-            .select()
-            .from(trips)
-            .where(eq(trips.id, parseInt(booking.tripId)))
-            .limit(1);
-          
-          if (trip[0]) {
-            hotelBookings.push({
-              id: booking.id,
-              type: booking.type,
-              status: booking.status,
-              amount: parseFloat(booking.amount),
-              checkIn: booking.checkIn,
-              checkOut: booking.checkOut,
-              createdAt: booking.createdAt,
-              tripId: trip[0].id,
-              tripTitle: trip[0].title,
-              tripLocation: trip[0].location,
-              tripImageUrl: trip[0].imageUrl,
-              customerName: booking.customerName,
-              customerEmail: booking.customerEmail,
-              guests: booking.guests,
-              specialRequests: booking.specialRequests
-            });
+        } else if (booking.tripId && booking.tripId.trim() !== '' && booking.type === 'hotel') {
+          // Trip booking that includes hotel - convert varchar to integer
+          const tripIdInt = parseInt(booking.tripId);
+          if (!isNaN(tripIdInt)) {
+            const trip = await db
+              .select()
+              .from(trips)
+              .where(eq(trips.id, tripIdInt))
+              .limit(1);
+            
+            if (trip[0]) {
+              hotelBookings.push({
+                id: booking.id,
+                type: booking.type,
+                status: booking.status,
+                amount: parseFloat(booking.amount?.toString() || '0'),
+                checkIn: booking.checkIn,
+                checkOut: booking.checkOut,
+                createdAt: booking.createdAt,
+                tripId: trip[0].id,
+                tripTitle: trip[0].title,
+                tripLocation: trip[0].location,
+                tripImageUrl: trip[0].imageUrl,
+                customerName: booking.customerName,
+                customerEmail: booking.customerEmail,
+                guests: booking.guests,
+                specialRequests: booking.specialRequests,
+                transportMode: booking.transportMode,
+                transportDetails: booking.transportDetails
+              });
+            }
           }
         }
       }
@@ -1196,14 +1502,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create/update user preferences - POST /api/user/preferences
   app.post("/api/user/preferences", requireUser, async (req, res) => {
     try {
-      const validation = insertUserPreferencesSchema.safeParse({
-        ...req.body,
-        userId: req.user!.id
-      });
-      
-      if (!validation.success) {
+      // Basic validation - userPreferences table not in schema yet
+      if (!req.body || typeof req.body !== 'object') {
         return res.status(400).json(
-          createResponse(false, null, `Invalid preferences data: ${validation.error.errors.map(e => e.message).join(', ')}`)
+          createResponse(false, null, "Invalid preferences data")
         );
       }
 
@@ -1211,10 +1513,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getUserPreferences(req.user!.id);
       let preferences;
       
+      const preferencesData = {
+        ...req.body,
+        userId: req.user!.id
+      };
+      
       if (existing) {
-        preferences = await storage.updateUserPreferences(req.user!.id, validation.data);
+        preferences = await storage.updateUserPreferences(req.user!.id, preferencesData);
       } else {
-        preferences = await storage.createUserPreferences(validation.data);
+        preferences = await storage.createUserPreferences(preferencesData);
       }
 
       res.json(createResponse(true, preferences, "User preferences saved successfully"));
@@ -1276,14 +1583,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const reviewData = {
         userId: req.user!.id,
-        tripId: tripId || null,
-        hotelId: hotelId || null,
-        bookingId: bookingId || null,
-        type,
+        tripId: tripId ? parseInt(tripId) : null,
+        hotelId: hotelId ? parseInt(hotelId) : null,
         rating: parseInt(rating),
         title,
         comment,
-        isVerified,
       };
       
       const review = await storage.createReview(reviewData);

@@ -271,9 +271,18 @@ export const resolvers = {
     // Booking mutations
     createBooking: async (_: any, { input }: { input: any }, context: any) => {
       try {
-        // Get user from context (temporarily allow without auth for testing)
+        // Get user from context - properly authenticate
         const user = getUserFromContext(context);
-        const userId = user?.userId || 17; // Fallback to user ID 17 for testing
+        if (!user || !user.userId) {
+          console.error('GraphQL createBooking - No authenticated user found');
+          return {
+            success: false,
+            booking: null,
+            message: 'Authentication required. Please log in to create a booking.'
+          };
+        }
+        const userId = user.userId;
+        console.log('GraphQL createBooking - Authenticated userId:', userId);
         
         const {
           tripId,

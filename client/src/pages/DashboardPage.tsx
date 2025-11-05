@@ -69,6 +69,8 @@ interface Booking {
   hotelName?: string;
   hotelLocation?: string;
   hotelImageUrl?: string;
+  transportMode?: string;
+  transportDetails?: string;
 }
 
 interface DashboardData {
@@ -216,13 +218,13 @@ const useDashboardData = () => {
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean; setIsCollapsed: (collapsed: boolean) => void }) => {
   return (
-    <div className={`bg-gray-800 text-white transition-all duration-300 border-r border-gray-700 ${isCollapsed ? 'w-16' : 'w-64'}`}>
-      <div className="p-4 border-b border-gray-700">
+    <div className={`bg-card text-foreground transition-all duration-300 border-r border-border ${isCollapsed ? 'w-16' : 'w-64'}`}>
+      <div className="p-4 border-b border-border">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-full text-white hover:bg-gray-700"
+          className="w-full text-foreground hover:bg-muted"
         >
           <Settings className="w-4 h-4" />
           {!isCollapsed && <span className="ml-2">Dashboard</span>}
@@ -239,8 +241,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean; setIsC
                     <Link to={item.href}>
                       <Button
                         variant={item.active ? "secondary" : "ghost"}
-                        className={`w-full justify-start text-white hover:bg-gray-700 ${
-                          item.active ? 'bg-gray-700' : ''
+                        className={`w-full justify-start text-foreground hover:bg-muted ${
+                          item.active ? 'bg-muted' : ''
                         }`}
                       >
                         <item.icon className="w-4 h-4" />
@@ -287,7 +289,7 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
   const type = booking.type === 'trip' ? 'Trip' : 'Hotel';
 
   return (
-    <Card className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all duration-200 hover:shadow-lg">
+    <Card className="bg-card border-border hover:bg-accent transition-all duration-200 hover:shadow-lg">
       <CardContent className="p-0">
         <div className="relative">
           <img
@@ -299,23 +301,29 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
             <StatusIcon className="w-3 h-3 mr-1" />
             {booking.status}
           </Badge>
-          <Badge className="absolute top-3 left-3 bg-gray-700 text-white">
+          <Badge className="absolute top-3 left-3 bg-muted text-foreground">
             {type}
           </Badge>
         </div>
         <div className="p-4">
-          <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-          <div className="flex items-center text-gray-300 mb-2">
+          <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+          <div className="flex items-center text-muted-foreground mb-2">
             <MapPin className="w-4 h-4 mr-1" />
             {location}
           </div>
-          <div className="flex items-center text-gray-300 mb-3">
+          <div className="flex items-center text-muted-foreground mb-2">
             <Calendar className="w-4 h-4 mr-1" />
             {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
           </div>
+          {booking.transportMode && (
+            <div className="flex items-center text-muted-foreground mb-3">
+              <Plane className="w-4 h-4 mr-1" />
+              <span className="capitalize">{booking.transportMode}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
-            <span className="text-xl font-bold text-white">${booking.amount}</span>
-            <Button size="sm" variant="outline" className="border-gray-600 text-white hover:bg-gray-700">
+            <span className="text-xl font-bold text-foreground">${typeof booking.amount === 'string' ? parseFloat(booking.amount) : booking.amount}</span>
+            <Button size="sm" variant="outline" className="border-border text-foreground hover:bg-accent">
               View Details
             </Button>
           </div>
@@ -341,11 +349,11 @@ const BookingList = ({ bookings }: { bookings: Booking[] }) => {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700">
-      <div className="p-4 border-b border-gray-700">
-        <h3 className="text-lg font-semibold text-white">Booking List</h3>
+    <div className="bg-card rounded-lg border border-border">
+      <div className="p-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">Booking List</h3>
       </div>
-      <div className="divide-y divide-gray-700">
+      <div className="divide-y divide-border">
         {bookings.map((booking) => {
           const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || Clock;
           const title = booking.tripTitle || booking.hotelName || 'Booking';
@@ -354,7 +362,7 @@ const BookingList = ({ bookings }: { bookings: Booking[] }) => {
           const type = booking.type === 'trip' ? 'Trip' : 'Hotel';
 
           return (
-            <div key={booking.id} className="p-4 hover:bg-gray-750 transition-colors">
+            <div key={booking.id} className="p-4 hover:bg-accent transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <img
@@ -363,22 +371,22 @@ const BookingList = ({ bookings }: { bookings: Booking[] }) => {
                     className="w-16 h-16 object-cover rounded-lg"
                   />
                   <div>
-                    <h4 className="text-white font-medium">{title}</h4>
-                    <div className="flex items-center text-gray-300 text-sm">
+                    <h4 className="text-foreground font-medium">{title}</h4>
+                    <div className="flex items-center text-muted-foreground text-sm">
                       <MapPin className="w-3 h-3 mr-1" />
                       {location}
                     </div>
-                    <div className="flex items-center text-gray-300 text-sm">
+                    <div className="flex items-center text-muted-foreground text-sm">
                       <Calendar className="w-3 h-3 mr-1" />
                       {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
                     </div>
-                    <div className="flex items-center text-gray-400 text-xs">
-                      <span className="bg-gray-700 px-2 py-1 rounded">{type}</span>
+                    <div className="flex items-center text-muted-foreground text-xs">
+                      <span className="bg-muted px-2 py-1 rounded">{type}</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-lg font-bold text-white">${booking.amount}</span>
+                  <span className="text-lg font-bold text-foreground">${typeof booking.amount === 'string' ? parseFloat(booking.amount) : booking.amount}</span>
                   <Badge className={`${statusColors[booking.status as keyof typeof statusColors]} text-white`}>
                     <StatusIcon className="w-3 h-3 mr-1" />
                     {booking.status}
@@ -397,18 +405,18 @@ const BookingList = ({ bookings }: { bookings: Booking[] }) => {
 
 const StartPlanningSection = () => (
   <div className="mt-12">
-    <h2 className="text-2xl font-bold text-white mb-6">Start planning your next trip?</h2>
+    <h2 className="text-2xl font-bold text-foreground mb-6">Start planning your next trip?</h2>
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
       {planningCards.map((card) => (
         <Card
           key={card.label}
-          className="bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 hover:from-gray-750 hover:to-gray-850 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-pointer group"
+          className="bg-card border-border hover:bg-accent transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-pointer group"
         >
           <CardContent className="p-4 text-center">
             <div className="w-12 h-12 mx-auto mb-3 bg-primary/20 rounded-lg flex items-center justify-center group-hover:bg-primary/30 transition-colors">
               <card.icon className="w-6 h-6 text-primary" />
             </div>
-            <p className="text-sm text-white font-medium">{card.label}</p>
+            <p className="text-sm text-foreground font-medium">{card.label}</p>
           </CardContent>
         </Card>
       ))}
@@ -429,15 +437,15 @@ export default function DashboardPage() {
   console.log('DashboardPage - Auth state:', { user, isLoading: false, isError });
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-background">
       <div className="flex h-full">
         <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
         
         <main className="flex-1 p-6">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-            <p className="text-gray-400">Manage your trips and bookings</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">Manage your trips and bookings</p>
           </div>
 
           {/* Debug and Test Controls */}
@@ -446,7 +454,7 @@ export default function DashboardPage() {
               variant="outline"
               size="sm"
               onClick={() => setErrorSimulation(!errorSimulation)}
-              className="border-gray-600 text-white hover:bg-gray-800"
+              className="border-border text-foreground hover:bg-accent"
             >
               {errorSimulation ? 'Disable' : 'Enable'} Error Simulation
             </Button>
@@ -465,7 +473,7 @@ export default function DashboardPage() {
                   alert('Auth test failed: ' + error);
                 }
               }}
-              className="border-gray-600 text-white hover:bg-gray-800"
+              className="border-border text-foreground hover:bg-accent"
             >
               Test Auth
             </Button>
@@ -478,7 +486,7 @@ export default function DashboardPage() {
                 console.log('localStorage user:', localStorage.getItem('user'));
                 alert(`User: ${JSON.stringify(user, null, 2)}\n\nlocalStorage: ${localStorage.getItem('user')}`);
               }}
-              className="border-gray-600 text-white hover:bg-gray-800"
+              className="border-border text-foreground hover:bg-accent"
             >
               Debug User
             </Button>
@@ -487,22 +495,22 @@ export default function DashboardPage() {
           {/* Tabs */}
           <div className="mb-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-gray-800 border-gray-700">
+              <TabsList className="grid w-full grid-cols-3 bg-card border-border">
                 <TabsTrigger 
                   value="upcoming" 
-                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                  className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground"
                 >
                   Upcoming ({data?.stats.upcomingTrips || 0})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="completed" 
-                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                  className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground"
                 >
                   Completed ({data?.stats.completedTrips || 0})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="cancelled" 
-                  className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-300"
+                  className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground"
                 >
                   Cancelled ({data?.stats.cancelledTrips || 0})
                 </TabsTrigger>
@@ -515,7 +523,7 @@ export default function DashboardPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i} className="bg-gray-800 border-gray-700">
+                  <Card key={i} className="bg-card border-border">
                     <CardContent className="p-0">
                       <Skeleton className="w-full h-48 rounded-t-lg" />
                       <div className="p-4 space-y-2">
@@ -559,11 +567,11 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
-                      <Plane className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 mx-auto mb-6 bg-card rounded-full flex items-center justify-center">
+                      <Plane className="w-12 h-12 text-muted-foreground" />
                     </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">No upcoming bookings</h3>
-                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    <h3 className="text-xl font-semibold text-foreground mb-2">No upcoming bookings</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You don't have any upcoming bookings yet.
                     </p>
                     <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
@@ -582,11 +590,11 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 mx-auto mb-6 bg-card rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-12 h-12 text-muted-foreground" />
                     </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">No completed bookings</h3>
-                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    <h3 className="text-xl font-semibold text-foreground mb-2">No completed bookings</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You haven't completed any trips yet.
                     </p>
                     <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
@@ -605,11 +613,11 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gray-800 rounded-full flex items-center justify-center">
-                      <XCircle className="w-12 h-12 text-gray-400" />
+                    <div className="w-24 h-24 mx-auto mb-6 bg-card rounded-full flex items-center justify-center">
+                      <XCircle className="w-12 h-12 text-muted-foreground" />
                     </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">No cancelled bookings</h3>
-                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    <h3 className="text-xl font-semibold text-foreground mb-2">No cancelled bookings</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You don't have any cancelled bookings.
                     </p>
                     <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">

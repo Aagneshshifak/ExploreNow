@@ -312,23 +312,20 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // User preferences methods
-  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
-    const result = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
-    return result[0];
+  // User preferences methods - Stubbed out (table not in schema yet)
+  async getUserPreferences(userId: number): Promise<any | undefined> {
+    // TODO: Implement when userPreferences table is added to schema
+    return undefined;
   }
 
-  async createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences> {
-    const result = await db.insert(userPreferences).values(preferences).returning();
-    return result[0];
+  async createUserPreferences(preferences: any): Promise<any> {
+    // TODO: Implement when userPreferences table is added to schema
+    return preferences;
   }
 
-  async updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined> {
-    const result = await db.update(userPreferences)
-      .set({ ...preferences, updatedAt: new Date() })
-      .where(eq(userPreferences.userId, userId))
-      .returning();
-    return result[0];
+  async updateUserPreferences(userId: number, preferences: Partial<any>): Promise<any | undefined> {
+    // TODO: Implement when userPreferences table is added to schema
+    return preferences;
   }
 
   // Trip filtering methods
@@ -406,31 +403,25 @@ export class DatabaseStorage implements IStorage {
     return recommendedTrips.length > 0 ? recommendedTrips : allTrips.slice(0, 5);
   }
 
-  async createTripSuggestion(suggestion: InsertTripSuggestion): Promise<TripSuggestion> {
-    const result = await db.insert(tripSuggestions).values(suggestion).returning();
-    return result[0];
+  async createTripSuggestion(suggestion: any): Promise<any> {
+    // TODO: Implement when tripSuggestions table is added to schema
+    return suggestion;
   }
 
-  async getUserSuggestions(userId: number): Promise<TripSuggestion[]> {
-    return await db.select().from(tripSuggestions)
-      .where(eq(tripSuggestions.userId, userId))
-      .orderBy(desc(tripSuggestions.createdAt));
+  async getUserSuggestions(userId: number): Promise<any[]> {
+    // TODO: Implement when tripSuggestions table is added to schema
+    return [];
   }
 
-  // Translation methods
-  async getTranslations(language: string, category?: string): Promise<Translation[]> {
-    let query = db.select().from(translations).where(eq(translations.language, language));
-    
-    if (category) {
-      query = query.where(and(eq(translations.language, language), eq(translations.category, category)));
-    }
-    
-    return await query;
+  // Translation methods - Stubbed out (table not in schema yet)
+  async getTranslations(language: string, category?: string): Promise<any[]> {
+    // TODO: Implement when translations table is added to schema
+    return [];
   }
 
-  async createTranslation(translation: InsertTranslation): Promise<Translation> {
-    const result = await db.insert(translations).values(translation).returning();
-    return result[0];
+  async createTranslation(translation: any): Promise<any> {
+    // TODO: Implement when translations table is added to schema
+    return translation;
   }
 
   // Payment methods

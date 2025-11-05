@@ -2,6 +2,22 @@ import { sql } from '../db';
 import { bookings } from '../../shared/schema';
 import { db } from '../db';
 import { eq } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
+
+// Helper function to get user from context (consistent with resolvers.ts)
+const getUserFromContext = (context: any) => {
+  if (!context || !context.req) return null;
+  const token = context.req.cookies?.token || context.req.headers?.authorization?.replace('Bearer ', '');
+  if (!token) return null;
+  
+  try {
+    const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded;
+  } catch (error) {
+    return null;
+  }
+};
 
 const typeDefs = `
   type Booking {
@@ -103,19 +119,38 @@ const resolvers = {
   Mutation: {
     createBooking: async (_: any, { input }: { input: any }, context: any) => {
       try {
-        // Get user from context (temporarily allow without auth for testing)
-        const token = context?.req?.cookies?.token;
-        let userId = 17; // Default fallback
+        // Log context structure for debugging
+        console.log('GraphQL createBooking - Context received:', {
+          hasContext: !!context,
+          hasReq: !!context?.req,
+          hasCookies: !!context?.req?.cookies,
+          hasToken: !!context?.req?.cookies?.token,
+          hasAuthHeader: !!context?.req?.headers?.authorization,
+          contextKeys: context ? Object.keys(context) : []
+        });
         
-        if (token) {
-          try {
-            const jwt = require('jsonwebtoken');
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-            userId = decoded.userId;
-          } catch (error) {
-            console.log('Token verification failed, using default user ID');
-          }
+        // Get user from context - use consistent helper function
+        const user = getUserFromContext(context);
+        
+        if (!user || !user.userId) {
+          console.error('GraphQL createBooking - No authenticated user found', {
+            userExists: !!user,
+            userIdExists: !!user?.userId,
+            contextStructure: context ? {
+              hasReq: !!context.req,
+              hasCookies: !!context.req?.cookies,
+              cookieKeys: context.req?.cookies ? Object.keys(context.req.cookies) : []
+            } : 'No context'
+          });
+          return {
+            success: false,
+            booking: null,
+            message: 'Authentication required. Please log in to create a booking.'
+          };
         }
+        
+        const userId = user.userId;
+        console.log('GraphQL createBooking - Authenticated userId:', userId);
         
         const {
           tripId,
