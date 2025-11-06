@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 // Types
 interface TransportBooking {
@@ -140,7 +141,7 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors">
+      <Card className="bg-card border-border hover:border-accent transition-colors">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -151,19 +152,19 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
                   <span className="ml-1 capitalize">{transport.status}</span>
                 </Badge>
               </div>
-              <CardTitle className="text-white text-lg">
+              <CardTitle className="text-foreground text-lg">
                 {getTransportLabel(transport.transportType)} Booking
               </CardTitle>
-              <div className="flex items-center gap-1 text-gray-400 text-sm mt-1">
+              <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
                 <MapPin className="w-4 h-4" />
                 <span>{transport.tripLocation || 'Location not specified'}</span>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-foreground">
                 ${transport.amount}
               </div>
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-muted-foreground">
                 {getTransportLabel(transport.transportType)}
               </div>
             </div>
@@ -171,7 +172,7 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
         </CardHeader>
         
         <CardContent className="pt-0">
-          <div className="space-y-2 text-sm text-gray-300">
+          <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <span>Departure: {new Date(transport.checkIn).toLocaleDateString()}</span>
@@ -192,7 +193,7 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
             <Button 
               variant="outline" 
               size="sm" 
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="flex-1 border-border text-foreground hover:bg-accent"
             >
               View Details
             </Button>
@@ -200,7 +201,7 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-red-600 text-red-400 hover:bg-red-900"
+                className="border-destructive text-destructive hover:bg-destructive/10"
               >
                 Cancel
               </Button>
@@ -214,21 +215,27 @@ const TransportCard = ({ transport }: { transport: TransportBooking }) => {
 
 // Main Component
 export default function TransportsPage() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { data, isLoading, isError, refetch } = useTransportData();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-64" />
-            ))}
-          </div>
+      <div className="min-h-screen bg-background">
+        <div className="flex h-full">
+          <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8">
+                <Skeleton className="h-8 w-48 mb-2" />
+                <Skeleton className="h-4 w-96" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="h-64" />
+                ))}
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -236,21 +243,26 @@ export default function TransportsPage() {
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          <Alert className="bg-red-900 border-red-700">
-            <AlertDescription className="text-red-200">
-              Failed to load transport bookings. Please try again.
-            </AlertDescription>
-          </Alert>
-          <Button 
-            onClick={refetch} 
-            className="mt-4"
-            variant="outline"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Retry
-          </Button>
+      <div className="min-h-screen bg-background">
+        <div className="flex h-full">
+          <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              <Alert className="bg-destructive/10 border-destructive">
+                <AlertDescription className="text-destructive">
+                  Failed to load transport bookings. Please try again.
+                </AlertDescription>
+              </Alert>
+              <Button 
+                onClick={refetch} 
+                className="mt-4"
+                variant="outline"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -261,59 +273,62 @@ export default function TransportsPage() {
   const cancelledTransports = data?.allTransports.filter(t => t.status === 'cancelled') || [];
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <div className="flex h-full">
+        <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">My Transport Bookings</h1>
-          <p className="text-gray-400">View and manage your flight, train, and bus bookings</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">My Transport Bookings</h1>
+          <p className="text-muted-foreground">View and manage your flight, train, and bus bookings</p>
         </div>
 
         {/* Stats */}
         {data && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">Total Transports</p>
-                    <p className="text-2xl font-bold text-white">{data.stats.totalTransports}</p>
+                    <p className="text-muted-foreground text-sm">Total Transports</p>
+                    <p className="text-2xl font-bold text-foreground">{data.stats.totalTransports}</p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-blue-400" />
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">Flights</p>
-                    <p className="text-2xl font-bold text-white">{data.stats.flightCount}</p>
+                    <p className="text-muted-foreground text-sm">Flights</p>
+                    <p className="text-2xl font-bold text-foreground">{data.stats.flightCount}</p>
                   </div>
                   <Plane className="w-8 h-8 text-blue-400" />
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">Trains</p>
-                    <p className="text-2xl font-bold text-white">{data.stats.trainCount}</p>
+                    <p className="text-muted-foreground text-sm">Trains</p>
+                    <p className="text-2xl font-bold text-foreground">{data.stats.trainCount}</p>
                   </div>
                   <Train className="w-8 h-8 text-green-400" />
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">Buses</p>
-                    <p className="text-2xl font-bold text-white">{data.stats.busCount}</p>
+                    <p className="text-muted-foreground text-sm">Buses</p>
+                    <p className="text-2xl font-bold text-foreground">{data.stats.busCount}</p>
                   </div>
                   <Bus className="w-8 h-8 text-orange-400" />
                 </div>
@@ -324,20 +339,20 @@ export default function TransportsPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 bg-gray-800 border-gray-700">
-            <TabsTrigger value="all" className="data-[state=active]:bg-gray-700">
+          <TabsList className="grid w-full grid-cols-5 bg-card border-border">
+            <TabsTrigger value="all" className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground">
               All ({data?.stats.totalTransports || 0})
             </TabsTrigger>
-            <TabsTrigger value="flights" className="data-[state=active]:bg-gray-700">
+            <TabsTrigger value="flights" className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground">
               Flights ({data?.stats.flightCount || 0})
             </TabsTrigger>
-            <TabsTrigger value="trains" className="data-[state=active]:bg-gray-700">
+            <TabsTrigger value="trains" className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground">
               Trains ({data?.stats.trainCount || 0})
             </TabsTrigger>
-            <TabsTrigger value="buses" className="data-[state=active]:bg-gray-700">
+            <TabsTrigger value="buses" className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground">
               Buses ({data?.stats.busCount || 0})
             </TabsTrigger>
-            <TabsTrigger value="confirmed" className="data-[state=active]:bg-gray-700">
+            <TabsTrigger value="confirmed" className="data-[state=active]:bg-accent data-[state=active]:text-foreground text-muted-foreground">
               Confirmed ({confirmedTransports.length})
             </TabsTrigger>
           </TabsList>
@@ -382,6 +397,8 @@ export default function TransportsPage() {
             </div>
           </TabsContent>
         </Tabs>
+          </div>
+        </main>
       </div>
     </div>
   );

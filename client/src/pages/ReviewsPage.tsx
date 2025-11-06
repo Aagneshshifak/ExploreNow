@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 interface Review {
   id: string;
@@ -38,6 +39,7 @@ interface Review {
 }
 
 export default function ReviewsPage() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'trip' | 'hotel'>('all');
   const [newReview, setNewReview] = useState({
@@ -171,18 +173,23 @@ export default function ReviewsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background py-16">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <LoadingSpinner size="lg" />
-          </div>
+      <div className="min-h-screen bg-background">
+        <div className="flex h-full">
+          <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          <main className="flex-1 py-16">
+            <div className="container mx-auto px-4">
+              <div className="flex items-center justify-center min-h-[400px]">
+                <LoadingSpinner size="lg" />
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen bg-background">
       <Helmet>
         <title>Travel Reviews - ExploreNow</title>
         <meta name="description" content="Read authentic travel reviews and share your experiences. Find verified reviews from real travelers for trips, hotels, and destinations on ExploreNow." />
@@ -191,7 +198,10 @@ export default function ReviewsPage() {
         <meta property="og:description" content="Read authentic travel reviews and share your experiences with the travel community" />
         <link rel="canonical" href="https://explorenow.replit.app/reviews" />
       </Helmet>
-      <div className="container mx-auto px-4 max-w-6xl">
+      <div className="flex h-full">
+        <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <main className="flex-1 py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -437,6 +447,8 @@ export default function ReviewsPage() {
             ))
           )}
         </motion.div>
+          </div>
+        </main>
       </div>
     </div>
   );

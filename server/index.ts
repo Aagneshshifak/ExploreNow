@@ -8,7 +8,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
-import { yoga } from "./graphql";
+import { yogaMiddleware } from "./graphql";
 
 const app = express();
 
@@ -80,7 +80,8 @@ app.use((req, res, next) => {
   app.use('/api', translateRoutes);
   
   // Setup GraphQL - must be before Vite setup
-  app.use('/graphql', yoga);
+  // Use middleware wrapper to properly pass Express req/res with cookies
+  app.use('/graphql', yogaMiddleware);
 
   // Add a simple test route to verify server is working
   app.get('/test', (req, res) => {

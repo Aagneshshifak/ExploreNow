@@ -55,6 +55,7 @@ import RewardsPage from "./pages/RewardsPage";
 import AIAssistant from "./pages/AIAssistant";
 import BookNowPage from "./pages/BookNowPage";
 import BookingConfirmation from "./pages/BookingConfirmation";
+import PaymentPage from "./pages/PaymentPage";
 
 
 const queryClient = new QueryClient();
@@ -135,6 +136,7 @@ const App = () => {
                 <Route path="/rewards" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><RewardsPage /></Layout>} />
                 <Route path="/about" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><div className="min-h-screen flex items-center justify-center"><h1 className="text-display">About Coming Soon</h1></div></Layout>} />
                 <Route path="/book-now" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><BookNowPage /></Layout>} />
+                <Route path="/payment/:bookingId" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><PaymentPage /></Layout>} />
                 <Route path="/confirmation/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><BookingConfirmation /></Layout>} />
                 
                 {/* Admin Routes */}

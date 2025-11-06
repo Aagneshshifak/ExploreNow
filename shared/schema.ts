@@ -76,6 +76,8 @@ export const payments = pgTable("payments", {
   cardHolderName: text("card_holder_name").notNull(),
   cardLastFour: text("card_last_four").notNull(),
   cardType: text("card_type").notNull(), // Added card_type field
+  expiryMonth: text("expiry_month").notNull(), // Card expiry month
+  expiryYear: text("expiry_year").notNull(), // Card expiry year
   status: text("status").notNull().default("completed"),
   transactionId: text("transaction_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),

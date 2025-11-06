@@ -1,77 +1,103 @@
-import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CheckCircle, Download, ArrowLeft, Calendar, Users, MapPin, DollarSign } from 'lucide-react';
+import { CheckCircle, Download, ArrowLeft, Calendar, Users, MapPin, DollarSign, Plane, Train, Bus, Hotel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { executeQuery } from '@/lib/graphql';
-
-const BOOKING_QUERY = `
-  query GetBooking($id: ID!) {
-    booking(id: $id) {
-      id
-      tripId
-      hotelId
-      customerName
-      email
-      phone
-      transport
-      checkIn
-      checkOut
-      guests
-      totalCost
-      status
-    }
-  }
-`;
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PriceDisplay } from '@/components/ui/price-display';
 
 interface Booking {
   id: string;
-  tripId: string;
-  hotelId: string;
+  tripId?: string | null;
+  hotelId?: string | null;
   customerName: string;
-  email: string;
-  phone: string;
-  transport: string;
+  customerEmail: string;
+  customerPhone: string;
+  transportMode?: string | null;
+  transportDetails?: string | null;
   checkIn: string;
   checkOut: string;
   guests: number;
-  totalCost: number;
+  amount: string;
   status: string;
+  currency?: string | null;
+  tripTitle?: string;
+  tripLocation?: string;
+  tripImageUrl?: string;
+  hotelName?: string;
+  hotelLocation?: string;
+  hotelImageUrl?: string;
 }
 
 export default function BookingConfirmation() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchBooking = async () => {
-      if (!id) {
-        setError('Booking ID is required');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const result = await executeQuery(BOOKING_QUERY, { id });
-        if (result.data?.booking) {
-          setBooking(result.data.booking);
-        } else {
-          setError('Booking not found');
+  const { data: booking, isLoading, error } = useQuery<Booking>({
+    queryKey: ['booking', id],
+    queryFn: async () => {
+      if (!id) throw new Error('Booking ID is required');
+      
+      // First try direct booking endpoint (includes trip/hotel details)
+      const response = await fetch(`/api/bookings/${id}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          return result.data as Booking;
         }
-      } catch (err: any) {
-        setError('Failed to fetch booking details');
-      } finally {
-        setLoading(false);
       }
-    };
+      
+      // Fallback: try dashboard endpoint which includes trip/hotel details
+      const dashboardResponse = await fetch('/api/bookings/dashboard', {
+        credentials: 'include',
+      });
+      
+      if (dashboardResponse.ok) {
+        const dashboardResult = await dashboardResponse.json();
+        if (dashboardResult.success && dashboardResult.data) {
+          // Search in all booking arrays
+          const allBookings = [
+            ...(dashboardResult.data.upcoming || []),
+            ...(dashboardResult.data.completed || []),
+            ...(dashboardResult.data.cancelled || []),
+            ...(dashboardResult.data.all || [])
+          ];
+          const foundBooking = allBookings.find((b: Booking) => b.id === id);
+          
+          if (foundBooking) {
+            return foundBooking as Booking;
+          }
+        }
+      }
+      
+      // If both fail, throw error
+      if (!response.ok && !dashboardResponse.ok) {
+        throw new Error(`Failed to fetch booking: ${response.status} ${response.statusText}`);
+      }
+      
+      throw new Error('Booking not found');
+    },
+    enabled: !!id,
+  });
 
-    fetchBooking();
-  }, [id]);
+  const getTransportIcon = (mode: string | null | undefined) => {
+    if (!mode) return null;
+    switch (mode.toLowerCase()) {
+      case 'bus':
+        return <Bus className="h-4 w-4" />;
+      case 'train':
+        return <Train className="h-4 w-4" />;
+      case 'flight':
+        return <Plane className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
 
   const handleDownloadReceipt = () => {
     if (!booking) return;
@@ -82,18 +108,20 @@ Booking Receipt
 
 Booking ID: ${booking.id}
 Customer: ${booking.customerName}
-Email: ${booking.email}
-Phone: ${booking.phone}
+Email: ${booking.customerEmail}
+Phone: ${booking.customerPhone}
 
-Trip ID: ${booking.tripId}
-Hotel ID: ${booking.hotelId}
-Transport: ${booking.transport}
+${booking.tripTitle ? `Trip: ${booking.tripTitle}` : ''}
+${booking.tripLocation ? `Location: ${booking.tripLocation}` : ''}
+${booking.hotelName ? `Hotel: ${booking.hotelName}` : ''}
+${booking.hotelLocation ? `Hotel Location: ${booking.hotelLocation}` : ''}
+${booking.transportMode ? `Transport: ${booking.transportMode}` : ''}
 
 Check-in: ${booking.checkIn}
 Check-out: ${booking.checkOut}
 Guests: ${booking.guests}
 
-Total Cost: $${booking.totalCost}
+Total Cost: ${booking.currency || 'USD'} ${booking.amount}
 Status: ${booking.status}
 
 Thank you for choosing ExploreNow!
@@ -110,12 +138,12 @@ Thank you for choosing ExploreNow!
     URL.revokeObjectURL(url);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading booking details...</p>
+          <LoadingSpinner size="lg" />
+          <p className="text-lg text-muted-foreground mt-4">Loading booking details...</p>
         </div>
       </div>
     );
@@ -123,22 +151,29 @@ Thank you for choosing ExploreNow!
 
   if (error || !booking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Booking Not Found</h1>
-          <p className="text-gray-600 mb-6">{error || 'The booking you are looking for does not exist.'}</p>
-          <Button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-700">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Home
-          </Button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="max-w-md w-full mx-4">
+          <CardHeader>
+            <CardTitle>Booking Not Found</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {error instanceof Error ? error.message : 'The booking you are looking for does not exist.'}
+            </p>
+            <Button onClick={() => navigate('/dashboard')} className="w-full">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
+  const totalAmount = parseFloat(booking.amount || '0');
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Success Animation */}
         <motion.div
@@ -147,11 +182,11 @@ Thank you for choosing ExploreNow!
           transition={{ duration: 0.5 }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-4">
-            <CheckCircle className="w-12 h-12 text-green-600" />
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 dark:bg-green-900 rounded-full mb-4">
+            <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Booking Confirmed!</h1>
-          <p className="text-xl text-gray-600">Your trip has been successfully booked</p>
+          <h1 className="text-4xl font-bold mb-2">Booking Confirmed!</h1>
+          <p className="text-xl text-muted-foreground">Your trip has been successfully booked</p>
         </motion.div>
 
         {/* Booking Details Card */}
@@ -173,44 +208,53 @@ Thank you for choosing ExploreNow!
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Customer Information */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Customer Information</h3>
+                  <h3 className="text-lg font-semibold border-b pb-2">Customer Information</h3>
                   <div className="space-y-2">
                     <p><span className="font-medium">Name:</span> {booking.customerName}</p>
-                    <p><span className="font-medium">Email:</span> {booking.email}</p>
-                    <p><span className="font-medium">Phone:</span> {booking.phone}</p>
+                    <p><span className="font-medium">Email:</span> {booking.customerEmail}</p>
+                    <p><span className="font-medium">Phone:</span> {booking.customerPhone}</p>
                   </div>
                 </div>
 
-                {/* Trip Information */}
+                {/* Trip/Hotel Information */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Trip Information</h3>
+                  <h3 className="text-lg font-semibold border-b pb-2">Booking Details</h3>
                   <div className="space-y-2">
-                    <p className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="font-medium">Trip ID:</span> {booking.tripId}
-                    </p>
-                    <p className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-2 text-green-600" />
-                      <span className="font-medium">Hotel ID:</span> {booking.hotelId}
-                    </p>
-                    <p className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-purple-600" />
-                      <span className="font-medium">Transport:</span> {booking.transport}
-                    </p>
+                    {booking.tripTitle && (
+                      <p className="flex items-center">
+                        <Plane className="w-4 h-4 mr-2 text-blue-600" />
+                        <span className="font-medium">Trip:</span> {booking.tripTitle}
+                        {booking.tripLocation && <span className="text-muted-foreground ml-2">({booking.tripLocation})</span>}
+                      </p>
+                    )}
+                    {booking.hotelName && (
+                      <p className="flex items-center">
+                        <Hotel className="w-4 h-4 mr-2 text-green-600" />
+                        <span className="font-medium">Hotel:</span> {booking.hotelName}
+                        {booking.hotelLocation && <span className="text-muted-foreground ml-2">({booking.hotelLocation})</span>}
+                      </p>
+                    )}
+                    {booking.transportMode && (
+                      <p className="flex items-center">
+                        {getTransportIcon(booking.transportMode)}
+                        <span className="font-medium ml-2">Transport:</span> 
+                        <span className="capitalize ml-2">{booking.transportMode}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Dates and Guests */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Dates & Guests</h3>
+                  <h3 className="text-lg font-semibold border-b pb-2">Dates & Guests</h3>
                   <div className="space-y-2">
                     <p className="flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                      <span className="font-medium">Check-in:</span> {booking.checkIn}
+                      <span className="font-medium">Check-in:</span> {new Date(booking.checkIn).toLocaleDateString()}
                     </p>
                     <p className="flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-green-600" />
-                      <span className="font-medium">Check-out:</span> {booking.checkOut}
+                      <span className="font-medium">Check-out:</span> {new Date(booking.checkOut).toLocaleDateString()}
                     </p>
                     <p className="flex items-center">
                       <Users className="w-4 h-4 mr-2 text-purple-600" />
@@ -221,13 +265,13 @@ Thank you for choosing ExploreNow!
 
                 {/* Cost Information */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Cost Information</h3>
+                  <h3 className="text-lg font-semibold border-b pb-2">Cost Information</h3>
                   <div className="space-y-2">
                     <p className="flex items-center text-2xl font-bold text-green-600">
                       <DollarSign className="w-6 h-6 mr-2" />
-                      Total Cost: ${booking.totalCost}
+                      Total: <PriceDisplay price={totalAmount} originalCurrency={booking.currency || 'USD'} />
                     </p>
-                    <p className="text-sm text-gray-500">Booking ID: {booking.id}</p>
+                    <p className="text-sm text-muted-foreground">Booking ID: {booking.id}</p>
                   </div>
                 </div>
               </div>
@@ -236,10 +280,17 @@ Thank you for choosing ExploreNow!
               <div className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t">
                 <Button 
                   onClick={handleDownloadReceipt}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  className="flex-1"
+                  variant="default"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download Receipt
+                </Button>
+                <Button 
+                  onClick={() => navigate('/dashboard')}
+                  className="flex-1"
+                >
+                  View in Dashboard
                 </Button>
                 <Button 
                   onClick={() => navigate('/')}

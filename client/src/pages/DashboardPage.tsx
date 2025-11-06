@@ -51,26 +51,27 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 // Types
 interface Booking {
   id: string;
   type: string;
   status: string;
-  amount: number;
+  amount: number | string;
   checkIn: string;
   checkOut: string;
   createdAt: string;
-  tripId?: string;
-  tripTitle?: string;
-  tripLocation?: string;
-  tripImageUrl?: string;
-  hotelId?: string;
-  hotelName?: string;
-  hotelLocation?: string;
-  hotelImageUrl?: string;
-  transportMode?: string;
-  transportDetails?: string;
+  tripId?: string | number | null;
+  tripTitle?: string | null;
+  tripLocation?: string | null;
+  tripImageUrl?: string | null;
+  hotelId?: string | number | null;
+  hotelName?: string | null;
+  hotelLocation?: string | null;
+  hotelImageUrl?: string | null;
+  transportMode?: string | null;
+  transportDetails?: string | null;
 }
 
 interface DashboardData {
@@ -139,14 +140,6 @@ const planningCards = [
   { icon: Smartphone, label: 'Find eSIM Cards', href: '/esim' },
 ];
 
-const sidebarItems = [
-  { icon: BookOpen, label: 'All Bookings', href: '/dashboard', active: true },
-  { icon: Building2, label: 'My Hotels', href: '/dashboard/hotels' },
-  { icon: Car, label: 'My Transports', href: '/dashboard/transports' },
-  { icon: Star, label: 'Reviews', href: '/reviews' },
-  { icon: Gift, label: 'Rewards', href: '/rewards' },
-];
-
 // Custom Hook
 const useDashboardData = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -171,7 +164,24 @@ const useDashboardData = () => {
       
       if (response.ok) {
         const result = await response.json();
+        console.log('[useDashboardData] API response:', result);
+        
         if (result.success) {
+          // Log the first booking to see what data we're getting
+          if (result.data?.upcoming?.length > 0) {
+            console.log('[useDashboardData] First upcoming booking:', result.data.upcoming[0]);
+            console.log('[useDashboardData] Booking fields:', {
+              id: result.data.upcoming[0].id,
+              type: result.data.upcoming[0].type,
+              tripTitle: result.data.upcoming[0].tripTitle,
+              hotelName: result.data.upcoming[0].hotelName,
+              tripLocation: result.data.upcoming[0].tripLocation,
+              hotelLocation: result.data.upcoming[0].hotelLocation,
+              tripId: result.data.upcoming[0].tripId,
+              hotelId: result.data.upcoming[0].hotelId,
+            });
+          }
+          
           setData(result.data);
         } else {
           throw new Error(result.message || 'Failed to fetch dashboard data');
@@ -216,55 +226,6 @@ const useDashboardData = () => {
 
 // Components
 
-const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean; setIsCollapsed: (collapsed: boolean) => void }) => {
-  return (
-    <div className={`bg-card text-foreground transition-all duration-300 border-r border-border ${isCollapsed ? 'w-16' : 'w-64'}`}>
-      <div className="p-4 border-b border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-full text-foreground hover:bg-muted"
-        >
-          <Settings className="w-4 h-4" />
-          {!isCollapsed && <span className="ml-2">Dashboard</span>}
-        </Button>
-      </div>
-      
-      <nav className="mt-4">
-        <ul className="space-y-1">
-          {sidebarItems.map((item) => (
-            <TooltipProvider key={item.label}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <li>
-                    <Link to={item.href}>
-                      <Button
-                        variant={item.active ? "secondary" : "ghost"}
-                        className={`w-full justify-start text-foreground hover:bg-muted ${
-                          item.active ? 'bg-muted' : ''
-                        }`}
-                      >
-                        <item.icon className="w-4 h-4" />
-                        {!isCollapsed && <span className="ml-2">{item.label}</span>}
-                      </Button>
-                    </Link>
-                  </li>
-                </TooltipTrigger>
-                {isCollapsed && (
-                  <TooltipContent side="right">
-                    {item.label}
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-          ))}
-        </ul>
-      </nav>
-    </div>
-  );
-};
-
 const BookingCard = ({ booking }: { booking: Booking }) => {
   const statusColors = {
     confirmed: 'bg-blue-600',
@@ -282,11 +243,34 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
 
   const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || Clock;
 
-  // Get booking details
-  const title = booking.tripTitle || booking.hotelName || 'Booking';
-  const location = booking.tripLocation || booking.hotelLocation || 'Location';
+  // Debug logging to see what data we're receiving
+  console.log('[BookingCard] Booking data:', {
+    id: booking.id,
+    type: booking.type,
+    tripTitle: booking.tripTitle,
+    hotelName: booking.hotelName,
+    tripLocation: booking.tripLocation,
+    hotelLocation: booking.hotelLocation,
+    tripId: booking.tripId,
+    hotelId: booking.hotelId,
+  });
+
+  // Get booking details - prioritize trip/hotel name, fallback to booking ID if available
+  const title = booking.tripTitle || booking.hotelName || (booking.id ? `Booking ${booking.id.slice(-8)}` : 'Booking');
+  
+  // Get location - prioritize trip/hotel location, show helpful fallback
+  let location = booking.tripLocation || booking.hotelLocation;
+  if (!location) {
+    // If we have a trip or hotel ID but no location, indicate it's being loaded
+    if (booking.tripId || booking.hotelId) {
+      location = 'Location not available';
+    } else {
+      location = 'Location not specified';
+    }
+  }
+  
   const imageUrl = booking.tripImageUrl || booking.hotelImageUrl || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop';
-  const type = booking.type === 'trip' ? 'Trip' : 'Hotel';
+  const type = booking.type === 'trip' ? 'Trip' : booking.type === 'hotel' ? 'Hotel' : 'Booking';
 
   return (
     <Card className="bg-card border-border hover:bg-accent transition-all duration-200 hover:shadow-lg">
@@ -439,7 +423,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-full">
-        <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
         
         <main className="flex-1 p-6">
           {/* Page Header */}

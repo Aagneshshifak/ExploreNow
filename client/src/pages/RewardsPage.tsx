@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Gift, 
@@ -14,8 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 export default function RewardsPage() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const rewards = [
     {
       id: 1,
@@ -66,47 +68,50 @@ export default function RewardsPage() {
   const progressPercentage = (totalPoints / nextTier) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <div className="flex h-full">
+        <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Rewards & Achievements</h1>
-          <p className="text-gray-400">Earn points and unlock exclusive rewards</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Rewards & Achievements</h1>
+          <p className="text-muted-foreground">Earn points and unlock exclusive rewards</p>
         </div>
 
         {/* Points Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Total Points</p>
-                  <p className="text-3xl font-bold text-white">{totalPoints.toLocaleString()}</p>
+                  <p className="text-muted-foreground text-sm">Total Points</p>
+                  <p className="text-3xl font-bold text-foreground">{totalPoints.toLocaleString()}</p>
                 </div>
                 <Coins className="w-8 h-8 text-yellow-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Current Tier</p>
-                  <p className="text-2xl font-bold text-white">Explorer</p>
+                  <p className="text-muted-foreground text-sm">Current Tier</p>
+                  <p className="text-2xl font-bold text-foreground">Explorer</p>
                 </div>
                 <Award className="w-8 h-8 text-blue-400" />
               </div>
             </CardContent>
           </Card>
           
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-card border-border">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm">Next Tier</p>
-                  <p className="text-2xl font-bold text-white">Adventurer</p>
-                  <p className="text-sm text-gray-400">{nextTier - totalPoints} points to go</p>
+                  <p className="text-muted-foreground text-sm">Next Tier</p>
+                  <p className="text-2xl font-bold text-foreground">Adventurer</p>
+                  <p className="text-sm text-muted-foreground">{nextTier - totalPoints} points to go</p>
                 </div>
                 <Target className="w-8 h-8 text-green-400" />
               </div>
@@ -115,16 +120,16 @@ export default function RewardsPage() {
         </div>
 
         {/* Progress Bar */}
-        <Card className="bg-gray-800 border-gray-700 mb-8">
+        <Card className="bg-card border-border mb-8">
           <CardContent className="p-6">
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-white font-medium">Progress to Adventurer Tier</span>
-                <span className="text-gray-400">{Math.round(progressPercentage)}%</span>
+                <span className="text-foreground font-medium">Progress to Adventurer Tier</span>
+                <span className="text-muted-foreground">{Math.round(progressPercentage)}%</span>
               </div>
               <Progress value={progressPercentage} className="h-3" />
             </div>
-            <div className="flex justify-between text-sm text-gray-400">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Explorer ({totalPoints} pts)</span>
               <span>Adventurer ({nextTier} pts)</span>
             </div>
@@ -140,7 +145,7 @@ export default function RewardsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
             >
-              <Card className={`bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors ${
+              <Card className={`bg-card border-border hover:border-accent transition-colors ${
                 reward.completed ? 'ring-2 ring-green-500' : ''
               }`}>
                 <CardHeader className="pb-3">
@@ -154,10 +159,10 @@ export default function RewardsPage() {
                       </Badge>
                     )}
                   </div>
-                  <CardTitle className="text-white text-lg">
+                  <CardTitle className="text-foreground text-lg">
                     {reward.title}
                   </CardTitle>
-                  <p className="text-gray-400 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     {reward.description}
                   </p>
                 </CardHeader>
@@ -166,13 +171,13 @@ export default function RewardsPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Coins className="w-4 h-4 text-yellow-400" />
-                      <span className="text-white font-semibold">{reward.points} points</span>
+                      <span className="text-foreground font-semibold">{reward.points} points</span>
                     </div>
                   </div>
                   
                   {!reward.completed && reward.progress !== undefined && (
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm text-gray-400">
+                      <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Progress</span>
                         <span>{reward.progress}/{reward.total}</span>
                       </div>
@@ -201,25 +206,25 @@ export default function RewardsPage() {
 
         {/* Available Rewards */}
         <div className="mt-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Available Rewards</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-6">Available Rewards</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-blue-500 rounded-lg">
                     <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold">10% Off Next Booking</h3>
-                    <p className="text-gray-400 text-sm">Valid for any trip or hotel booking</p>
+                    <h3 className="text-foreground font-semibold">10% Off Next Booking</h3>
+                    <p className="text-muted-foreground text-sm">Valid for any trip or hotel booking</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Coins className="w-4 h-4 text-yellow-400" />
-                      <span className="text-white font-medium">500 points</span>
+                      <span className="text-foreground font-medium">500 points</span>
                     </div>
                   </div>
                   <Button 
                     variant="outline" 
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="border-border text-foreground hover:bg-accent"
                     disabled={totalPoints < 500}
                   >
                     Redeem
@@ -228,23 +233,23 @@ export default function RewardsPage() {
               </CardContent>
             </Card>
             
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-purple-500 rounded-lg">
                     <Crown className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold">Priority Support</h3>
-                    <p className="text-gray-400 text-sm">Get faster customer support</p>
+                    <h3 className="text-foreground font-semibold">Priority Support</h3>
+                    <p className="text-muted-foreground text-sm">Get faster customer support</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Coins className="w-4 h-4 text-yellow-400" />
-                      <span className="text-white font-medium">1000 points</span>
+                      <span className="text-foreground font-medium">1000 points</span>
                     </div>
                   </div>
                   <Button 
                     variant="outline" 
-                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    className="border-border text-foreground hover:bg-accent"
                     disabled={totalPoints < 1000}
                   >
                     Redeem
@@ -254,6 +259,8 @@ export default function RewardsPage() {
             </Card>
           </div>
         </div>
+          </div>
+        </main>
       </div>
     </div>
   );

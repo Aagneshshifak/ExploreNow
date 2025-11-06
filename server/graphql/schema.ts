@@ -6,15 +6,41 @@ import jwt from 'jsonwebtoken';
 
 // Helper function to get user from context (consistent with resolvers.ts)
 const getUserFromContext = (context: any) => {
-  if (!context || !context.req) return null;
-  const token = context.req.cookies?.token || context.req.headers?.authorization?.replace('Bearer ', '');
-  if (!token) return null;
+  console.log('=== getUserFromContext Debug ===');
+  console.log('Context exists:', !!context);
+  console.log('Context.req exists:', !!context?.req);
+  console.log('Context.req.cookies exists:', !!context?.req?.cookies);
+  console.log('Context.req.cookies type:', typeof context?.req?.cookies);
+  console.log('Context.req.cookies keys:', context?.req?.cookies ? Object.keys(context.req.cookies) : 'N/A');
+  
+  if (!context || !context.req) {
+    console.log('❌ No context or context.req');
+    return null;
+  }
+  
+  // Try multiple ways to get the token
+  const tokenFromCookies = context.req.cookies?.token;
+  const tokenFromAuthHeader = context.req.headers?.authorization?.replace('Bearer ', '');
+  const token = tokenFromCookies || tokenFromAuthHeader;
+  
+  console.log('Token from cookies:', tokenFromCookies ? tokenFromCookies.substring(0, 30) + '...' : 'NOT FOUND');
+  console.log('Token from auth header:', tokenFromAuthHeader ? tokenFromAuthHeader.substring(0, 30) + '...' : 'NOT FOUND');
+  console.log('Final token:', token ? token.substring(0, 30) + '...' : 'NOT FOUND');
+  
+  if (!token) {
+    console.log('❌ No token found in cookies or headers');
+    console.log('Cookies object:', context.req.cookies);
+    console.log('Headers object keys:', context.req.headers ? Object.keys(context.req.headers) : 'N/A');
+    return null;
+  }
   
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('✅ Token verified successfully, userId:', decoded?.userId);
     return decoded;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ Token verification failed:', error.message);
     return null;
   }
 };
@@ -196,7 +222,7 @@ const resolvers = {
             ${checkOut},
             ${guests},
             ${amount},
-            ${'confirmed'},
+            ${'pending'},
             ${specialRequests || null},
             ${emergencyContact || null},
             ${emergencyPhone || null},

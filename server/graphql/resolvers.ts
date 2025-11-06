@@ -12,7 +12,7 @@ const getUserFromContext = (context: any) => {
   if (!token) return null;
   
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
     return decoded;
   } catch (error) {
     return null;
@@ -170,16 +170,19 @@ export const resolvers = {
         
         const token = jwt.sign(
           { userId: user.id, email: user.email, role: user.role },
-          process.env.JWT_SECRET || 'fallback-secret',
+          process.env.JWT_SECRET || 'your-secret-key-change-in-production',
           { expiresIn: '24h' }
         );
         
         // Set cookie
-        context.res.cookie('token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 24 * 60 * 60 * 1000 // 24 hours
-        });
+        if (context.res) {
+          context.res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
+        }
         
         const { password: _, ...userWithoutPassword } = user;
         
@@ -229,16 +232,19 @@ export const resolvers = {
         // Generate token
         const token = jwt.sign(
           { userId: newUser.id, email: newUser.email, role: newUser.role },
-          process.env.JWT_SECRET || 'fallback-secret',
+          process.env.JWT_SECRET || 'your-secret-key-change-in-production',
           { expiresIn: '24h' }
         );
         
         // Set cookie
-        context.res.cookie('token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 24 * 60 * 60 * 1000 // 24 hours
-        });
+        if (context.res) {
+          context.res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
+        }
         
         const { password: _, ...userWithoutPassword } = newUser;
         

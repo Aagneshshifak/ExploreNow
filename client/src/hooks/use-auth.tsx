@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface User {
   id: number;
@@ -18,62 +19,90 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('Checking authentication...');
-        
-        // First check if we have a user in localStorage as fallback
+// Memory store for user cache (in addition to React Query cache)
+const userMemoryStore = {
+  user: null as User | null,
+  setUser: (user: User | null) => {
+    userMemoryStore.user = user;
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  },
+  getUser: (): User | null => {
+    if (userMemoryStore.user) {
+      return userMemoryStore.user;
+    }
+    // Fallback to localStorage
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           try {
-            const parsedUser = JSON.parse(savedUser);
-            console.log('Found saved user in localStorage:', parsedUser);
-            setUser(parsedUser);
+        return JSON.parse(savedUser);
           } catch (e) {
             console.error('Failed to parse saved user:', e);
           }
         }
+    return null;
+  },
+  clear: () => {
+    userMemoryStore.user = null;
+    localStorage.removeItem('user');
+  }
+};
 
-        // Then verify with the server
-        console.log('Making request to /api/auth/me...');
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize from memory store on mount
+  const [initialUser] = useState(() => {
+    const cachedUser = userMemoryStore.getUser();
+    if (cachedUser) {
+      console.log('Initializing from memory store:', cachedUser);
+      return cachedUser;
+    }
+    return null;
+  });
+
+  // Use React Query to cache user data in memory
+  const { data: userData, isLoading, refetch: refetchUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    queryFn: async () => {
+      console.log('Fetching user from /api/auth/me...');
+      
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
         });
         
-        console.log('Auth response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Auth response data:', data);
-          if (data.success && data.data) {
-            setUser(data.data);
-            // Update localStorage with fresh data
-            localStorage.setItem('user', JSON.stringify(data.data));
-          }
-        } else {
-          console.log('Server auth failed, clearing localStorage');
-          // If server auth fails, clear localStorage
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        // On network error, keep the user if we have one in localStorage
-        // This prevents logout on temporary network issues
+      if (!response.ok) {
+        // Clear memory store on auth failure
+        userMemoryStore.clear();
+        throw new Error('Authentication failed');
       }
-    };
-    
-    checkAuth();
-  }, []);
+      
+          const data = await response.json();
+          if (data.success && data.data) {
+        // Update memory store
+        userMemoryStore.setUser(data.data);
+        return data.data as User;
+      }
+      
+      userMemoryStore.clear();
+      return null;
+    },
+    retry: 1,
+    staleTime: 1000 * 60 * 5, // 5 minutes - keep in cache
+    gcTime: 1000 * 60 * 30, // 30 minutes - keep in memory
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    initialData: initialUser || undefined, // Initialize from memory store
+    enabled: true, // Always enabled
+  });
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
+  const user = userData || null;
+
+  const login = useCallback(async (email: string, password: string) => {
     setError(null);
     
     try {
@@ -89,8 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       if (data.success && data.data?.user) {
-        setUser(data.data.user);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
+        const loggedInUser = data.data.user;
+        // Store in memory store
+        userMemoryStore.setUser(loggedInUser);
+        // Update React Query cache
+        queryClient.setQueryData(['/api/auth/me'], loggedInUser);
+        // Refetch to ensure consistency
+        await refetchUser();
       } else {
         throw new Error(data.message || 'Login failed');
       }
@@ -98,13 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setError(errorMessage);
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [queryClient, refetchUser]);
 
-  const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true);
+  const register = useCallback(async (name: string, email: string, password: string) => {
     setError(null);
     
     try {
@@ -120,8 +151,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       if (data.success && data.data?.user) {
-        setUser(data.data.user);
-        localStorage.setItem('user', JSON.stringify(data.data.user));
+        const registeredUser = data.data.user;
+        // Store in memory store
+        userMemoryStore.setUser(registeredUser);
+        // Update React Query cache
+        queryClient.setQueryData(['/api/auth/me'], registeredUser);
+        // Refetch to ensure consistency
+        await refetchUser();
       } else {
         throw new Error(data.message || 'Registration failed');
       }
@@ -129,12 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       setError(errorMessage);
       throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [queryClient, refetchUser]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
@@ -143,10 +177,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setUser(null);
-      localStorage.removeItem('user');
+      // Clear memory store
+      userMemoryStore.clear();
+      // Clear React Query cache
+      queryClient.setQueryData(['/api/auth/me'], null);
+      queryClient.removeQueries({ queryKey: ['/api/auth/me'] });
+      // Invalidate all queries to clear user-specific data
+      queryClient.invalidateQueries();
     }
-  };
+  }, [queryClient]);
 
   const value: AuthContextType = {
     user,

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DashboardSidebar } from '@/components/DashboardSidebar';
 
 // Types
 interface HotelBooking {
@@ -55,22 +56,34 @@ const useHotelData = () => {
     setIsError(false);
     
     try {
+      console.log('[HotelsPage] Fetching hotel bookings...');
       const response = await fetch('/api/bookings/hotels', {
         credentials: 'include'
       });
       
+      console.log('[HotelsPage] Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch hotel data');
+        const errorText = await response.text().catch(() => '');
+        console.error('[HotelsPage] Response error:', errorText);
+        throw new Error(`Failed to fetch hotel data: ${response.status} ${response.statusText}`);
       }
       
       const result = await response.json();
+      console.log('[HotelsPage] API response:', result);
+      
       if (result.success) {
+        console.log('[HotelsPage] Hotel bookings loaded:', result.data?.hotels?.length || 0);
         setData(result.data);
       } else {
         throw new Error(result.message || 'Failed to fetch hotel data');
       }
-    } catch (error) {
-      console.error('Hotel data fetch error:', error);
+    } catch (error: any) {
+      console.error('[HotelsPage] Hotel data fetch error:', error);
+      console.error('[HotelsPage] Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       setIsError(true);
     } finally {
       setIsLoading(false);
@@ -192,21 +205,27 @@ const HotelCard = ({ hotel }: { hotel: HotelBooking }) => {
 
 // Main Component
 export default function HotelsPage() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const { data, isLoading, isError, refetch } = useHotelData();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-64" />
-            ))}
-          </div>
+      <div className="min-h-screen bg-background">
+        <div className="flex h-full">
+          <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-8">
+                <Skeleton className="h-8 w-48 mb-2" />
+                <Skeleton className="h-4 w-96" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="h-64" />
+                ))}
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -214,21 +233,26 @@ export default function HotelsPage() {
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
-          <Alert className="bg-destructive/10 border-destructive">
-            <AlertDescription className="text-destructive">
-              Failed to load hotel bookings. Please try again.
-            </AlertDescription>
-          </Alert>
-          <Button 
-            onClick={refetch} 
-            className="mt-4"
-            variant="outline"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Retry
-          </Button>
+      <div className="min-h-screen bg-background">
+        <div className="flex h-full">
+          <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          <main className="flex-1 p-6">
+            <div className="max-w-7xl mx-auto">
+              <Alert className="bg-destructive/10 border-destructive">
+                <AlertDescription className="text-destructive">
+                  Failed to load hotel bookings. Please try again.
+                </AlertDescription>
+              </Alert>
+              <Button 
+                onClick={refetch} 
+                className="mt-4"
+                variant="outline"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -239,8 +263,11 @@ export default function HotelsPage() {
   const cancelledHotels = data?.hotels.filter(h => h.status === 'cancelled') || [];
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <div className="flex h-full">
+        <DashboardSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">My Hotel Bookings</h1>
@@ -337,6 +364,8 @@ export default function HotelsPage() {
             </div>
           </TabsContent>
         </Tabs>
+          </div>
+        </main>
       </div>
     </div>
   );

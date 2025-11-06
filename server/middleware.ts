@@ -28,22 +28,28 @@ export const createResponse = (success: boolean, data: any = null, message: stri
 // Middleware to verify JWT token
 export const requireUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log(`[requireUser] Checking auth for ${req.method} ${req.path}`);
     const token = req.cookies.token || req.headers.authorization?.replace("Bearer ", "");
     
     if (!token) {
+      console.log(`[requireUser] ❌ No token found for ${req.method} ${req.path}`);
       return res.status(401).json(createResponse(false, null, "Authentication required"));
     }
 
+    console.log(`[requireUser] ✅ Token found, verifying...`);
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     const user = await storage.getUser(decoded.userId);
     
     if (!user) {
+      console.log(`[requireUser] ❌ User not found for userId: ${decoded.userId}`);
       return res.status(401).json(createResponse(false, null, "User not found"));
     }
 
+    console.log(`[requireUser] ✅ User authenticated: ${user.email} (${user.role})`);
     req.user = user;
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.log(`[requireUser] ❌ Token verification failed: ${error.message}`);
     return res.status(401).json(createResponse(false, null, "Invalid token"));
   }
 };
