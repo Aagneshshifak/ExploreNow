@@ -126,54 +126,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Login - POST /api/auth/login
   app.post("/api/auth/login", async (req, res) => {
     try {
-      console.log("Login request body:", req.body);
+      console.log("[LOGIN] Login request received");
+      console.log("[LOGIN] Request body:", { email: req.body?.email, hasPassword: !!req.body?.password });
+      console.log("[LOGIN] Request headers:", { 
+        origin: req.headers.origin, 
+        'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent']?.substring(0, 50)
+      });
+      
+      // Validate request body
+      if (!req.body || typeof req.body !== 'object') {
+        console.error("[LOGIN] ❌ Invalid request body");
+        return res.status(400).json(
+          createResponse(false, null, "Invalid request body")
+        );
+      }
+      
       const validation = loginSchema.safeParse(req.body);
       if (!validation.success) {
-        console.log("Login validation errors:", validation.error.errors);
+        console.error("[LOGIN] ❌ Validation errors:", validation.error.errors);
         return res.status(400).json(
           createResponse(false, null, `Invalid email or password format: ${validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`)
         );
       }
       
       const { email, password } = validation.data;
+      console.log(`[LOGIN] Attempting login for email: ${email}`);
       
       // Find user
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json(
-          createResponse(false, null, "Invalid email or password")
+      let user;
+      try {
+        user = await storage.getUserByEmail(email);
+        if (!user) {
+          console.log(`[LOGIN] ❌ User not found for email: ${email}`);
+          return res.status(401).json(
+            createResponse(false, null, "Invalid email or password")
+          );
+        }
+        console.log(`[LOGIN] ✅ User found: ${user.email} (ID: ${user.id}, type: ${typeof user.id}, role: ${user.role})`);
+      } catch (dbError: any) {
+        console.error("[LOGIN] ❌ Database error while fetching user:", dbError.message);
+        return res.status(500).json(
+          createResponse(false, null, "Database error during login")
         );
       }
       
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json(
-          createResponse(false, null, "Invalid email or password")
+      let isValidPassword = false;
+      try {
+        isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+          console.log(`[LOGIN] ❌ Invalid password for user: ${email}`);
+          return res.status(401).json(
+            createResponse(false, null, "Invalid email or password")
+          );
+        }
+        console.log(`[LOGIN] ✅ Password verified for user: ${email}`);
+      } catch (bcryptError: any) {
+        console.error("[LOGIN] ❌ Password comparison error:", bcryptError.message);
+        return res.status(500).json(
+          createResponse(false, null, "Error verifying password")
         );
       }
       
       // Generate token
-      const token = generateToken(user);
+      let token: string;
+      try {
+        console.log(`[LOGIN] Generating JWT token for user: ${user.email} (ID: ${user.id})`);
+        token = generateToken(user);
+        console.log(`[LOGIN] ✅ Token generated successfully (length: ${token.length})`);
+      } catch (tokenError: any) {
+        console.error("[LOGIN] ❌ Token generation failed:", tokenError.message);
+        return res.status(500).json(
+          createResponse(false, null, `Token generation failed: ${tokenError.message}`)
+        );
+      }
       
       // Set cookie
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-      });
+      try {
+        res.cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        });
+        console.log(`[LOGIN] ✅ Cookie set successfully`);
+      } catch (cookieError: any) {
+        console.error("[LOGIN] ⚠️  Cookie setting error (continuing anyway):", cookieError.message);
+        // Continue even if cookie setting fails - token is still in response body
+      }
       
       // Return user without password
       const { password: _, ...userWithoutPassword } = user;
       
+      console.log(`[LOGIN] ✅ Login successful for user: ${email}`);
       res.json(
         createResponse(true, { user: userWithoutPassword, token }, "Login successful")
       );
-    } catch (error) {
-      console.error("Login error:", error);
+    } catch (error: any) {
+      console.error("[LOGIN] ❌ Unexpected login error:", error);
+      console.error("[LOGIN] Error stack:", error.stack);
       res.status(500).json(
-        createResponse(false, null, "Login failed")
+        createResponse(false, null, `Login failed: ${error.message || 'Unknown error'}`)
       );
     }
   });
