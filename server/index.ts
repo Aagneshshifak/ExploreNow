@@ -124,10 +124,7 @@ app.use((req, res, next) => {
   // Serve the app on port 5000
   // this serves both the API and the client.
   const port = 5000;
-  server.listen({
-    port,
-    host: "localhost",
-  }, () => {
+  server.listen(port, "localhost", () => {
     log(`serving on port ${port}`);
     if (app.get("env") === "development") {
       console.log('\n🚀 Development servers running:');
@@ -138,4 +135,18 @@ app.use((req, res, next) => {
       console.log('\n💡 Use http://localhost:5173/ for the main application\n');
     }
   });
-})();
+
+  // Add error handlers for the server
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${port} is already in use. Please stop the other server or use a different port.`);
+      console.error(`   Try: lsof -ti:${port} | xargs kill -9`);
+    } else {
+      console.error('❌ Server error:', error);
+    }
+    process.exit(1);
+  });
+})().catch((error) => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
+});

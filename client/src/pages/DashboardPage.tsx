@@ -255,11 +255,29 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
     hotelId: booking.hotelId,
   });
 
-  // Get booking details - prioritize trip/hotel name, fallback to booking ID if available
-  const title = booking.tripTitle || booking.hotelName || (booking.id ? `Booking ${booking.id.slice(-8)}` : 'Booking');
+  // Get booking details - prioritize hotel name if type is hotel, otherwise trip name
+  // For bookings with both trip and hotel, show hotel if it's a hotel booking type
+  let title: string;
+  if (booking.type === 'hotel' && booking.hotelName) {
+    title = booking.hotelName;
+  } else if (booking.hotelName && !booking.tripTitle) {
+    // If only hotel name exists, use it
+    title = booking.hotelName;
+  } else {
+    // Otherwise use trip title or fallback
+    title = booking.tripTitle || booking.hotelName || (booking.id ? `Booking ${booking.id.slice(-8)}` : 'Booking');
+  }
   
-  // Get location - prioritize trip/hotel location, show helpful fallback
-  let location = booking.tripLocation || booking.hotelLocation;
+  // Get location - prioritize based on booking type
+  let location: string;
+  if (booking.type === 'hotel' && booking.hotelLocation) {
+    location = booking.hotelLocation;
+  } else if (booking.hotelLocation && !booking.tripLocation) {
+    location = booking.hotelLocation;
+  } else {
+    location = booking.tripLocation || booking.hotelLocation;
+  }
+  
   if (!location) {
     // If we have a trip or hotel ID but no location, indicate it's being loaded
     if (booking.tripId || booking.hotelId) {
@@ -269,8 +287,19 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
     }
   }
   
-  const imageUrl = booking.tripImageUrl || booking.hotelImageUrl || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop';
-  const type = booking.type === 'trip' ? 'Trip' : booking.type === 'hotel' ? 'Hotel' : 'Booking';
+  // Get image - prioritize based on booking type
+  let imageUrl: string;
+  if (booking.type === 'hotel' && booking.hotelImageUrl) {
+    imageUrl = booking.hotelImageUrl;
+  } else if (booking.hotelImageUrl && !booking.tripImageUrl) {
+    imageUrl = booking.hotelImageUrl;
+  } else {
+    imageUrl = booking.tripImageUrl || booking.hotelImageUrl || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop';
+  }
+  
+  // Determine type - if it's a hotel booking or has hotelId, show as Hotel
+  const type = booking.type === 'hotel' || (booking.hotelId && !booking.tripId) ? 'Hotel' : 
+               booking.type === 'trip' ? 'Trip' : 'Booking';
 
   return (
     <Card className="bg-card border-border hover:bg-accent transition-all duration-200 hover:shadow-lg">

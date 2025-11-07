@@ -422,9 +422,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userBookings = [];
       }
       
-      // If JOINs failed or returned fewer bookings, fallback to manual join
-      if (userBookings.length === 0 && allUserBookings.length > 0) {
-        console.log('[GET /api/bookings/dashboard] JOINs returned no results, using fallback manual join');
+      // Check if JOIN results have missing hotel data for hotel bookings
+      // If JOIN succeeded but hotel data is missing for hotel bookings, use manual join
+      const hasHotelBookingsWithoutData = userBookings.length > 0 && allUserBookings.some(b => {
+        if (b.type === 'hotel' && b.hotelId) {
+          const joinedBooking = userBookings.find(jb => jb.id === b.id);
+          return !joinedBooking || !joinedBooking.hotelName;
+        }
+        return false;
+      });
+      
+      // If JOINs failed or returned fewer bookings, or hotel data is missing, fallback to manual join
+      if ((userBookings.length === 0 && allUserBookings.length > 0) || hasHotelBookingsWithoutData) {
+        if (hasHotelBookingsWithoutData) {
+          console.log('[GET /api/bookings/dashboard] JOIN succeeded but hotel data missing for hotel bookings, using fallback manual join');
+        } else {
+          console.log('[GET /api/bookings/dashboard] JOINs returned no results, using fallback manual join');
+        }
         const manualJoinedBookings = [];
         
         for (const booking of allUserBookings) {
