@@ -115,7 +115,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      // Check content-type before parsing
+      const contentType = response.headers.get('content-type');
+      const isJson = contentType && contentType.includes('application/json');
+      
+      // Get response text first (can only read body once)
+      const responseText = await response.text();
+      
+      // Check if response is OK before parsing
+      if (!response.ok) {
+        // Try to parse error response, but handle non-JSON gracefully
+        let errorMessage = `Login failed: ${response.status} ${response.statusText}`;
+        if (isJson && responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (parseError) {
+            console.error('Failed to parse error JSON:', parseError);
+            console.error('Response text:', responseText);
+          }
+        } else if (responseText) {
+          console.error('Non-JSON error response:', responseText);
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Validate response is not empty
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Server returned empty response');
+      }
+
+      // Validate content-type for successful responses
+      if (!isJson) {
+        console.error('Non-JSON response received:', responseText);
+        throw new Error('Server returned non-JSON response');
+      }
+
+      // Parse JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('Failed to parse JSON response:', jsonError);
+        console.error('Response text:', responseText);
+        throw new Error('Invalid JSON response from server');
+      }
       
       if (data.success && data.data?.user) {
         const loggedInUser = data.data.user;
