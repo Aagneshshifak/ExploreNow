@@ -28,10 +28,21 @@ export default function AIAssistant() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      toast({
+        title: "Query Required",
+        description: "Please enter a travel question.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
+    setResponse(null); // Clear previous response
+    
     try {
+      console.log("[AI ASSISTANT] Sending request:", { query: query.substring(0, 50) + "...", location, budget });
+      
       const res = await fetch("/api/ai/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,24 +52,79 @@ export default function AIAssistant() {
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setResponse(data.data);
-          toast({
-            title: "AI Response Ready",
-            description: `Category: ${data.data.category}`,
-          });
+      console.log("[AI ASSISTANT] Response status:", res.status, res.statusText);
+
+      const contentType = res.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+      
+      if (!res.ok) {
+        let errorMessage = `Request failed: ${res.status} ${res.statusText}`;
+        
+        if (isJson) {
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            console.error("[AI ASSISTANT] Error response:", errorData);
+          } catch (parseError) {
+            console.error("[AI ASSISTANT] Failed to parse error response");
+            const text = await res.text();
+            console.error("[AI ASSISTANT] Error response text:", text);
+          }
         } else {
-          throw new Error(data.message);
+          const text = await res.text();
+          console.error("[AI ASSISTANT] Non-JSON error response:", text);
         }
+        
+        throw new Error(errorMessage);
+      }
+
+      if (!isJson) {
+        const text = await res.text();
+        console.error("[AI ASSISTANT] Non-JSON response received:", text);
+        throw new Error("Server returned an invalid response format");
+      }
+
+      const data = await res.json();
+      console.log("[AI ASSISTANT] Response data:", { success: data.success, hasData: !!data.data });
+      
+      if (data.success && data.data) {
+        setResponse(data.data);
+        toast({
+          title: "AI Response Ready",
+          description: `Category: ${data.data.category || "General"}`,
+        });
       } else {
-        throw new Error("Failed to get AI response");
+        throw new Error(data.message || "Failed to get AI response");
       }
     } catch (error: any) {
+      console.error("[AI ASSISTANT] Error occurred:", error);
+      console.error("[AI ASSISTANT] Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      // Provide user-friendly error messages
+      let errorTitle = "Error";
+      let errorDescription = error.message || "Failed to get AI assistance";
+      
+      if (error.message?.includes("API key") || error.message?.includes("not configured")) {
+        errorTitle = "Service Unavailable";
+        errorDescription = "AI service is not configured. Please contact support.";
+      } else if (error.message?.includes("quota") || error.message?.includes("limit")) {
+        errorTitle = "Service Limit Reached";
+        errorDescription = "AI service quota exceeded. Please try again later.";
+      } else if (error.message?.includes("network") || error.message?.includes("connect")) {
+        errorTitle = "Connection Error";
+        errorDescription = "Unable to connect to AI service. Please check your internet connection and try again.";
+      } else if (error.message?.includes("Failed to fetch")) {
+        errorTitle = "Network Error";
+        errorDescription = "Unable to reach the server. Please check your connection and try again.";
+      }
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to get AI assistance",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {

@@ -2105,24 +2105,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Travel Assistant - POST /api/ai/assistant
   app.post("/api/ai/assistant", async (req, res) => {
     try {
+      console.log("[AI ASSISTANT] Request received");
       const { query, userContext } = req.body;
       
       if (!query || typeof query !== 'string') {
-        return res.status(400).json(createResponse(false, null, "Query is required"));
+        console.error("[AI ASSISTANT] Invalid query:", { query, type: typeof query });
+        return res.status(400).json(createResponse(false, null, "Query is required and must be a string"));
       }
 
+      console.log("[AI ASSISTANT] Processing query:", query.substring(0, 50) + "...");
+      console.log("[AI ASSISTANT] User context:", userContext);
+
       const { geminiService } = await import("./services/geminiService.js");
+      console.log("[AI ASSISTANT] Gemini service imported successfully");
       
       const assistance = await geminiService.provideTravelAssistance(query, userContext);
+      console.log("[AI ASSISTANT] Assistance generated successfully, category:", assistance.category);
 
       res.json(createResponse(true, {
         ...assistance,
         aiPowered: true,
         timestamp: new Date().toISOString()
       }, "AI travel assistance provided successfully"));
-    } catch (error) {
-      console.error("AI assistant error:", error);
-      res.status(500).json(createResponse(false, null, "Failed to provide AI assistance: " + (error instanceof Error ? error.message : 'Unknown error')));
+    } catch (error: any) {
+      console.error("[AI ASSISTANT] Error occurred");
+      console.error("[AI ASSISTANT] Error type:", error?.constructor?.name || typeof error);
+      console.error("[AI ASSISTANT] Error message:", error?.message || "Unknown error");
+      console.error("[AI ASSISTANT] Error stack:", error?.stack);
+      
+      // Determine appropriate status code and message
+      let statusCode = 500;
+      let errorMessage = "Failed to provide AI assistance";
+      
+      if (error?.message?.includes("API key") || error?.message?.includes("GEMINI_API_KEY")) {
+        statusCode = 503; // Service Unavailable
+        errorMessage = "AI service is not configured. Please contact support.";
+        console.error("[AI ASSISTANT] API key configuration issue");
+      } else if (error?.message?.includes("quota") || error?.message?.includes("limit")) {
+        statusCode = 429; // Too Many Requests
+        errorMessage = "AI service quota exceeded. Please try again later.";
+        console.error("[AI ASSISTANT] API quota issue");
+      } else if (error?.message?.includes("network") || error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+        statusCode = 503; // Service Unavailable
+        errorMessage = "Unable to connect to AI service. Please try again later.";
+        console.error("[AI ASSISTANT] Network error");
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      res.status(statusCode).json(createResponse(false, null, errorMessage));
     }
   });
 

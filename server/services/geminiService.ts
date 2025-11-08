@@ -378,6 +378,15 @@ export class GeminiTravelService {
       groupSize?: number;
     }
   ): Promise<TravelAssistance> {
+    // Validate API key is configured
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey.trim() === "") {
+      console.error("[GEMINI] API key is not configured");
+      throw new Error("Gemini API key is not configured. Please set GEMINI_API_KEY in environment variables.");
+    }
+    
+    console.log("[GEMINI] API key is configured (length:", apiKey.length, "characters)");
+    
     try {
       const context = userContext ? 
         `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
@@ -410,17 +419,45 @@ export class GeminiTravelService {
         "relatedSuggestions": ["Related question 1", "Related question 2", "Related question 3"]
       }`;
 
+      console.log("[GEMINI] Generating travel assistance for query:", query.substring(0, 50) + "...");
       const response = await this.model.generateContent(prompt);
       const responseText = response.response?.text();
       
       if (!responseText) {
+        console.error("[GEMINI] No response text received from API");
         throw new Error("No response from Gemini API");
       }
 
+      console.log("[GEMINI] Raw response received, length:", responseText.length);
+      
       try {
-        return JSON.parse(responseText) as TravelAssistance;
-      } catch (parseError) {
-        console.error("Failed to parse Gemini response:", parseError);
+        // Clean the response text first (remove markdown code blocks)
+        let cleanText = responseText.trim();
+        
+        // Remove any markdown code blocks
+        cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        
+        // Extract JSON object from the response
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          let jsonString = jsonMatch[0];
+          
+          // Try to fix common JSON issues
+          jsonString = jsonString
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+            .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
+            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
+          
+          const parsed = JSON.parse(jsonString) as TravelAssistance;
+          console.log("[GEMINI] Successfully parsed response, category:", parsed.category);
+          return parsed;
+        } else {
+          console.warn("[GEMINI] No JSON object found in response, using fallback");
+          throw new Error("No JSON object found in response");
+        }
+      } catch (parseError: any) {
+        console.error("[GEMINI] Failed to parse Gemini response:", parseError.message);
+        console.error("[GEMINI] Raw response text:", responseText.substring(0, 500));
         // Fallback response
         return {
           query,
@@ -433,10 +470,33 @@ export class GeminiTravelService {
             "What should I pack for my destination?"
           ]
         };
-            }
-    } catch (error) {
-      console.error("Gemini travel assistance error:", error);
-      throw new Error("Failed to provide travel assistance");
+      }
+    } catch (error: any) {
+      console.error("[GEMINI] Travel assistance error occurred");
+      console.error("[GEMINI] Error type:", error?.constructor?.name || typeof error);
+      console.error("[GEMINI] Error message:", error?.message || "Unknown error");
+      console.error("[GEMINI] Error stack:", error?.stack);
+      
+      // Check for specific error types
+      if (error?.message?.includes("API key") || error?.message?.includes("GEMINI_API_KEY")) {
+        console.error("[GEMINI] API key configuration issue detected");
+        throw new Error("Gemini API key is not configured. Please check your environment variables.");
+      }
+      
+      if (error?.message?.includes("quota") || error?.message?.includes("limit")) {
+        console.error("[GEMINI] API quota/limit issue detected");
+        throw new Error("Gemini API quota exceeded. Please try again later.");
+      }
+      
+      if (error?.message?.includes("network") || error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+        console.error("[GEMINI] Network error detected");
+        throw new Error("Network error connecting to Gemini API. Please check your internet connection.");
+      }
+      
+      // Generic error with more context
+      const errorMessage = error?.message || "Failed to provide travel assistance";
+      console.error("[GEMINI] Throwing error:", errorMessage);
+      throw new Error(`Failed to provide travel assistance: ${errorMessage}`);
     }
   }
 
