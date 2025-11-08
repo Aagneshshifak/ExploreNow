@@ -101,12 +101,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate token
       const token = generateToken(newUser);
       
-      // Set cookie
+      // Set cookie with proper configuration
+      // Note: sameSite: "none" requires secure: true
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: isProduction, // Must be true when sameSite is "none"
+        sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: "/" // Explicitly set path
       });
       
       // Return user without password
@@ -136,17 +139,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate request body
       if (!req.body || typeof req.body !== 'object') {
-        console.error("[LOGIN] ❌ Invalid request body");
+        console.error("[LOGIN] ❌ Invalid request body - body is missing or not an object");
         return res.status(400).json(
-          createResponse(false, null, "Invalid request body")
+          createResponse(false, null, "Invalid request. Please provide email and password.")
         );
       }
       
       const validation = loginSchema.safeParse(req.body);
       if (!validation.success) {
+        const errorMessages = validation.error.errors.map(e => {
+          const field = e.path.join('.');
+          if (field === 'email') {
+            return 'Please enter a valid email address.';
+          } else if (field === 'password') {
+            return 'Password must be at least 6 characters long.';
+          }
+          return `${field}: ${e.message}`;
+        });
         console.error("[LOGIN] ❌ Validation errors:", validation.error.errors);
         return res.status(400).json(
-          createResponse(false, null, `Invalid email or password format: ${validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`)
+          createResponse(false, null, errorMessages.join(' '))
         );
       }
       
@@ -159,6 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.getUserByEmail(email);
         if (!user) {
           console.log(`[LOGIN] ❌ User not found for email: ${email}`);
+          // Use generic message for security (don't reveal if email exists)
           return res.status(401).json(
             createResponse(false, null, "Invalid email or password")
           );
@@ -166,17 +179,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[LOGIN] ✅ User found: ${user.email} (ID: ${user.id}, type: ${typeof user.id}, role: ${user.role})`);
       } catch (dbError: any) {
         console.error("[LOGIN] ❌ Database error while fetching user:", dbError.message);
+        console.error("[LOGIN] Database error stack:", dbError.stack);
         return res.status(500).json(
-          createResponse(false, null, "Database error during login")
+          createResponse(false, null, "Unable to process login request. Please try again later.")
         );
       }
       
       // Verify password
       let isValidPassword = false;
       try {
+        if (!user.password) {
+          console.error(`[LOGIN] ❌ User has no password hash: ${email}`);
+          return res.status(500).json(
+            createResponse(false, null, "Account configuration error. Please contact support.")
+          );
+        }
+        
         isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
           console.log(`[LOGIN] ❌ Invalid password for user: ${email}`);
+          // Use generic message for security
           return res.status(401).json(
             createResponse(false, null, "Invalid email or password")
           );
@@ -184,8 +206,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[LOGIN] ✅ Password verified for user: ${email}`);
       } catch (bcryptError: any) {
         console.error("[LOGIN] ❌ Password comparison error:", bcryptError.message);
+        console.error("[LOGIN] Bcrypt error stack:", bcryptError.stack);
         return res.status(500).json(
-          createResponse(false, null, "Error verifying password")
+          createResponse(false, null, "Unable to verify credentials. Please try again.")
         );
       }
       
@@ -202,15 +225,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       }
       
-      // Set cookie
+      // Set cookie with proper configuration
+      // Note: sameSite: "none" requires secure: true
       try {
-        res.cookie("token", token, {
+        const isProduction = process.env.NODE_ENV === "production";
+        const cookieOptions = {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-          maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          secure: isProduction, // Must be true when sameSite is "none"
+          sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+          path: "/" // Explicitly set path
+        };
+        
+        res.cookie("token", token, cookieOptions);
+        console.log(`[LOGIN] ✅ Cookie set successfully`, {
+          httpOnly: cookieOptions.httpOnly,
+          secure: cookieOptions.secure,
+          sameSite: cookieOptions.sameSite,
+          path: cookieOptions.path
         });
-        console.log(`[LOGIN] ✅ Cookie set successfully`);
       } catch (cookieError: any) {
         console.error("[LOGIN] ⚠️  Cookie setting error (continuing anyway):", cookieError.message);
         // Continue even if cookie setting fails - token is still in response body
@@ -219,15 +252,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return user without password
       const { password: _, ...userWithoutPassword } = user;
       
+      // Prepare response data matching frontend expectations
+      // Frontend expects: data.data.user and data.data.token
+      const responseData = {
+        user: userWithoutPassword,
+        token: token
+      };
+      
       console.log(`[LOGIN] ✅ Login successful for user: ${email}`);
-      res.json(
-        createResponse(true, { user: userWithoutPassword, token }, "Login successful")
-      );
+      console.log(`[LOGIN] Response structure:`, {
+        success: true,
+        hasData: !!responseData,
+        hasUser: !!responseData.user,
+        hasToken: !!responseData.token,
+        userId: responseData.user?.id,
+        userEmail: responseData.user?.email
+      });
+      
+      const response = createResponse(true, responseData, "Login successful");
+      res.json(response);
     } catch (error: any) {
       console.error("[LOGIN] ❌ Unexpected login error:", error);
-      console.error("[LOGIN] Error stack:", error.stack);
+      console.error("[LOGIN] Error name:", error?.name);
+      console.error("[LOGIN] Error message:", error?.message);
+      console.error("[LOGIN] Error stack:", error?.stack);
+      
+      // Provide user-friendly error message
+      let errorMessage = "Login failed. Please try again.";
+      if (error?.message?.includes("ECONNREFUSED") || error?.message?.includes("database")) {
+        errorMessage = "Database connection error. Please try again later.";
+      } else if (error?.message) {
+        // Log detailed error but send generic message to client
+        errorMessage = "An unexpected error occurred. Please try again.";
+      }
+      
       res.status(500).json(
-        createResponse(false, null, `Login failed: ${error.message || 'Unknown error'}`)
+        createResponse(false, null, errorMessage)
       );
     }
   });

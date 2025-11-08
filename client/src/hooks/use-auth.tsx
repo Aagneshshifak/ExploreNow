@@ -69,27 +69,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: userData, isLoading, refetch: refetchUser } = useQuery({
     queryKey: ['/api/auth/me'],
     queryFn: async () => {
-      console.log('Fetching user from /api/auth/me...');
+      console.log('[AUTH] Fetching user from /api/auth/me...');
       
+      try {
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
         });
         
-      if (!response.ok) {
-        // Clear memory store on auth failure
+        console.log('[AUTH] /api/auth/me response:', {
+          status: response.status,
+          ok: response.ok,
+          headers: {
+            'content-type': response.headers.get('content-type')
+          }
+        });
+        
+        if (!response.ok) {
+          console.error('[AUTH] /api/auth/me failed with status:', response.status);
+          // Clear memory store on auth failure
+          userMemoryStore.clear();
+          throw new Error('Authentication failed');
+        }
+        
+        const data = await response.json();
+        console.log('[AUTH] /api/auth/me data:', {
+          success: data.success,
+          hasData: !!data.data,
+          userId: data.data?.id,
+          userEmail: data.data?.email
+        });
+        
+        if (data.success && data.data) {
+          // Update memory store
+          userMemoryStore.setUser(data.data);
+          console.log('[AUTH] User data updated in memory store');
+          return data.data as User;
+        }
+        
+        console.warn('[AUTH] /api/auth/me returned no user data');
         userMemoryStore.clear();
-        throw new Error('Authentication failed');
+        return null;
+      } catch (error) {
+        console.error('[AUTH] Error fetching user:', error);
+        userMemoryStore.clear();
+        throw error;
       }
-      
-          const data = await response.json();
-          if (data.success && data.data) {
-        // Update memory store
-        userMemoryStore.setUser(data.data);
-        return data.data as User;
-      }
-      
-      userMemoryStore.clear();
-      return null;
     },
     retry: 1,
     staleTime: 1000 * 60 * 5, // 5 minutes - keep in cache
@@ -104,8 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
+    console.log('[AUTH] Login attempt started for:', email);
     
     try {
+      console.log('[AUTH] Sending login request to /api/auth/login');
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -115,39 +141,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('[AUTH] Login response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: {
+          'content-type': response.headers.get('content-type'),
+          'set-cookie': response.headers.get('set-cookie') ? 'present' : 'missing'
+        }
+      });
+
       // Check content-type before parsing
       const contentType = response.headers.get('content-type');
       const isJson = contentType && contentType.includes('application/json');
       
       // Get response text first (can only read body once)
       const responseText = await response.text();
+      console.log('[AUTH] Response text length:', responseText.length);
       
       // Check if response is OK before parsing
       if (!response.ok) {
+        console.error('[AUTH] Login failed with status:', response.status);
         // Try to parse error response, but handle non-JSON gracefully
         let errorMessage = `Login failed: ${response.status} ${response.statusText}`;
         if (isJson && responseText) {
           try {
             const errorData = JSON.parse(responseText);
             errorMessage = errorData.message || errorData.error || errorMessage;
+            console.error('[AUTH] Error response data:', errorData);
           } catch (parseError) {
-            console.error('Failed to parse error JSON:', parseError);
-            console.error('Response text:', responseText);
+            console.error('[AUTH] Failed to parse error JSON:', parseError);
+            console.error('[AUTH] Response text:', responseText);
           }
         } else if (responseText) {
-          console.error('Non-JSON error response:', responseText);
+          console.error('[AUTH] Non-JSON error response:', responseText);
         }
         throw new Error(errorMessage);
       }
 
       // Validate response is not empty
       if (!responseText || responseText.trim() === '') {
+        console.error('[AUTH] Empty response received');
         throw new Error('Server returned empty response');
       }
 
       // Validate content-type for successful responses
       if (!isJson) {
-        console.error('Non-JSON response received:', responseText);
+        console.error('[AUTH] Non-JSON response received:', responseText);
         throw new Error('Server returned non-JSON response');
       }
 
@@ -155,25 +195,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let data;
       try {
         data = JSON.parse(responseText);
+        console.log('[AUTH] Parsed response data:', {
+          success: data.success,
+          hasData: !!data.data,
+          hasUser: !!data.data?.user,
+          hasToken: !!data.data?.token,
+          message: data.message
+        });
       } catch (jsonError) {
-        console.error('Failed to parse JSON response:', jsonError);
-        console.error('Response text:', responseText);
+        console.error('[AUTH] Failed to parse JSON response:', jsonError);
+        console.error('[AUTH] Response text:', responseText);
         throw new Error('Invalid JSON response from server');
       }
       
       if (data.success && data.data?.user) {
         const loggedInUser = data.data.user;
+        console.log('[AUTH] Login successful, user data:', {
+          id: loggedInUser.id,
+          email: loggedInUser.email,
+          role: loggedInUser.role
+        });
+        
         // Store in memory store
         userMemoryStore.setUser(loggedInUser);
+        console.log('[AUTH] User stored in memory store');
+        
         // Update React Query cache
         queryClient.setQueryData(['/api/auth/me'], loggedInUser);
+        console.log('[AUTH] React Query cache updated');
+        
         // Refetch to ensure consistency
+        console.log('[AUTH] Refetching user data for consistency');
         await refetchUser();
+        console.log('[AUTH] User refetch completed');
       } else {
+        console.error('[AUTH] Login response missing user data:', data);
         throw new Error(data.message || 'Login failed');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      console.error('[AUTH] Login error:', errorMessage);
+      console.error('[AUTH] Error details:', error);
       setError(errorMessage);
       throw new Error(errorMessage);
     }

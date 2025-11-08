@@ -13,14 +13,29 @@ import { yogaMiddleware } from "./graphql";
 const app = express();
 
 // CORS configuration for frontend compatibility
-app.use(cors({
+// Important: credentials: true is required for cookie-based authentication
+const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://explorenow.vercel.app', 'https://*.vercel.app'] 
     : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5000'],
-  credentials: true,
+  credentials: true, // Required for cookies to be sent with requests
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'], // Expose Set-Cookie header to frontend
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+
+app.use(cors(corsOptions));
+
+// Log CORS configuration in development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[CORS] Configuration:', {
+    credentials: corsOptions.credentials,
+    methods: corsOptions.methods,
+    allowedHeaders: corsOptions.allowedHeaders,
+    origins: corsOptions.origin
+  });
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
