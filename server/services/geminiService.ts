@@ -64,7 +64,8 @@ export interface TravelAssistance {
 }
 
 export class GeminiTravelService {
-  private model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  // Try gemini-1.5-flash first (most widely available), with fallback options
+  private model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   async generateTripRecommendations(
     budget: number,
@@ -474,6 +475,9 @@ export class GeminiTravelService {
       console.error("[GEMINI] Travel assistance error occurred");
       console.error("[GEMINI] Error type:", error?.constructor?.name || typeof error);
       console.error("[GEMINI] Error message:", error?.message || "Unknown error");
+      console.error("[GEMINI] Error status:", error?.status);
+      console.error("[GEMINI] Error code:", error?.code);
+      console.error("[GEMINI] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       console.error("[GEMINI] Error stack:", error?.stack);
       
       // Check for model not found errors (404)
@@ -482,18 +486,23 @@ export class GeminiTravelService {
           error?.message?.includes("is not found for API version") ||
           error?.status === 404) {
         console.error("[GEMINI] Model not found error detected - trying alternative model");
-        // Try with alternative model name
-        try {
-          const altModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-002" });
-          const altResponse = await altModel.generateContent(prompt);
-          const altResponseText = altResponse.response?.text();
-          if (altResponseText) {
-            const parsed = processResponse(altResponseText);
-            console.log("[GEMINI] Successfully parsed response with alternative model");
-            return parsed;
+        // Try with alternative model names
+        const alternativeModels = ["gemini-1.5-flash-002", "gemini-1.5-pro", "gemini-pro"];
+        for (const modelName of alternativeModels) {
+          try {
+            console.log(`[GEMINI] Trying alternative model: ${modelName}`);
+            const altModel = genAI.getGenerativeModel({ model: modelName });
+            const altResponse = await altModel.generateContent(prompt);
+            const altResponseText = altResponse.response?.text();
+            if (altResponseText) {
+              const parsed = processResponse(altResponseText);
+              console.log(`[GEMINI] Successfully parsed response with alternative model: ${modelName}`);
+              return parsed;
+            }
+          } catch (altError: any) {
+            console.error(`[GEMINI] Alternative model ${modelName} failed:`, altError?.message);
+            continue; // Try next model
           }
-        } catch (altError) {
-          console.error("[GEMINI] Alternative model also failed:", altError);
         }
         throw new Error("Gemini model is not available. Please check your API key and model configuration.");
       }
@@ -507,11 +516,12 @@ export class GeminiTravelService {
         throw new Error("Gemini API key is not configured or invalid. Please check your environment variables.");
       }
       
-      // Check for quota/limit errors
-      if (error?.message?.includes("quota") || 
-          error?.message?.includes("limit") ||
-          error?.status === 429) {
+      // Check for quota/limit errors (be more specific to avoid false positives)
+      if (error?.status === 429 || 
+          (error?.message?.toLowerCase().includes("quota") && error?.message?.toLowerCase().includes("exceeded")) ||
+          (error?.message?.toLowerCase().includes("rate limit") && error?.message?.toLowerCase().includes("exceeded"))) {
         console.error("[GEMINI] API quota/limit issue detected");
+        console.error("[GEMINI] Quota error details:", error?.message);
         throw new Error("Gemini API quota exceeded. Please try again later.");
       }
       
