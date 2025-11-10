@@ -1,6 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Validate and initialize Gemini AI client
+function initializeGeminiAI(): GoogleGenerativeAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey || apiKey.trim() === "") {
+    console.error("[GEMINI] API key is not configured in environment variables");
+    throw new Error("GEMINI_API_KEY is not set. Please configure it in your .env file.");
+  }
+  
+  console.log("[GEMINI] Initializing with API key (length:", apiKey.length, "characters)");
+  return new GoogleGenerativeAI(apiKey);
+}
+
+const genAI = initializeGeminiAI();
 
 export interface TripRecommendation {
   id: string;
@@ -51,7 +64,7 @@ export interface TravelAssistance {
 }
 
 export class GeminiTravelService {
-  private model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  private model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   async generateTripRecommendations(
     budget: number,
@@ -378,21 +391,12 @@ export class GeminiTravelService {
       groupSize?: number;
     }
   ): Promise<TravelAssistance> {
-    // Validate API key is configured
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey.trim() === "") {
-      console.error("[GEMINI] API key is not configured");
-      throw new Error("Gemini API key is not configured. Please set GEMINI_API_KEY in environment variables.");
-    }
-    
-    console.log("[GEMINI] API key is configured (length:", apiKey.length, "characters)");
-    
-    try {
-      const context = userContext ? 
-        `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
-        : "";
+    // Build prompt outside try block so it's accessible in catch block
+    const context = userContext ? 
+      `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
+      : "";
 
-      const prompt = `As an expert travel assistant, help with this travel query: "${query}"
+    const prompt = `As an expert travel assistant, help with this travel query: "${query}"
 
       ${context}
 
@@ -419,6 +423,22 @@ export class GeminiTravelService {
         "relatedSuggestions": ["Related question 1", "Related question 2", "Related question 3"]
       }`;
 
+    // Helper function to process response
+    const processResponse = (responseText: string): TravelAssistance => {
+      let cleanText = responseText.trim().replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        let jsonString = jsonMatch[0];
+        jsonString = jsonString
+          .replace(/,(\s*[}\]])/g, '$1')
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
+          .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2');
+        return JSON.parse(jsonString) as TravelAssistance;
+      }
+      throw new Error("No JSON object found in response");
+    };
+
+    try {
       console.log("[GEMINI] Generating travel assistance for query:", query.substring(0, 50) + "...");
       const response = await this.model.generateContent(prompt);
       const responseText = response.response?.text();
@@ -431,30 +451,9 @@ export class GeminiTravelService {
       console.log("[GEMINI] Raw response received, length:", responseText.length);
       
       try {
-        // Clean the response text first (remove markdown code blocks)
-        let cleanText = responseText.trim();
-        
-        // Remove any markdown code blocks
-        cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        
-        // Extract JSON object from the response
-        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          let jsonString = jsonMatch[0];
-          
-          // Try to fix common JSON issues
-          jsonString = jsonString
-            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-            .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
-            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
-          
-          const parsed = JSON.parse(jsonString) as TravelAssistance;
-          console.log("[GEMINI] Successfully parsed response, category:", parsed.category);
-          return parsed;
-        } else {
-          console.warn("[GEMINI] No JSON object found in response, using fallback");
-          throw new Error("No JSON object found in response");
-        }
+        const parsed = processResponse(responseText);
+        console.log("[GEMINI] Successfully parsed response, category:", parsed.category);
+        return parsed;
       } catch (parseError: any) {
         console.error("[GEMINI] Failed to parse Gemini response:", parseError.message);
         console.error("[GEMINI] Raw response text:", responseText.substring(0, 500));
@@ -477,18 +476,50 @@ export class GeminiTravelService {
       console.error("[GEMINI] Error message:", error?.message || "Unknown error");
       console.error("[GEMINI] Error stack:", error?.stack);
       
-      // Check for specific error types
-      if (error?.message?.includes("API key") || error?.message?.includes("GEMINI_API_KEY")) {
-        console.error("[GEMINI] API key configuration issue detected");
-        throw new Error("Gemini API key is not configured. Please check your environment variables.");
+      // Check for model not found errors (404)
+      if (error?.message?.includes("404") || 
+          error?.message?.includes("not found") || 
+          error?.message?.includes("is not found for API version") ||
+          error?.status === 404) {
+        console.error("[GEMINI] Model not found error detected - trying alternative model");
+        // Try with alternative model name
+        try {
+          const altModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-002" });
+          const altResponse = await altModel.generateContent(prompt);
+          const altResponseText = altResponse.response?.text();
+          if (altResponseText) {
+            const parsed = processResponse(altResponseText);
+            console.log("[GEMINI] Successfully parsed response with alternative model");
+            return parsed;
+          }
+        } catch (altError) {
+          console.error("[GEMINI] Alternative model also failed:", altError);
+        }
+        throw new Error("Gemini model is not available. Please check your API key and model configuration.");
       }
       
-      if (error?.message?.includes("quota") || error?.message?.includes("limit")) {
+      // Check for API key errors
+      if (error?.message?.includes("API key") || 
+          error?.message?.includes("GEMINI_API_KEY") ||
+          error?.message?.includes("API_KEY_NOT_FOUND") ||
+          error?.status === 401) {
+        console.error("[GEMINI] API key configuration issue detected");
+        throw new Error("Gemini API key is not configured or invalid. Please check your environment variables.");
+      }
+      
+      // Check for quota/limit errors
+      if (error?.message?.includes("quota") || 
+          error?.message?.includes("limit") ||
+          error?.status === 429) {
         console.error("[GEMINI] API quota/limit issue detected");
         throw new Error("Gemini API quota exceeded. Please try again later.");
       }
       
-      if (error?.message?.includes("network") || error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+      // Check for network errors
+      if (error?.message?.includes("network") || 
+          error?.code === "ECONNREFUSED" || 
+          error?.code === "ETIMEDOUT" ||
+          error?.message?.includes("fetch")) {
         console.error("[GEMINI] Network error detected");
         throw new Error("Network error connecting to Gemini API. Please check your internet connection.");
       }
