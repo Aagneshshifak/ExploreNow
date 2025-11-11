@@ -1,19 +1,72 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 
-// Validate and initialize Gemini AI client
-function initializeGeminiAI(): GoogleGenerativeAI {
-  const apiKey = process.env.GEMINI_API_KEY;
+// Lazy initialization of Gemini AI client
+let genAI: GoogleGenerativeAI | null = null;
+let currentModel: GenerativeModel | null = null;
+
+function getGeminiModel(): GenerativeModel {
+  // Check if model is already initialized
+  if (currentModel) {
+    return currentModel;
+  }
+
+  // Initialize if not already done
+  let apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey || apiKey.trim() === "") {
     console.error("[GEMINI] API key is not configured in environment variables");
     throw new Error("GEMINI_API_KEY is not set. Please configure it in your .env file.");
   }
   
+  // Remove quotes if present (common in .env files)
+  apiKey = apiKey.trim().replace(/^["']|["']$/g, '');
+  
+  if (!apiKey || apiKey.length === 0) {
+    console.error("[GEMINI] API key is empty after trimming");
+    throw new Error("GEMINI_API_KEY is not set. Please configure it in your .env file.");
+  }
+  
   console.log("[GEMINI] Initializing with API key (length:", apiKey.length, "characters)");
-  return new GoogleGenerativeAI(apiKey);
+  console.log("[GEMINI] API key starts with:", apiKey.substring(0, 10) + "...");
+  
+  try {
+    genAI = new GoogleGenerativeAI(apiKey);
+    currentModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    console.log("[GEMINI] Model initialized successfully");
+    return currentModel;
+  } catch (initError: any) {
+    console.error("[GEMINI] Failed to initialize Gemini AI:", initError?.message);
+    throw new Error(`Failed to initialize Gemini AI: ${initError?.message || "Unknown error"}`);
+  }
 }
 
-const genAI = initializeGeminiAI();
+function getGeminiAI(): GoogleGenerativeAI {
+  if (!genAI) {
+    let apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey || apiKey.trim() === "") {
+      console.error("[GEMINI] API key is not configured in environment variables");
+      throw new Error("GEMINI_API_KEY is not set. Please configure it in your .env file.");
+    }
+    
+    // Remove quotes if present (common in .env files)
+    apiKey = apiKey.trim().replace(/^["']|["']$/g, '');
+    
+    if (!apiKey || apiKey.length === 0) {
+      console.error("[GEMINI] API key is empty after trimming");
+      throw new Error("GEMINI_API_KEY is not set. Please configure it in your .env file.");
+    }
+    
+    console.log("[GEMINI] Initializing Gemini AI client");
+    try {
+      genAI = new GoogleGenerativeAI(apiKey);
+    } catch (initError: any) {
+      console.error("[GEMINI] Failed to initialize Gemini AI client:", initError?.message);
+      throw new Error(`Failed to initialize Gemini AI: ${initError?.message || "Unknown error"}`);
+    }
+  }
+  return genAI;
+}
 
 export interface TripRecommendation {
   id: string;
@@ -64,8 +117,10 @@ export interface TravelAssistance {
 }
 
 export class GeminiTravelService {
-  // Try gemini-1.5-flash first (most widely available), with fallback options
-  private model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  // Lazy initialization - model is created when first used
+  private getModel(): GenerativeModel {
+    return getGeminiModel();
+  }
 
   async generateTripRecommendations(
     budget: number,
@@ -111,7 +166,7 @@ export class GeminiTravelService {
         "culturalHighlights": ["Local markets", "Museums"]
       }]`;
 
-      const result = await this.model.generateContent(prompt);
+      const result = await this.getModel().generateContent(prompt);
       const response = await result.response;
       const text = response.text();
       
@@ -229,7 +284,7 @@ export class GeminiTravelService {
         "culturalHighlights": ["Free attractions", "Local markets"]
       }]`;
 
-      const result = await this.model.generateContent(prompt);
+      const result = await this.getModel().generateContent(prompt);
       const response = await result.response;
       const text = response.text();
       
@@ -338,7 +393,7 @@ export class GeminiTravelService {
         }
       }`;
 
-      const response = await this.model.generateContent(prompt);
+      const response = await this.getModel().generateContent(prompt);
       const responseText = response.response?.text();
       
       if (!responseText) {
@@ -441,7 +496,7 @@ export class GeminiTravelService {
 
     try {
       console.log("[GEMINI] Generating travel assistance for query:", query.substring(0, 50) + "...");
-      const response = await this.model.generateContent(prompt);
+      const response = await this.getModel().generateContent(prompt);
       const responseText = response.response?.text();
       
       if (!responseText) {
@@ -491,7 +546,7 @@ export class GeminiTravelService {
         for (const modelName of alternativeModels) {
           try {
             console.log(`[GEMINI] Trying alternative model: ${modelName}`);
-            const altModel = genAI.getGenerativeModel({ model: modelName });
+            const altModel = getGeminiAI().getGenerativeModel({ model: modelName });
             const altResponse = await altModel.generateContent(prompt);
             const altResponseText = altResponse.response?.text();
             if (altResponseText) {
@@ -580,7 +635,7 @@ export class GeminiTravelService {
         "tips": ["Tip 1", "Tip 2", ...]
       }`;
 
-      const response = await this.model.generateContent(prompt);
+      const response = await this.getModel().generateContent(prompt);
       const responseText = response.response?.text();
       
       if (!responseText) {
