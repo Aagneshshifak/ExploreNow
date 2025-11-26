@@ -287,7 +287,7 @@ Thank you for choosing ExploreNow!
                   Download Receipt
                 </Button>
                 <Button 
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/dashboard?refresh=true')}
                   className="flex-1"
                 >
                   View in Dashboard

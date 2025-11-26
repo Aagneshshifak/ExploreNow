@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Calendar, 
   MapPin, 
@@ -214,6 +214,16 @@ const useDashboardData = () => {
     fetchData();
   }, [errorSimulation]);
 
+  // Refetch data when component mounts or when returning from booking confirmation
+  useEffect(() => {
+    // Refetch when window gains focus (user returns from booking page)
+    const handleFocus = () => {
+      fetchData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
   return {
     data,
     isLoading,
@@ -255,51 +265,42 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
     hotelId: booking.hotelId,
   });
 
-  // Get booking details - prioritize hotel name if type is hotel, otherwise trip name
-  // For bookings with both trip and hotel, show hotel if it's a hotel booking type
+  // Check if booking has both trip and hotel
+  const hasTrip = booking.tripId && (booking.tripTitle || booking.tripLocation);
+  const hasHotel = booking.hotelId && (booking.hotelName || booking.hotelLocation);
+  const hasBoth = hasTrip && hasHotel;
+
+  // Get title - show trip title as primary, or hotel if no trip
   let title: string;
-  if (booking.type === 'hotel' && booking.hotelName) {
-    title = booking.hotelName;
-  } else if (booking.hotelName && !booking.tripTitle) {
-    // If only hotel name exists, use it
+  if (booking.tripTitle) {
+    title = booking.tripTitle;
+  } else if (booking.hotelName) {
     title = booking.hotelName;
   } else {
-    // Otherwise use trip title or fallback
-    title = booking.tripTitle || booking.hotelName || (booking.id ? `Booking ${booking.id.slice(-8)}` : 'Booking');
+    title = booking.id ? `Booking ${booking.id.slice(-8)}` : 'Booking';
   }
   
-  // Get location - prioritize based on booking type
-  let location: string;
-  if (booking.type === 'hotel' && booking.hotelLocation) {
-    location = booking.hotelLocation;
-  } else if (booking.hotelLocation && !booking.tripLocation) {
-    location = booking.hotelLocation;
-  } else {
-    location = booking.tripLocation || booking.hotelLocation;
-  }
-  
-  if (!location) {
-    // If we have a trip or hotel ID but no location, indicate it's being loaded
-    if (booking.tripId || booking.hotelId) {
-      location = 'Location not available';
-    } else {
-      location = 'Location not specified';
-    }
-  }
-  
-  // Get image - prioritize based on booking type
+  // Get image - prioritize trip image, fallback to hotel image
   let imageUrl: string;
-  if (booking.type === 'hotel' && booking.hotelImageUrl) {
-    imageUrl = booking.hotelImageUrl;
-  } else if (booking.hotelImageUrl && !booking.tripImageUrl) {
+  if (booking.tripImageUrl) {
+    imageUrl = booking.tripImageUrl;
+  } else if (booking.hotelImageUrl) {
     imageUrl = booking.hotelImageUrl;
   } else {
-    imageUrl = booking.tripImageUrl || booking.hotelImageUrl || 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop';
+    imageUrl = 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=400&h=300&fit=crop';
   }
   
-  // Determine type - if it's a hotel booking or has hotelId, show as Hotel
-  const type = booking.type === 'hotel' || (booking.hotelId && !booking.tripId) ? 'Hotel' : 
-               booking.type === 'trip' ? 'Trip' : 'Booking';
+  // Determine type badge - show "Trip + Hotel" if both exist
+  let type: string;
+  if (hasBoth) {
+    type = 'Trip + Hotel';
+  } else if (booking.type === 'hotel' || (booking.hotelId && !booking.tripId)) {
+    type = 'Hotel';
+  } else if (booking.type === 'trip' || (booking.tripId && !booking.hotelId)) {
+    type = 'Trip';
+  } else {
+    type = 'Booking';
+  }
 
   return (
     <Card className="bg-card border-border hover:bg-accent transition-all duration-200 hover:shadow-lg">
@@ -320,10 +321,47 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
         </div>
         <div className="p-4">
           <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-          <div className="flex items-center text-muted-foreground mb-2">
-            <MapPin className="w-4 h-4 mr-1" />
-            {location}
-          </div>
+          
+          {/* Trip Information */}
+          {hasTrip && (
+            <div className="mb-2">
+              <div className="flex items-center text-foreground text-sm font-medium mb-1">
+                <Plane className="w-3 h-3 mr-1" />
+                Trip
+              </div>
+              {booking.tripLocation && (
+                <div className="flex items-center text-muted-foreground text-sm ml-4 mb-1">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {booking.tripLocation}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Hotel Information */}
+          {hasHotel && (
+            <div className="mb-2">
+              <div className="flex items-center text-foreground text-sm font-medium mb-1">
+                <Hotel className="w-3 h-3 mr-1" />
+                {booking.hotelName || 'Hotel'}
+              </div>
+              {booking.hotelLocation && (
+                <div className="flex items-center text-muted-foreground text-sm ml-4 mb-1">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {booking.hotelLocation}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Fallback location if neither trip nor hotel location is available */}
+          {!hasTrip && !hasHotel && (
+            <div className="flex items-center text-muted-foreground mb-2">
+              <MapPin className="w-4 h-4 mr-1" />
+              {booking.tripLocation || booking.hotelLocation || 'Location not specified'}
+            </div>
+          )}
+          
           <div className="flex items-center text-muted-foreground mb-2">
             <Calendar className="w-4 h-4 mr-1" />
             {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
@@ -441,9 +479,20 @@ const StartPlanningSection = () => (
 export default function DashboardPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('upcoming');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   const { user } = useAuth();
   const { data, isLoading, isError, refetch, errorSimulation, setErrorSimulation } = useDashboardData();
+
+  // Refetch data when refresh parameter is present (e.g., from booking confirmation)
+  useEffect(() => {
+    if (searchParams.get('refresh') === 'true') {
+      refetch();
+      // Remove the refresh parameter from URL
+      navigate('/dashboard', { replace: true });
+    }
+  }, [searchParams, refetch, navigate]);
 
   // Debug logging
   console.log('DashboardPage - User:', user);
@@ -462,7 +511,18 @@ export default function DashboardPage() {
           </div>
 
           {/* Debug and Test Controls */}
-          <div className="mb-6 flex space-x-4">
+          <div className="mb-6 flex flex-wrap gap-4 items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              disabled={isLoading}
+              className="border-border text-foreground hover:bg-accent"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh Bookings
+            </Button>
+            
             <Button
               variant="outline"
               size="sm"
@@ -587,7 +647,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You don't have any upcoming bookings yet.
                     </p>
-                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                    <Button onClick={() => navigate('/trips')} className="bg-primary hover:bg-primary/90">
                       Explore Bookings
                     </Button>
                   </div>
@@ -610,7 +670,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You haven't completed any trips yet.
                     </p>
-                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                    <Button onClick={() => navigate('/trips')} className="bg-primary hover:bg-primary/90">
                       Explore Bookings
                     </Button>
                   </div>
@@ -633,7 +693,7 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                       You don't have any cancelled bookings.
                     </p>
-                    <Button onClick={() => console.log('Explore bookings clicked')} className="bg-primary hover:bg-primary/90">
+                    <Button onClick={() => navigate('/trips')} className="bg-primary hover:bg-primary/90">
                       Explore Bookings
                     </Button>
                   </div>

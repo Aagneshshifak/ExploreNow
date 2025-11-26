@@ -287,8 +287,26 @@ export const resolvers = {
             message: 'Authentication required. Please log in to create a booking.'
           };
         }
-        const userId = user.userId;
-        console.log('GraphQL createBooking - Authenticated userId:', userId);
+        // Ensure userId is an integer (handle type mismatches)
+        const rawUserId = user.userId;
+        const userId = typeof rawUserId === 'string' ? parseInt(rawUserId, 10) : Number(rawUserId);
+        
+        console.log('GraphQL createBooking - User info:', {
+          rawUserId,
+          rawUserIdType: typeof rawUserId,
+          userId,
+          userIdType: typeof userId,
+          userEmail: user.email
+        });
+        
+        if (isNaN(userId) || userId <= 0) {
+          console.error(`GraphQL createBooking - ❌ Invalid userId: ${rawUserId} (parsed as ${userId})`);
+          return {
+            success: false,
+            booking: null,
+            message: 'Invalid user ID'
+          };
+        }
         
         const {
           tripId,
@@ -311,8 +329,17 @@ export const resolvers = {
         // Generate unique booking ID
         const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Determine booking type
+        // Determine booking type - if both tripId and hotelId exist, use 'trip' as default
         const type = tripId ? 'trip' : 'hotel';
+        
+        console.log('GraphQL createBooking - Creating booking:', {
+          bookingId,
+          userId,
+          tripId: tripId || null,
+          hotelId: hotelId || null,
+          type,
+          status: 'confirmed'
+        });
         
         const result = await sql`
           INSERT INTO bookings (
@@ -344,6 +371,16 @@ export const resolvers = {
         `;
         
         const booking = result[0];
+        
+        console.log('GraphQL createBooking - ✅ Booking created successfully:', {
+          bookingId: booking.id,
+          userId: booking.userId,
+          userIdType: typeof booking.userId,
+          tripId: booking.tripId,
+          hotelId: booking.hotelId,
+          type: booking.type,
+          status: booking.status
+        });
         
         return {
           success: true,

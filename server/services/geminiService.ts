@@ -129,8 +129,7 @@ export class GeminiTravelService {
     destination?: string,
     travelStyle?: string
   ): Promise<TripRecommendation[]> {
-    try {
-      const prompt = `As an expert travel advisor, generate 6 personalized trip recommendations based on:
+    const prompt = `As an expert travel advisor, generate 6 personalized trip recommendations based on:
       - Budget: $${budget} USD
       - Interests: ${interests.join(", ")}
       - Duration: ${duration} days
@@ -166,47 +165,123 @@ export class GeminiTravelService {
         "culturalHighlights": ["Local markets", "Museums"]
       }]`;
 
+    // Helper function to process response
+    const processResponse = (responseText: string): TripRecommendation[] => {
+      let cleanText = responseText.trim();
+      
+      // Remove any markdown code blocks
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Extract JSON array from the response
+      const jsonMatch = cleanText.match(/\[[\s\S]*?\]/);
+      if (jsonMatch) {
+        let jsonString = jsonMatch[0];
+        
+        // Try to fix common JSON issues
+        jsonString = jsonString
+          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
+          .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
+        
+        return JSON.parse(jsonString) as TripRecommendation[];
+      }
+      throw new Error("No JSON array found in response");
+    };
+
+    try {
+      console.log("[GEMINI] Generating trip recommendations for budget:", budget, "interests:", interests);
       const result = await this.getModel().generateContent(prompt);
       const response = await result.response;
       const text = response.text();
       
+      if (!text) {
+        console.error("[GEMINI] No response text received from API");
+        throw new Error("No response from Gemini API");
+      }
+
+      console.log("[GEMINI] Raw response received, length:", text.length);
+      
       // Try to parse JSON from the response
       let recommendations: TripRecommendation[] = [];
       try {
-        // Clean the response text first
-        let cleanText = text.trim();
-        
-        // Remove any markdown code blocks
-        cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        
-        // Extract JSON array from the response
-        const jsonMatch = cleanText.match(/\[[\s\S]*?\]/);
-        if (jsonMatch) {
-          let jsonString = jsonMatch[0];
-          
-          // Try to fix common JSON issues
-          jsonString = jsonString
-            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-            .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
-            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
-          
-          recommendations = JSON.parse(jsonString) as TripRecommendation[];
-        } else {
-          // Fallback: create mock recommendations
-          recommendations = this.createMockRecommendations(budget, interests, duration, destination, travelStyle);
-        }
-      } catch (parseError) {
-        console.error("JSON parsing error:", parseError);
-        console.error("Raw response text:", text);
-        // Fallback: create mock recommendations
+        recommendations = processResponse(text);
+        console.log("[GEMINI] Successfully parsed", recommendations.length, "recommendations");
+      } catch (parseError: any) {
+        console.error("[GEMINI] JSON parsing error:", parseError.message);
+        console.error("[GEMINI] Raw response text:", text.substring(0, 500));
+        // Only use mock recommendations for parsing errors, not API errors
+        console.warn("[GEMINI] Falling back to mock recommendations due to parsing error");
         recommendations = this.createMockRecommendations(budget, interests, duration, destination, travelStyle);
       }
 
       return recommendations.slice(0, 6);
-    } catch (error) {
-      console.error("Gemini trip recommendations error:", error);
-      // Fallback: create mock recommendations
-      return this.createMockRecommendations(budget, interests, duration, destination, travelStyle);
+    } catch (error: any) {
+      console.error("[GEMINI] Trip recommendations error occurred");
+      console.error("[GEMINI] Error type:", error?.constructor?.name || typeof error);
+      console.error("[GEMINI] Error message:", error?.message || "Unknown error");
+      console.error("[GEMINI] Error status:", error?.status);
+      console.error("[GEMINI] Error code:", error?.code);
+      console.error("[GEMINI] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error("[GEMINI] Error stack:", error?.stack);
+      
+      // Check for model not found errors (404)
+      if (error?.message?.includes("404") || 
+          error?.message?.includes("not found") || 
+          error?.message?.includes("is not found for API version") ||
+          error?.status === 404) {
+        console.error("[GEMINI] Model not found error detected - trying alternative model");
+        // Try with alternative model names
+        const alternativeModels = ["gemini-1.5-flash-002", "gemini-1.5-pro", "gemini-pro"];
+        for (const modelName of alternativeModels) {
+          try {
+            console.log(`[GEMINI] Trying alternative model: ${modelName}`);
+            const altModel = getGeminiAI().getGenerativeModel({ model: modelName });
+            const altResponse = await altModel.generateContent(prompt);
+            const altResponseText = altResponse.response?.text();
+            if (altResponseText) {
+              const parsed = processResponse(altResponseText);
+              console.log(`[GEMINI] Successfully parsed response with alternative model: ${modelName}`);
+              return parsed.slice(0, 6);
+            }
+          } catch (altError: any) {
+            console.error(`[GEMINI] Alternative model ${modelName} failed:`, altError?.message);
+            continue; // Try next model
+          }
+        }
+        throw new Error("Gemini model is not available. Please check your API key and model configuration.");
+      }
+      
+      // Check for API key errors
+      if (error?.message?.includes("API key") || 
+          error?.message?.includes("GEMINI_API_KEY") ||
+          error?.message?.includes("API_KEY_NOT_FOUND") ||
+          error?.status === 401) {
+        console.error("[GEMINI] API key configuration issue detected");
+        throw new Error("Gemini API key is not configured or invalid. Please check your environment variables.");
+      }
+      
+      // Check for quota/limit errors
+      if (error?.status === 429 || 
+          (error?.message?.toLowerCase().includes("quota") && error?.message?.toLowerCase().includes("exceeded")) ||
+          (error?.message?.toLowerCase().includes("rate limit") && error?.message?.toLowerCase().includes("exceeded"))) {
+        console.error("[GEMINI] API quota/limit issue detected");
+        console.error("[GEMINI] Quota error details:", error?.message);
+        throw new Error("Gemini API quota exceeded. Please try again later.");
+      }
+      
+      // Check for network errors
+      if (error?.message?.includes("network") || 
+          error?.code === "ECONNREFUSED" || 
+          error?.code === "ETIMEDOUT" ||
+          error?.message?.includes("fetch")) {
+        console.error("[GEMINI] Network error detected");
+        throw new Error("Network error connecting to Gemini API. Please check your internet connection.");
+      }
+      
+      // Generic error - propagate it instead of falling back to mocks
+      const errorMessage = error?.message || "Failed to generate trip recommendations";
+      console.error("[GEMINI] Throwing error:", errorMessage);
+      throw new Error(`Failed to generate trip recommendations: ${errorMessage}`);
     }
   }
 
