@@ -474,50 +474,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(createResponse(false, null, "Invalid user ID"));
       }
       
-      // First, fetch all bookings for the user to see what we have
-      // Try both integer and string formats to handle type mismatches
+      // Simplify: Use the same simple query pattern as transports endpoint (which works!)
+      // Fetch all bookings for the user first, then manually enrich with trip/hotel data
       let allUserBookings = [];
       try {
-        // Try with integer userId first
         allUserBookings = await db
           .select()
           .from(bookings)
           .where(eq(bookings.userId, userId))
           .orderBy(desc(bookings.createdAt));
         
-        console.log(`[GET /api/bookings/dashboard] Found ${allUserBookings.length} bookings for user ${userId} (integer query)`);
+        console.log(`[GET /api/bookings/dashboard] Found ${allUserBookings.length} bookings for user ${userId}`);
         
-        // If no bookings found, try with string userId as fallback
-        if (allUserBookings.length === 0) {
-          console.log(`[GET /api/bookings/dashboard] No bookings with integer userId, trying string format...`);
-          const stringUserId = String(userId);
-          const fallbackBookings = await db
-            .select()
-            .from(bookings)
-            .where(eq(bookings.userId, stringUserId as any))
-            .orderBy(desc(bookings.createdAt));
-          
-          if (fallbackBookings.length > 0) {
-            console.log(`[GET /api/bookings/dashboard] Found ${fallbackBookings.length} bookings with string userId format`);
-            allUserBookings = fallbackBookings;
-          }
-        }
-        
-        // Log sample booking userIds to debug type mismatches
+        // Log sample booking data
         if (allUserBookings.length > 0) {
-          console.log(`[GET /api/bookings/dashboard] Sample booking userIds from database:`, 
+          console.log(`[GET /api/bookings/dashboard] Sample bookings:`, 
             allUserBookings.slice(0, 3).map(b => ({
               bookingId: b.id,
               userId: b.userId,
-              userIdType: typeof b.userId,
               type: b.type,
-              status: b.status
+              status: b.status,
+              tripId: b.tripId,
+              hotelId: b.hotelId,
+              checkIn: b.checkIn,
+              checkOut: b.checkOut
             }))
           );
         } else {
-          // Check if there are ANY bookings in the database
+          // Check if there are ANY bookings in the database for debugging
           const allBookings = await db.select().from(bookings).limit(5);
-          console.log(`[GET /api/bookings/dashboard] No bookings found. Sample bookings in DB:`, 
+          console.log(`[GET /api/bookings/dashboard] No bookings found for user ${userId}. Sample bookings in DB:`, 
             allBookings.map(b => ({
               bookingId: b.id,
               userId: b.userId,
@@ -531,154 +517,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(`Failed to fetch bookings: ${fetchError.message}`);
       }
       
-      // Fetch bookings with trip and hotel details using Drizzle
-      // Note: bookings.tripId and bookings.hotelId are varchar, trips.id and hotels.id are serial (integer)
-      // Use NULLIF to handle empty strings, then CAST to integer
-      // Only join when tripId/hotelId is not null and not empty
-      let userBookings = [];
-      try {
-        userBookings = await db
-          .select({
-            id: bookings.id,
-            type: bookings.type,
-            status: bookings.status,
-            amount: bookings.amount,
-            checkIn: bookings.checkIn,
-            checkOut: bookings.checkOut,
-            createdAt: bookings.createdAt,
-            transportMode: bookings.transportMode,
-            transportDetails: bookings.transportDetails,
-            tripId: trips.id,
-            tripTitle: trips.title,
-            tripLocation: trips.location,
-            tripImageUrl: trips.imageUrl,
-            hotelId: hotels.id,
-            hotelName: hotels.name,
-            hotelLocation: hotels.location,
-            hotelImageUrl: hotels.imageUrl,
-          })
-          .from(bookings)
-          .leftJoin(
-            trips, 
-            drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.tripId}), ''), NULL) AS INTEGER) = ${trips.id}`
-          )
-          .leftJoin(
-            hotels, 
-            drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.hotelId}), ''), NULL) AS INTEGER) = ${hotels.id}`
-          )
-          .where(eq(bookings.userId, userId))
-          .orderBy(desc(bookings.createdAt));
-        
-        console.log(`[GET /api/bookings/dashboard] After JOINs, found ${userBookings.length} bookings with trip/hotel data`);
-        
-        // If JOIN query returns no results but we have bookings, try with string userId as fallback
-        if (userBookings.length === 0 && allUserBookings.length > 0) {
-          console.log(`[GET /api/bookings/dashboard] JOIN query returned no results, trying with string userId format...`);
-          const stringUserId = String(userId);
-          try {
-            const fallbackUserBookings = await db
-              .select({
-                id: bookings.id,
-                type: bookings.type,
-                status: bookings.status,
-                amount: bookings.amount,
-                checkIn: bookings.checkIn,
-                checkOut: bookings.checkOut,
-                createdAt: bookings.createdAt,
-                transportMode: bookings.transportMode,
-                transportDetails: bookings.transportDetails,
-                tripId: trips.id,
-                tripTitle: trips.title,
-                tripLocation: trips.location,
-                tripImageUrl: trips.imageUrl,
-                hotelId: hotels.id,
-                hotelName: hotels.name,
-                hotelLocation: hotels.location,
-                hotelImageUrl: hotels.imageUrl,
-              })
-              .from(bookings)
-              .leftJoin(
-                trips, 
-                drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.tripId}), ''), NULL) AS INTEGER) = ${trips.id}`
-              )
-              .leftJoin(
-                hotels, 
-                drizzleSql`CAST(COALESCE(NULLIF(TRIM(${bookings.hotelId}), ''), NULL) AS INTEGER) = ${hotels.id}`
-              )
-              .where(eq(bookings.userId, stringUserId as any))
-              .orderBy(desc(bookings.createdAt));
-            
-            if (fallbackUserBookings.length > 0) {
-              console.log(`[GET /api/bookings/dashboard] ✅ Found ${fallbackUserBookings.length} bookings with string userId in JOIN query`);
-              userBookings = fallbackUserBookings;
-            }
-          } catch (fallbackError: any) {
-            console.error('[GET /api/bookings/dashboard] Fallback JOIN query error:', fallbackError);
-          }
-        }
-        
-        // Log sample booking to verify data is populated
-        if (userBookings.length > 0) {
-          console.log('[GET /api/bookings/dashboard] Sample booking from JOIN:', {
-            id: userBookings[0].id,
-            type: userBookings[0].type,
-            tripId: userBookings[0].tripId,
-            tripTitle: userBookings[0].tripTitle,
-            tripLocation: userBookings[0].tripLocation,
-            hotelId: userBookings[0].hotelId,
-            hotelName: userBookings[0].hotelName,
-            hotelLocation: userBookings[0].hotelLocation,
-          });
-        }
-      } catch (joinError: any) {
-        console.error('[GET /api/bookings/dashboard] Error in JOIN query:', joinError);
-        console.error('[GET /api/bookings/dashboard] Error details:', {
-          message: joinError.message,
-          stack: joinError.stack
-        });
-        // Fall through to manual join fallback
-        userBookings = [];
-      }
+      // Always manually enrich bookings with trip and hotel data (same pattern as transports endpoint)
+      // This is more reliable than complex JOINs
+      const manualJoinedBookings = [];
       
-      // Check if JOIN results have missing data for any bookings
-      // Validate that bookings with tripId have trip data, and bookings with hotelId have hotel data
-      const hasMissingData = userBookings.length > 0 && allUserBookings.some(b => {
-        const joinedBooking = userBookings.find(jb => jb.id === b.id);
-        if (!joinedBooking) return true; // Booking not found in JOIN results
-        
-        // Check if booking with tripId is missing trip data (handle null, undefined, and empty strings)
-        const tripIdValue = b.tripId;
-        if (tripIdValue !== null && tripIdValue !== undefined && String(tripIdValue).trim() !== '') {
-          const hasTripData = joinedBooking.tripTitle || joinedBooking.tripLocation || joinedBooking.tripImageUrl;
-          if (!hasTripData) {
-            console.log(`[GET /api/bookings/dashboard] Booking ${b.id} has tripId ${tripIdValue} but missing trip data (title: ${joinedBooking.tripTitle}, location: ${joinedBooking.tripLocation})`);
-            return true;
-          }
-        }
-        
-        // Check if booking with hotelId is missing hotel data (handle null, undefined, and empty strings)
-        const hotelIdValue = b.hotelId;
-        if (hotelIdValue !== null && hotelIdValue !== undefined && String(hotelIdValue).trim() !== '') {
-          const hasHotelData = joinedBooking.hotelName || joinedBooking.hotelLocation || joinedBooking.hotelImageUrl;
-          if (!hasHotelData) {
-            console.log(`[GET /api/bookings/dashboard] Booking ${b.id} has hotelId ${hotelIdValue} but missing hotel data (name: ${joinedBooking.hotelName}, location: ${joinedBooking.hotelLocation})`);
-            return true;
-          }
-        }
-        
-        return false;
-      });
-      
-      // If JOINs failed, returned fewer bookings, or any data is missing, fallback to manual join
-      if ((userBookings.length === 0 && allUserBookings.length > 0) || hasMissingData) {
-        if (hasMissingData) {
-          console.log('[GET /api/bookings/dashboard] JOIN succeeded but some bookings missing trip/hotel data, using fallback manual join');
-        } else {
-          console.log('[GET /api/bookings/dashboard] JOINs returned no results, using fallback manual join');
-        }
-        const manualJoinedBookings = [];
-        
-        for (const booking of allUserBookings) {
+      for (const booking of allUserBookings) {
           try {
             // Log raw booking data to see what we're working with
             console.log(`[GET /api/bookings/dashboard] Processing booking ${booking.id}:`, {
@@ -779,29 +622,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
             manualJoinedBookings.push(bookingData);
           } catch (bookingError: any) {
             console.error(`[GET /api/bookings/dashboard] Error processing booking ${booking.id}:`, bookingError.message);
-            // Continue with next booking
+            // Continue with next booking - still add the booking even if enrichment failed
+            try {
+              manualJoinedBookings.push({
+                id: booking.id,
+                type: booking.type || 'trip',
+                status: booking.status || 'pending',
+                amount: booking.amount || '0',
+                checkIn: booking.checkIn || null,
+                checkOut: booking.checkOut || null,
+                createdAt: booking.createdAt || new Date(),
+                transportMode: booking.transportMode || null,
+                transportDetails: booking.transportDetails || null,
+                tripId: booking.tripId || null,
+                tripTitle: null,
+                tripLocation: null,
+                tripImageUrl: null,
+                hotelId: booking.hotelId || null,
+                hotelName: null,
+                hotelLocation: null,
+                hotelImageUrl: null,
+              });
+            } catch (pushError) {
+              console.error(`[GET /api/bookings/dashboard] Failed to add booking ${booking.id} even without enrichment`);
+            }
           }
         }
         
+        console.log(`[GET /api/bookings/dashboard] Processed ${manualJoinedBookings.length} bookings with enrichment`);
+        
+        // Group bookings by status with improved date filtering
         const now = new Date();
         const upcoming = manualJoinedBookings.filter(b => {
-          // Include both confirmed and pending bookings as upcoming
+          // Include confirmed and pending bookings
           if (b.status !== 'confirmed' && b.status !== 'pending') return false;
-          // If no dates, consider it upcoming
+          
+          // If no dates at all, consider it upcoming
           if (!b.checkIn && !b.checkOut) return true;
-          // If check-out is in the future, it's still upcoming (trip is ongoing or hasn't started)
+          
+          // Primary check: if check-out date exists and is in the future, it's upcoming
           if (b.checkOut) {
-            const checkOutDate = new Date(b.checkOut);
-            return checkOutDate >= now;
+            try {
+              const checkOutDate = new Date(b.checkOut);
+              // If check-out is today or in the future, it's upcoming
+              return checkOutDate >= now;
+            } catch (e) {
+              console.warn(`[GET /api/bookings/dashboard] Invalid checkOut date for booking ${b.id}: ${b.checkOut}`);
+            }
           }
-          // Fallback: if only check-in exists, use that
+          
+          // Fallback: if only check-in exists, check if it's in the future
           if (b.checkIn) {
-            const checkInDate = new Date(b.checkIn);
-            return checkInDate >= now;
+            try {
+              const checkInDate = new Date(b.checkIn);
+              return checkInDate >= now;
+            } catch (e) {
+              console.warn(`[GET /api/bookings/dashboard] Invalid checkIn date for booking ${b.id}: ${b.checkIn}`);
+            }
           }
+          
+          // Default to upcoming if we can't determine
           return true;
         });
-        const completed = manualJoinedBookings.filter(b => b.status === 'completed');
+        
+        const completed = manualJoinedBookings.filter(b => {
+          // Only show as completed if status is explicitly 'completed'
+          if (b.status === 'completed') return true;
+          
+          // Also check if check-out date is in the past AND status is confirmed
+          if (b.status === 'confirmed' && b.checkOut) {
+            try {
+              const checkOutDate = new Date(b.checkOut);
+              // If check-out was more than 1 day ago, consider it completed
+              const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+              return checkOutDate < oneDayAgo;
+            } catch (e) {
+              return false;
+            }
+          }
+          return false;
+        });
+        
         const cancelled = manualJoinedBookings.filter(b => b.status === 'cancelled');
 
         console.log(`[GET /api/bookings/dashboard] Manual join results: ${upcoming.length} upcoming, ${completed.length} completed, ${cancelled.length} cancelled`);
@@ -825,56 +726,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cancelledTrips: cancelled.length
           }
         }, "Dashboard data retrieved successfully"));
-      }
-
-      // Group bookings by status
-      // Fix: Handle null checkIn dates and consider confirmed/pending bookings as upcoming
-      const now = new Date();
-      const upcoming = userBookings.filter(b => {
-        try {
-          // Include both confirmed and pending bookings as upcoming
-          if (b.status !== 'confirmed' && b.status !== 'pending') return false;
-          // If no dates, consider it upcoming
-          if (!b.checkIn && !b.checkOut) return true;
-          // If check-out is in the future, it's still upcoming (trip is ongoing or hasn't started)
-          if (b.checkOut) {
-            const checkOutDate = new Date(b.checkOut);
-            return checkOutDate >= now;
-          }
-          // Fallback: if only check-in exists, use that
-          if (b.checkIn) {
-            const checkInDate = new Date(b.checkIn);
-            return checkInDate >= now;
-          }
-          return true;
-        } catch {
-          return false;
-        }
-      });
-      const completed = userBookings.filter(b => b.status === 'completed');
-      const cancelled = userBookings.filter(b => b.status === 'cancelled');
-
-      console.log(`[GET /api/bookings/dashboard] Final results: ${upcoming.length} upcoming, ${completed.length} completed, ${cancelled.length} cancelled`);
-
-      res.json(createResponse(true, {
-        upcoming,
-        completed,
-        cancelled,
-        all: userBookings, // Include all bookings for easier access
-        stats: {
-          totalBookings: userBookings.length,
-          totalSpent: userBookings.reduce((sum, b) => {
-            try {
-              return sum + parseFloat(String(b.amount || '0'));
-            } catch {
-              return sum;
-            }
-          }, 0),
-          upcomingTrips: upcoming.length,
-          completedTrips: completed.length,
-          cancelledTrips: cancelled.length
-        }
-      }, "Dashboard data retrieved successfully"));
     } catch (error: any) {
       console.error("[GET /api/bookings/dashboard] Error:", error);
       console.error("[GET /api/bookings/dashboard] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
