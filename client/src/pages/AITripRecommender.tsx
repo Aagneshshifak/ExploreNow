@@ -114,7 +114,7 @@ export default function AITripRecommender() {
         
         toast({
           title: "AI Recommendations Generated!",
-          description: `Found ${aiTrips.length} personalized trip recommendations powered by Gemini AI.`,
+          description: `Found ${aiTrips.length} personalized trip recommendations powered by Groq AI.`,
         });
       } else {
         throw new Error(data.message || "Failed to generate recommendations");

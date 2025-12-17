@@ -2019,7 +2019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const { geminiService } = await import("./services/geminiService.js");
-      console.log("[AI RECOMMEND] Gemini service imported successfully");
+      console.log("[AI RECOMMEND] Groq AI service imported successfully");
       
       const recommendations = await geminiService.generateTripRecommendations(
         Number(budget),
@@ -2047,7 +2047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let statusCode = 500;
       let errorMessage = "Failed to generate AI recommendations";
       
-      if (error?.message?.includes("API key") || error?.message?.includes("GEMINI_API_KEY")) {
+      if (error?.message?.includes("API key") || error?.message?.includes("GROQ_API_KEY")) {
         statusCode = 503; // Service Unavailable
         errorMessage = "AI service is not configured. Please contact support.";
         console.error("[AI RECOMMEND] API key configuration issue");
@@ -2148,7 +2148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[AI ASSISTANT] User context:", userContext);
 
       const { geminiService } = await import("./services/geminiService.js");
-      console.log("[AI ASSISTANT] Gemini service imported successfully");
+      console.log("[AI ASSISTANT] Groq AI service imported successfully");
       
       const assistance = await geminiService.provideTravelAssistance(query, userContext);
       console.log("[AI ASSISTANT] Assistance generated successfully, category:", assistance.category);
@@ -2168,7 +2168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let statusCode = 500;
       let errorMessage = "Failed to provide AI assistance";
       
-      if (error?.message?.includes("API key") || error?.message?.includes("GEMINI_API_KEY")) {
+      if (error?.message?.includes("API key") || error?.message?.includes("GROQ_API_KEY")) {
         statusCode = 503; // Service Unavailable
         errorMessage = "AI service is not configured. Please contact support.";
         console.error("[AI ASSISTANT] API key configuration issue");
