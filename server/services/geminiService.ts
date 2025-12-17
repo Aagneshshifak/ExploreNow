@@ -31,8 +31,9 @@ function getGeminiModel(): GenerativeModel {
   
   try {
     genAI = new GoogleGenerativeAI(apiKey);
-    currentModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    console.log("[GEMINI] Model initialized successfully");
+    // Use gemini-2.0-flash (available model as of 2025)
+    currentModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    console.log("[GEMINI] Model initialized successfully with gemini-2.0-flash");
     return currentModel;
   } catch (initError: any) {
     console.error("[GEMINI] Failed to initialize Gemini AI:", initError?.message);
@@ -616,8 +617,8 @@ export class GeminiTravelService {
           error?.message?.includes("is not found for API version") ||
           error?.status === 404) {
         console.error("[GEMINI] Model not found error detected - trying alternative model");
-        // Try with alternative model names
-        const alternativeModels = ["gemini-1.5-flash-002", "gemini-1.5-pro", "gemini-pro"];
+        // Try with alternative model names (updated to 2025 available models)
+        const alternativeModels = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash-exp"];
         for (const modelName of alternativeModels) {
           try {
             console.log(`[GEMINI] Trying alternative model: ${modelName}`);
