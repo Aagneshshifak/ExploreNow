@@ -248,9 +248,11 @@ function main() {
           GIT_COMMITTER_DATE: gitDate,
         };
 
+        // Stage and commit in two separate lightweight processes to reduce
+        // pressure on the environment and avoid hitting OS spawn limits.
         execSync("git add activity-log.md", {
           cwd: REPO_ROOT,
-          stdio: ["ignore", "ignore", "inherit"],
+          stdio: ["ignore", "ignore", "ignore"],
           env,
         });
 
@@ -267,7 +269,7 @@ function main() {
 
         execSync(`git commit -m "${msg}"`, {
           cwd: REPO_ROOT,
-          stdio: ["ignore", "ignore", "inherit"],
+          stdio: ["ignore", "ignore", "ignore"],
           env,
         });
       }
