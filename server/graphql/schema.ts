@@ -4,8 +4,56 @@ import { db } from '../db';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
-// Helper function to get user from context (consistent with resolvers.ts)
-const getUserFromContext = (context: any) => {
+// Define proper types
+interface JWTPayload {
+  userId: number;
+  email: string;
+  role: string;
+}
+
+interface GraphQLContext {
+  req: {
+    cookies?: Record<string, string>;
+    headers?: Record<string, string | string[] | undefined>;
+  };
+}
+
+interface BookingParent {
+  id: string | number;
+  tripId?: string | null;
+  hotelId?: string | null;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  transportMode?: string | null;
+  checkIn: Date | string;
+  checkOut: Date | string;
+  guests: number;
+  amount: string | number;
+  status: string;
+  currency?: string | null;
+}
+
+interface BookingInput {
+  tripId?: string;
+  hotelId?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  transportMode?: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  amount: number;
+  currency?: string;
+  specialRequests?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
+  transportDetails?: string;
+}
+
+// Helper function with proper typing
+const getUserFromContext = (context: GraphQLContext): JWTPayload | null => {
   console.log('=== getUserFromContext Debug ===');
   console.log('Context exists:', !!context);
   console.log('Context.req exists:', !!context?.req);
@@ -20,7 +68,8 @@ const getUserFromContext = (context: any) => {
   
   // Try multiple ways to get the token
   const tokenFromCookies = context.req.cookies?.token;
-  const tokenFromAuthHeader = context.req.headers?.authorization?.replace('Bearer ', '');
+  const authHeader = context.req.headers?.authorization;
+  const tokenFromAuthHeader = typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : undefined;
   const token = tokenFromCookies || tokenFromAuthHeader;
   
   console.log('Token from cookies:', tokenFromCookies ? tokenFromCookies.substring(0, 30) + '...' : 'NOT FOUND');
@@ -36,11 +85,12 @@ const getUserFromContext = (context: any) => {
   
   try {
     const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     console.log('✅ Token verified successfully, userId:', decoded?.userId);
     return decoded;
-  } catch (error: any) {
-    console.error('❌ Token verification failed:', error.message);
+  } catch (error) {
+    const err = error as Error;
+    console.error('❌ Token verification failed:', err.message);
     return null;
   }
 };
@@ -109,41 +159,45 @@ const resolvers = {
         return [];
       }
     },
-    booking: async (_, { id }) => {
+    booking: async (_parent: unknown, { id }: { id: string }) => {
       const result = await sql`SELECT * FROM bookings WHERE id = ${id}`;
       return result[0];
     }
   },
   Booking: {
-    id: (parent) => parent.id.toString(),
-    tripId: (parent) => parent.tripId,
-    hotelId: (parent) => parent.hotelId,
-    customerName: (parent) => parent.customerName,
-    customerEmail: (parent) => parent.customerEmail,
-    customerPhone: (parent) => parent.customerPhone,
-    transportMode: (parent) => parent.transportMode,
-    checkIn: (parent) => {
+    id: (parent: BookingParent) => parent.id.toString(),
+    tripId: (parent: BookingParent) => parent.tripId,
+    hotelId: (parent: BookingParent) => parent.hotelId,
+    customerName: (parent: BookingParent) => parent.customerName,
+    customerEmail: (parent: BookingParent) => parent.customerEmail,
+    customerPhone: (parent: BookingParent) => parent.customerPhone,
+    transportMode: (parent: BookingParent) => parent.transportMode,
+    checkIn: (parent: BookingParent) => {
       if (!parent.checkIn) return '';
       if (parent.checkIn instanceof Date) {
         return parent.checkIn.toISOString().split('T')[0];
       }
       return parent.checkIn.toString();
     },
-    checkOut: (parent) => {
+    checkOut: (parent: BookingParent) => {
       if (!parent.checkOut) return '';
       if (parent.checkOut instanceof Date) {
         return parent.checkOut.toISOString().split('T')[0];
       }
       return parent.checkOut.toString();
     },
-    guests: (parent) => parent.guests,
-    amount: (parent) => parseFloat(parent.amount.toString()),
-    status: (parent) => parent.status,
-    currency: (parent) => parent.currency,
+    guests: (parent: BookingParent) => parent.guests,
+    amount: (parent: BookingParent) => parseFloat(parent.amount.toString()),
+    status: (parent: BookingParent) => parent.status,
+    currency: (parent: BookingParent) => parent.currency,
   },
 
   Mutation: {
-    createBooking: async (_: any, { input }: { input: any }, context: any) => {
+    createBooking: async (
+      _parent: unknown,
+      { input }: { input: BookingInput },
+      context: GraphQLContext
+    ) => {
       try {
         // Log context structure for debugging
         console.log('GraphQL createBooking - Context received:', {
@@ -231,19 +285,20 @@ const resolvers = {
           ) RETURNING *
         `;
         
-        const booking = result[0];
+        const booking = result[0] as BookingParent;
         
         return {
           success: true,
           booking,
           message: 'Booking created successfully'
         };
-      } catch (error: any) {
-        console.error("GraphQL createBooking error:", error);
+      } catch (error) {
+        const err = error as Error;
+        console.error("GraphQL createBooking error:", err);
         return {
           success: false,
           booking: null,
-          message: 'Failed to create booking: ' + error.message
+          message: 'Failed to create booking: ' + err.message
         };
       }
     }
