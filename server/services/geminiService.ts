@@ -792,54 +792,85 @@ Feel free to ask more specific questions about destinations, planning, or bookin
     tips: string[];
   }> {
     try {
-      const prompt = `Provide comprehensive travel insights for ${destination}. Include:
-      
-      1. Overview (150 words)
-      2. Top 8 attractions/activities
-      3. Must-try cuisine/dishes (6 items)
-      4. Cultural notes and etiquette
-      5. Daily budget estimates (low/medium/high)
-      6. Best time to visit with reasoning
-      7. 5 practical insider tips
+      const prompt = `You are a travel expert. Provide comprehensive destination insights for ${destination}.
 
-      Return as JSON:
-      {
-        "overview": "Detailed destination overview...",
-        "attractions": ["Attraction 1", "Attraction 2", ...],
-        "cuisine": ["Dish 1", "Dish 2", ...],
-        "culture": "Cultural insights...",
-        "budget": {
-          "low": "$30-50/day",
-          "medium": "$80-120/day", 
-          "high": "$200+/day"
-        },
-        "bestTime": "March to May for...",
-        "tips": ["Tip 1", "Tip 2", ...]
-      }`;
+IMPORTANT: Respond with ONLY valid JSON. No markdown, no code blocks, no explanations - just pure JSON.
 
+Required JSON structure:
+{
+  "overview": "Write a detailed 150-word overview of ${destination} covering its main appeal, character, and unique features",
+  "attractions": ["List 8 specific top attractions with actual names", "e.g. Eiffel Tower, not 'Main attraction 1'", "...", "...", "...", "...", "...", "..."],
+  "cuisine": ["List 6 specific must-try dishes with actual names", "e.g. Nasi Goreng, not 'Local dish 1'", "...", "...", "...", "..."],
+  "culture": "Write a paragraph about cultural insights, local customs, and etiquette for ${destination}",
+  "budget": {
+    "low": "$XX-YY/day format",
+    "medium": "$XX-YY/day format",
+    "high": "$XX+/day format"
+  },
+  "bestTime": "State the best time to visit with specific reasoning about weather and events",
+  "tips": ["Give 5 practical, actionable insider tips", "...", "...", "...", "..."]
+}
+
+Generate real, specific, authentic recommendations for ${destination}. Use actual place names, real dish names, and genuine local insights. Start your response with { and end with }.`;
+
+      console.log(`[GROQ] Requesting destination insights for: ${destination}`);
       const responseText = await this.callGroqAPI(prompt);
       
       if (!responseText) {
         throw new Error("No response from Groq API");
       }
 
+      console.log("[GROQ] Destination insights raw response (first 200 chars):", responseText.substring(0, 200) + "...");
+      console.log("[GROQ] Response length:", responseText.length);
+
+      // Clean and extract JSON from response
+      let cleanedResponse = responseText.trim();
+
+      // Remove markdown code blocks if present
+      if (cleanedResponse.includes('```json')) {
+        console.log("[GROQ] Removing ```json markdown wrapper");
+        cleanedResponse = cleanedResponse
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+      } else if (cleanedResponse.includes('```')) {
+        console.log("[GROQ] Removing ``` markdown wrapper");
+        cleanedResponse = cleanedResponse
+          .replace(/```\n?/g, '')
+          .trim();
+      }
+
+      // Extract JSON object if wrapped in text
+      const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0];
+        console.log("[GROQ] Extracted JSON from text");
+      }
+
+      console.log("[GROQ] Attempting to parse cleaned response (first 100 chars):", cleanedResponse.substring(0, 100) + "...");
+
       try {
-        return JSON.parse(responseText);
+        const parsed = JSON.parse(cleanedResponse);
+        console.log("[GROQ] ✅ Successfully parsed destination insights JSON");
+        return parsed;
       } catch (parseError) {
-        console.error("[GROQ] Failed to parse destination insights response:", parseError);
-        // Fallback response
+        console.error("[GROQ] ❌ Failed to parse destination insights response:", parseError);
+        console.error("[GROQ] Cleaned response that failed:", cleanedResponse.substring(0, 500));
+        
+        // Fallback response - but log it clearly
+        console.warn("[GROQ] ⚠️  Returning fallback mock data due to parsing failure");
         return {
-          overview: `Discover the amazing destination of ${destination} with its unique culture, attractions, and experiences.`,
-          attractions: ["Main attraction 1", "Main attraction 2", "Main attraction 3", "Main attraction 4", "Main attraction 5", "Main attraction 6", "Main attraction 7", "Main attraction 8"],
-          cuisine: ["Local dish 1", "Local dish 2", "Local dish 3", "Local dish 4", "Local dish 5", "Local dish 6"],
-          culture: "Rich cultural heritage with unique traditions and customs.",
+          overview: `Discover the amazing destination of ${destination} with its unique culture, attractions, and experiences. [Note: This is fallback data - API response parsing failed]`,
+          attractions: ["Main attraction 1 (fallback)", "Main attraction 2 (fallback)", "Main attraction 3 (fallback)", "Main attraction 4 (fallback)", "Main attraction 5 (fallback)", "Main attraction 6 (fallback)", "Main attraction 7 (fallback)", "Main attraction 8 (fallback)"],
+          cuisine: ["Local dish 1 (fallback)", "Local dish 2 (fallback)", "Local dish 3 (fallback)", "Local dish 4 (fallback)", "Local dish 5 (fallback)", "Local dish 6 (fallback)"],
+          culture: "Rich cultural heritage with unique traditions and customs. [Note: This is fallback data]",
           budget: {
             low: "$30-50/day",
             medium: "$80-120/day",
             high: "$200+/day"
           },
-          bestTime: "Year-round destination with peak season during spring and fall.",
-          tips: ["Tip 1: Research local customs", "Tip 2: Book accommodations early", "Tip 3: Learn basic local phrases", "Tip 4: Check weather forecasts", "Tip 5: Respect local traditions"]
+          bestTime: "Year-round destination with peak season during spring and fall. [Note: This is fallback data]",
+          tips: ["Tip 1: Research local customs (fallback)", "Tip 2: Book accommodations early (fallback)", "Tip 3: Learn basic local phrases (fallback)", "Tip 4: Check weather forecasts (fallback)", "Tip 5: Respect local traditions (fallback)"]
         };
       }
     } catch (error) {
