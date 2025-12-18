@@ -7,35 +7,29 @@ import { Link } from 'react-router-dom';
 import { LazyImage } from '@/components/LazyImage';
 import { PriceDisplay } from '@/components/ui/price-display';
 import { useAuth } from '@/hooks/use-auth';
+import { useQuery } from '@tanstack/react-query';
 import heroBackground from '@/assets/hero-background.jpg';
 
 export default function Home() {
   const { user } = useAuth();
-  const featuredDestinations = [{
-    id: 1,
-    name: 'Santorini, Greece',
-    description: 'Whitewashed villages and azure seas',
-    image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&h=600&fit=crop',
-    price: 2890,
-    rating: 4.9,
-    duration: '7 days'
-  }, {
-    id: 2,
-    name: 'Tokyo, Japan',
-    description: 'Modern metropolis meets ancient tradition',
-    image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop',
-    price: 3250,
-    rating: 4.8,
-    duration: '10 days'
-  }, {
-    id: 3,
-    name: 'Swiss Alps',
-    description: 'Majestic peaks and pristine landscapes',
-    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop',
-    price: 4120,
-    rating: 4.9,
-    duration: '8 days'
-  }];
+  
+  // Fetch trips from API
+  const { data: trips, isLoading: tripsLoading } = useQuery({
+    queryKey: ['/api/trips'],
+  });
+
+  // Map API trips to Featured Destinations format
+  const featuredDestinations = Array.isArray(trips) 
+    ? trips.slice(0, 3).map(trip => ({
+        id: trip.id,
+        name: trip.title,
+        description: trip.description?.substring(0, 50) || trip.location,
+        image: trip.imageUrl,
+        price: parseFloat(trip.price) || 0,
+        rating: 4.8, // Default rating
+        duration: `${trip.duration || 7} days`
+      }))
+    : [];
   const featuredHotels = [{
     id: 1,
     name: 'The Grand Palace',
@@ -288,8 +282,17 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredDestinations.map((destination, index) => <motion.div key={destination.id} initial={{
+          {tripsLoading ? (
+            <div className="text-center py-12">
+              <p className="text-body text-muted-foreground">Loading featured destinations...</p>
+            </div>
+          ) : featuredDestinations.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-body text-muted-foreground">No featured destinations available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredDestinations.map((destination, index) => <motion.div key={destination.id} initial={{
             opacity: 0,
             y: 20
           }} whileInView={{
@@ -340,7 +343,8 @@ export default function Home() {
                   </CardContent>
                 </Card>
               </motion.div>)}
-          </div>
+            </div>
+          )}
 
           <div className="text-center mt-12">
             <Button asChild variant="outline" size="lg" className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="View all travel destinations">
