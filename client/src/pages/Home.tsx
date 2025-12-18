@@ -335,7 +335,7 @@ export default function Home() {
                       </div>
                     </div>
                     <Button asChild className="w-full bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="View destination details">
-                      <Link to={`/trips/${destination.id}`}>View Details</Link>
+                      <Link to={`/trip/${destination.id}`}>View Details</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -420,7 +420,7 @@ export default function Home() {
                       </div>
                     </div>
                     <Button asChild className="w-full bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition" aria-label="Book hotel now">
-                      <Link to={`/hotels/${hotel.id}`}>Book Now</Link>
+                      <Link to={`/hotel/${hotel.id}`}>Book Now</Link>
                     </Button>
                   </CardContent>
                 </Card>
