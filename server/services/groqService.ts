@@ -88,7 +88,7 @@ export interface TravelAssistance {
   relatedSuggestions: string[];
 }
 
-export class GeminiTravelService {
+export class GroqTravelService {
   // Default model for Groq (can be overridden)
   // Updated to use currently available models as of 2025
   private defaultModel = "llama-3.3-70b-versatile";
@@ -880,4 +880,4 @@ Generate real, specific, authentic recommendations for ${destination}. Use actua
   }
 }
 
-export const geminiService = new GeminiTravelService();
+export const groqService = new GroqTravelService();

@@ -2018,10 +2018,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         travelStyle 
       });
 
-      const { geminiService } = await import("./services/geminiService.js");
+      const { groqService } = await import("./services/groqService.js");
       console.log("[AI RECOMMEND] Groq AI service imported successfully");
       
-      const recommendations = await geminiService.generateTripRecommendations(
+      const recommendations = await groqService.generateTripRecommendations(
         Number(budget),
         Array.isArray(interests) ? interests : [interests],
         Number(duration),
