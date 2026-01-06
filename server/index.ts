@@ -1,6 +1,3 @@
-import fs from "fs";
-const routesFileContent = fs.readFileSync("./server/routes.ts", "utf-8");
-console.log("routes.ts content:", routesFileContent);
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
