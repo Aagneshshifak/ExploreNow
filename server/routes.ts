@@ -8,6 +8,7 @@ import { bookings, trips, hotels } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
 import { emailService } from "./services/emailService";
+import { groqService } from "./services/groqService";
 import { 
   loginSchema, 
   registerSchema, 
@@ -25,7 +26,8 @@ import {
   type TripFilterData,
   type BudgetFilterData,
   type AIRecommendationData,
-  type PaymentFormData
+  type PaymentFormData,
+  type Booking
 } from "@shared/schema";
 import { eq, desc, sql as drizzleSql, and, or, isNotNull, ne } from "drizzle-orm";
 
@@ -368,10 +370,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(bookings.createdAt));
       
       // Try alternative query to check if column name is different
-      let userBookingsAlt = [];
+      let userBookingsAlt: Booking[] = [];
       try {
         const altResult = await sql`SELECT * FROM bookings WHERE "userId" = ${currentUserId} ORDER BY "createdAt" DESC`;
-        userBookingsAlt = altResult;
+        userBookingsAlt = altResult as unknown as Booking[];
       } catch (err) {
         console.error('Alternative query error:', err);
       }
@@ -476,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Simplify: Use the same simple query pattern as transports endpoint (which works!)
       // Fetch all bookings for the user first, then manually enrich with trip/hotel data
-      let allUserBookings = [];
+      let allUserBookings: Booking[] = [];
       try {
         allUserBookings = await db
           .select()
@@ -519,7 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Always manually enrich bookings with trip and hotel data (same pattern as transports endpoint)
       // This is more reliable than complex JOINs
-      const manualJoinedBookings = [];
+      const manualJoinedBookings: any[] = [];
       
       for (const booking of allUserBookings) {
           try {
@@ -746,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[GET /api/bookings/hotels] Fetching hotel bookings for userId:', userId);
       
       // Fetch all bookings for the user
-      let userBookings = [];
+      let userBookings: Booking[] = [];
       try {
         userBookings = await db
           .select()
@@ -761,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Process bookings to get hotel-related data
-      const hotelBookings = [];
+      const hotelBookings: any[] = [];
       for (const booking of userBookings) {
         try {
           // Check for direct hotel bookings or trip bookings that include hotels
@@ -896,7 +898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(desc(bookings.createdAt));
       
       // Process bookings to get transport-related data
-      const transportBookings = [];
+      const transportBookings: any[] = [];
       for (const booking of userBookings) {
         if (booking.tripId) {
           // Trip booking with transport
@@ -1427,13 +1429,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const bookingData = {
         userId: req.user!.id,
-        tripId: tripId,
+        tripId: tripId.toString(),
         hotelId: null,
         type: "trip" as const,
-        amount: trip.price,
+        amount: trip.price.toString(),
         currency: req.body.currency || 'USD',
-        checkIn: req.body.checkIn ? new Date(req.body.checkIn) : null,
-        checkOut: req.body.checkOut ? new Date(req.body.checkOut) : null,
+        checkIn: req.body.checkIn ? new Date(req.body.checkIn).toISOString() : new Date().toISOString(),
+        checkOut: req.body.checkOut ? new Date(req.body.checkOut).toISOString() : new Date().toISOString(),
+        customerName: req.body.customerName || req.user!.name,
+        customerEmail: req.body.customerEmail || req.user!.email,
+        customerPhone: req.body.customerPhone || '',
+        transportMode: req.body.transportMode || '',
+        guests: parseInt((req.body.guests || 1).toString()),
       };
       
       const booking = await storage.createBooking(bookingData);
@@ -1482,12 +1489,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookingData = {
         userId: req.user!.id,
         tripId: null,
-        hotelId: hotelId,
+        hotelId: hotelId.toString(),
         type: "hotel" as const,
         amount: totalPrice.toString(),
         currency: req.body.currency || 'USD',
-        checkIn: checkIn ? new Date(checkIn) : null,
-        checkOut: checkOut ? new Date(checkOut) : null,
+        checkIn: checkIn ? new Date(checkIn).toISOString() : new Date().toISOString(),
+        checkOut: checkOut ? new Date(checkOut).toISOString() : new Date().toISOString(),
+        customerName: req.body.customerName || req.user!.name,
+        customerEmail: req.body.customerEmail || req.user!.email,
+        customerPhone: req.body.customerPhone || '',
+        transportMode: req.body.transportMode || '',
+        guests: parseInt((req.body.guests || 1).toString()),
+        status: 'confirmed'
       };
       
       const booking = await storage.createBooking(bookingData);
@@ -1568,8 +1581,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: bookingType as 'trip' | 'hotel',
         amount: cost?.toString() || '0',
         currency: req.body.currency || 'USD',
-        checkIn: checkIn ? new Date(checkIn) : null,
-        checkOut: checkOut ? new Date(checkOut) : null,
+        checkIn: checkIn ? new Date(checkIn).toISOString() : '',
+        checkOut: checkOut ? new Date(checkOut).toISOString() : '',
         guests: guests || 1,
         customerName: customerName || req.user!.name,
         customerEmail: customerEmail || req.user!.email,
@@ -1656,15 +1669,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: type as 'trip' | 'hotel',
         amount: amount.toString(),
         currency: currency || 'USD',
-        checkIn: new Date(checkInDate),
-        checkOut: new Date(checkOutDate),
+        checkIn: new Date(checkInDate).toISOString(),
+        checkOut: new Date(checkOutDate).toISOString(),
         guests: guests || 1,
         customerName: customerDetails?.customerName || req.user!.name,
         customerEmail: customerDetails?.customerEmail || req.user!.email,
-        customerPhone: customerDetails?.customerPhone,
-        specialRequests: customerDetails?.specialRequests,
-        emergencyContact: customerDetails?.emergencyContact,
-        emergencyPhone: customerDetails?.emergencyPhone,
+        customerPhone: customerDetails?.customerPhone || '',
+        specialRequests: customerDetails?.specialRequests || '',
+        emergencyContact: customerDetails?.emergencyContact || '',
+        emergencyPhone: customerDetails?.emergencyPhone || '',
+        transportMode: req.body.transportMode || '',
         status: 'confirmed'
       };
       
@@ -2076,17 +2090,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!budget) {
         return res.status(400).json(createResponse(false, null, "Budget is required"));
       }
-
-      const { GeminiTravelService } = await import("./services/geminiService.js");
-      const geminiService = new GeminiTravelService();
-      
-      const recommendations = await geminiService.generateBudgetTripSuggestions(
+  
+      const recommendations = await groqService.generateBudgetTripSuggestions(
         Number(budget),
         currency || "USD",
         Array.isArray(preferences) ? preferences : preferences ? [preferences] : undefined,
         duration ? Number(duration) : undefined
       );
-
+  
       res.json(createResponse(true, {
         trips: recommendations,
         totalFound: recommendations.length,
@@ -2098,7 +2109,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to generate budget suggestions: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
-
   // AI Route Planner - POST /api/ai/route-planner
   app.post("/api/ai/route-planner", requireUser, async (req, res) => {
     try {
@@ -2111,17 +2121,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!startLocation || !travelMode || !duration) {
         return res.status(400).json(createResponse(false, null, "Start location, travel mode, and duration are required"));
       }
-
-      const { geminiService } = await import("./services/geminiService.js");
       
-      const optimizedRoute = await geminiService.optimizeRoute(
+      const optimizedRoute = await groqService.optimizeRoute(
         destinations,
         startLocation,
         travelMode,
         Number(duration),
         budget ? Number(budget) : undefined
       );
-
+  
       res.json(createResponse(true, {
         ...optimizedRoute,
         aiPowered: true,
@@ -2132,7 +2140,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to generate AI route plan: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
-
   // AI Travel Assistant - POST /api/ai/assistant
   app.post("/api/ai/assistant", async (req, res) => {
     try {
@@ -2143,16 +2150,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("[AI ASSISTANT] Invalid query:", { query, type: typeof query });
         return res.status(400).json(createResponse(false, null, "Query is required and must be a string"));
       }
-
+  
       console.log("[AI ASSISTANT] Processing query:", query.substring(0, 50) + "...");
       console.log("[AI ASSISTANT] User context:", userContext);
-
-      const { geminiService } = await import("./services/geminiService.js");
-      console.log("[AI ASSISTANT] Groq AI service imported successfully");
       
-      const assistance = await geminiService.provideTravelAssistance(query, userContext);
+      const assistance = await groqService.provideTravelAssistance(query, userContext);
       console.log("[AI ASSISTANT] Assistance generated successfully, category:", assistance.category);
-
+  
       res.json(createResponse(true, {
         ...assistance,
         aiPowered: true,
@@ -2187,7 +2191,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(statusCode).json(createResponse(false, null, errorMessage));
     }
   });
-
   // AI Destination Insights - GET /api/ai/destination/:destination
   app.get("/api/ai/destination/:destination", async (req, res) => {
     try {
@@ -2196,11 +2199,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!destination) {
         return res.status(400).json(createResponse(false, null, "Destination parameter is required"));
       }
-
-      const { geminiService } = await import("./services/geminiService.js");
       
-      const insights = await geminiService.generateDestinationInsights(decodeURIComponent(destination));
-
+      const insights = await groqService.generateDestinationInsights(decodeURIComponent(destination));
+  
       res.json(createResponse(true, {
         destination,
         ...insights,
@@ -2212,7 +2213,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to generate destination insights: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
   });
-
   // AI Chat Interface - POST /api/ai/chat
   app.post("/api/ai/chat", async (req, res) => {
     try {
@@ -2221,7 +2221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!message || typeof message !== 'string') {
         return res.status(400).json(createResponse(false, null, "Message is required"));
       }
-
+  
       // Build context from conversation history
       let contextualQuery = message;
       if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
@@ -2231,16 +2231,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .join('\n');
         contextualQuery = `Previous conversation:\n${recentContext}\n\nCurrent question: ${message}`;
       }
-
-      const { geminiService } = await import("./services/geminiService.js");
       
-      const response = await geminiService.provideTravelAssistance(contextualQuery, {
+      const response = await groqService.provideTravelAssistance(contextualQuery, {
         location: req.body.userLocation,
         budget: req.body.userBudget,
         travelDates: req.body.userTravelDates,
         groupSize: req.body.userGroupSize
       });
-
+  
       res.json(createResponse(true, {
         message: response.response,
         category: response.category,
@@ -2253,8 +2251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("AI chat error:", error);
       res.status(500).json(createResponse(false, null, "Failed to generate AI chat response: " + (error instanceof Error ? error.message : 'Unknown error')));
     }
-  });
-  
+  });  
   // Simple booking endpoint for Phase 1 - POST /api/bookings/new
   app.post("/api/bookings/new", requireUser, async (req, res) => {
     try {

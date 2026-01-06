@@ -1,29 +1,61 @@
-# 🤖 AI Features Implementation with Gemini API
+# 🤖 AI Features Implementation with Groq API
 
 ## 📋 **Overview**
 
-This document describes the complete implementation of **AI-powered travel features** using Google's Gemini API for the ExploreNow platform. The implementation includes AI Trip Recommender, Budget Trip Suggestions, and enhanced travel planning capabilities.
+This document describes the complete implementation of **AI-powered travel features** using Groq's API for the ExploreNow platform. The implementation includes AI Trip Recommender, Budget Trip Suggestions, and enhanced travel planning capabilities.
 
-## 🔧 **Gemini API Integration**
+## 🔧 **Groq API Integration**
 
-### **1. Service Setup** (`server/services/geminiService.ts`)
+### **1. Service Setup** (`server/services/groqService.ts`)
 
 ```typescript
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Lazy initialization of Groq AI client (OpenAI-compatible)
+let groqClient: OpenAI | null = null;
 
-export class GeminiTravelService {
-  private model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+function getGroqClient(): OpenAI {
+  if (groqClient) {
+    return groqClient;
+  }
+
+  // Initialize if not already done
+  let apiKey = process.env.GROQ_API_KEY;
   
-  // AI methods for trip recommendations and budget suggestions
+  if (!apiKey || apiKey.trim() === "") {
+    console.error("[GROQ] API key is not configured in environment variables");
+    throw new Error("GROQ_API_KEY is not set. Please configure it in your .env file.");
+  }
+  
+  // Remove quotes if present (common in .env files)
+  apiKey = apiKey.trim().replace(/^["']|["']$/g, '');
+  
+  if (!apiKey || apiKey.length === 0) {
+    console.error("[GROQ] API key is empty after trimming");
+    throw new Error("GROQ_API_KEY is not set. Please configure it in your .env file.");
+  }
+  
+  console.log("[GROQ] Initializing with API key (length:", apiKey.length, "characters)");
+  console.log("[GROQ] API key starts with:", apiKey.substring(0, 10) + "...");
+  
+  try {
+    groqClient = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+    console.log("[GROQ] Client initialized successfully");
+    return groqClient;
+  } catch (initError: any) {
+    console.error("[GROQ] Failed to initialize Groq AI:", initError?.message);
+    throw new Error(`Failed to initialize Groq AI: ${initError?.message || "Unknown error"}`);
+  }
 }
 ```
 
 ### **2. Environment Configuration**
 ```bash
 # Add to .env file
-GEMINI_API_KEY=your-gemini-api-key-here
+GROQ_API_KEY=your-groq-api-key-here
 ```
 
 ## 🎯 **AI Features Implemented**
@@ -34,7 +66,7 @@ GEMINI_API_KEY=your-gemini-api-key-here
 
 **Features:**
 - ✅ **Personalized Recommendations** - Based on budget, interests, duration
-- ✅ **Gemini AI Integration** - Uses advanced AI for intelligent suggestions
+- ✅ **Groq AI Integration** - Uses advanced AI for intelligent suggestions
 - ✅ **Fallback System** - Mock recommendations if API fails
 - ✅ **Rich Data** - Includes ratings, descriptions, cultural highlights
 
@@ -187,7 +219,7 @@ curl -X POST http://localhost:3000/api/ai/budget-suggestions \
 ## 🔄 **Fallback System**
 
 ### **Mock Recommendations**
-When Gemini API is unavailable or fails, the system provides intelligent mock recommendations:
+When Groq API is unavailable or fails, the system provides intelligent mock recommendations:
 
 ```typescript
 private createMockRecommendations(
@@ -250,7 +282,7 @@ private createMockRecommendations(
 ## 🚀 **Next Steps**
 
 ### **Phase 2 Enhancements**
-1. **Real Gemini API Integration** - Add actual API key
+1. **Real Groq API Integration** - Add actual API key
 2. **Advanced AI Features** - Route optimization, travel planning
 3. **Personalization** - User preference learning
 4. **Multi-language Support** - International recommendations
@@ -267,7 +299,7 @@ private createMockRecommendations(
 
 The **AI Features Implementation** provides:
 
-- ✅ **Advanced AI Integration** - Gemini API for intelligent recommendations
+- ✅ **Advanced AI Integration** - Groq API for intelligent recommendations
 - ✅ **Personalized Experience** - Tailored to user preferences and budget
 - ✅ **Robust Fallback System** - Mock recommendations when API unavailable
 - ✅ **Beautiful Frontend** - Modern, interactive user interface
@@ -276,8 +308,8 @@ The **AI Features Implementation** provides:
 
 The implementation is **production-ready** and provides a solid foundation for AI-powered travel recommendations! 🎉
 
-**To enable real Gemini API:**
-1. Get API key from Google AI Studio
-2. Add to `.env` file: `GEMINI_API_KEY=your-actual-key`
+**To enable real Groq API:**
+1. Get API key from Groq
+2. Add to `.env` file: `GROQ_API_KEY=your-actual-key`
 3. Restart server
 4. Enjoy real AI-powered recommendations! 🚀
