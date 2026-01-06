@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, UserConfig } from "vite";
 import path from "path";
 import type { Plugin } from 'vite';
 
@@ -12,7 +12,7 @@ async function tryLoadPlugin(name: string): Promise<Plugin | null> {
   }
 }
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   const reactPlugin =
     (await tryLoadPlugin('@vitejs/plugin-react')) ||
     (await tryLoadPlugin('@vitejs/plugin-react-swc'));
@@ -32,11 +32,11 @@ export default defineConfig(async () => {
           changeOrigin: true,
           secure: false,
           ws: true,
-          configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, res) => {
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, res: any) => {
               console.log('Proxy error:', err);
             });
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
+            proxy.on('proxyReq', (proxyReq: any, req: any, _res: any) => {
               console.log('Proxying request:', req.method, req.url, '->', proxyReq.path);
             });
           },
@@ -46,9 +46,9 @@ export default defineConfig(async () => {
           changeOrigin: true,
           secure: false,
           ws: true,
-          rewrite: (path) => path, // Keep the path as-is
-          configure: (proxy, _options) => {
-            proxy.on('error', (err, _req, res) => {
+          rewrite: (path: string) => path, // Keep the path as-is
+          configure: (proxy: any, _options: any) => {
+            proxy.on('error', (err: any, _req: any, res: any) => {
               console.log('Proxy error:', err);
               if (res && !res.headersSent) {
                 res.writeHead(500, {
@@ -57,7 +57,7 @@ export default defineConfig(async () => {
                 res.end('Proxy error: ' + err.message);
               }
             });
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
+            proxy.on('proxyReq', (proxyReq: any, req: any, _res: any) => {
               // Log for debugging
               if (req.url?.includes('/api/auth/login')) {
                 console.log('Proxying login request:', req.method, req.url);
@@ -65,7 +65,7 @@ export default defineConfig(async () => {
               // Let changeOrigin handle the Origin header automatically
               // Don't override it manually as that can cause issues
             });
-            proxy.on('proxyRes', (proxyRes, req, _res) => {
+            proxy.on('proxyRes', (proxyRes: any, req: any, _res: any) => {
               // Log response for debugging
               if (proxyRes.statusCode >= 400) {
                 console.log('Proxy response error:', proxyRes.statusCode, req.method, req.url);
