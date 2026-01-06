@@ -99,7 +99,7 @@ app.use((req, res, next) => {
   app.use('/graphql', yogaMiddleware);
 
   // Add a simple test route to verify server is working
-  app.get('/test', (req, res) => {
+  app.get('/api/test', (req, res) => {
     res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
   });
 
