@@ -1,38 +1,24 @@
 import { defineConfig } from "vite";
 import path from "path";
+import type { Plugin } from 'vite';
 
-async function loadReactPlugin() {
-  // Try the official plugin first, then the SWC variant. If neither is installed, return null.
+async function tryLoadPlugin(name: string): Promise<Plugin | null> {
   try {
-    const mod = await import("@vitejs/plugin-react");
+    const mod = await import(name);
     const factory = (mod && (mod.default ?? mod)) as any;
-    return factory();
+    return typeof factory === 'function' ? factory() : factory;
   } catch {
-    try {
-      const mod = await import("@vitejs/plugin-react-swc");
-      const factory = (mod && (mod.default ?? mod)) as any;
-      return factory();
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
 export default defineConfig(async () => {
-  const reactPlugin = await loadReactPlugin();
+  const reactPlugin =
+    (await tryLoadPlugin('@vitejs/plugin-react')) ||
+    (await tryLoadPlugin('@vitejs/plugin-react-swc'));
 
   return {
-    plugins: [
-      reactPlugin,
-      ...(process.env.NODE_ENV !== "production" &&
-      process.env.REPL_ID !== undefined
-        ? [
-            await import("@replit/vite-plugin-cartographer").then((m) =>
-              m.cartographer(),
-            ),
-          ]
-        : []),
-    ],
+    plugins: reactPlugin ? [reactPlugin] : [],
     server: {
       port: 5173,
       host: '0.0.0.0', // Allow connections from localhost, 127.0.0.1, and network
