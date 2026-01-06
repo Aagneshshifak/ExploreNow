@@ -139,9 +139,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Serve the app on port 5000
-  // this serves both the API and the client.
-  const port = 5000;
+  // Serve the app on a configurable port (defaults to 5000)
+  // This allows running the server on an alternate port if 5000 is in use.
+  const port = process.env.PORT ? Number(process.env.PORT) : 5000;
   server.listen(port, "localhost", () => {
     log(`serving on port ${port}`);
     if (app.get("env") === "development") {

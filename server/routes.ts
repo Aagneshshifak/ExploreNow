@@ -2077,7 +2077,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorMessage = error.message;
       }
       
-      res.status(statusCode).json(createResponse(false, null, errorMessage));
+      // Include provider response info in `data` for easier debugging in development
+      const providerDebug = process.env.NODE_ENV !== 'production' ? {
+        provider: {
+          status: (error as any)?.status ?? null,
+          message: (error as any)?.message ?? null,
+          code: (error as any)?.code ?? null
+        }
+      } : null;
+
+      res.status(statusCode).json(createResponse(false, providerDebug, errorMessage));
     }
   });
 

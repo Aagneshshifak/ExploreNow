@@ -24,8 +24,7 @@ function getGroqClient(): OpenAI {
     throw new Error("GROQ_API_KEY is not set. Please configure it in your .env file.");
   }
   
-  console.log("[GROQ] Initializing with API key (length:", apiKey.length, "characters)");
-  console.log("[GROQ] API key starts with:", apiKey.substring(0, 10) + "...");
+  console.log("[GROQ] Initializing Groq client (API key length:", apiKey.length, "characters)");
   
   try {
     groqClient = new OpenAI({
@@ -257,7 +256,8 @@ export class GroqTravelService {
           error?.message?.includes("API_KEY_NOT_FOUND") ||
           error?.status === 401) {
         console.error("[GROQ] API key configuration issue detected");
-        throw new Error("Groq API key is not configured or invalid. Please check your environment variables.");
+        const providerInfo = `${error?.status ? `${error.status}` : "unknown status"}${error?.message ? `: ${error.message}` : ""}`;
+        throw new Error(`Groq API key is not configured or is invalid (provider response: ${providerInfo}). Please check your GROQ_API_KEY environment variable.`);
       }
       
       // Check for quota/limit errors - return mock instead of throwing
@@ -750,7 +750,8 @@ Feel free to ask more specific questions about destinations, planning, or bookin
           error?.message?.includes("API_KEY_NOT_FOUND") ||
           error?.status === 401) {
         console.error("[GROQ] API key configuration issue detected");
-        throw new Error("Groq API key is not configured or invalid. Please check your environment variables.");
+        const providerInfo = `${error?.status ? `${error.status}` : "unknown status"}${error?.message ? `: ${error.message}` : ""}`;
+        throw new Error(`Groq API key is not configured or is invalid (provider response: ${providerInfo}). Please check your GROQ_API_KEY environment variable.`);
       }
       
       // Check for quota/limit errors - return mock response instead of throwing
