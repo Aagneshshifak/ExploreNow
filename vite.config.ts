@@ -114,8 +114,5 @@ export default defineConfig(async () => {
         }
       },
     },
-    optimizeDeps: {
-      disabled: true
-    },
   };
 });
