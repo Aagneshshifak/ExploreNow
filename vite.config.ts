@@ -28,7 +28,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       },
       proxy: {
         '/graphql': {
-          target: 'http://localhost:5000',
+          target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -42,7 +42,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
           },
         },
         '/api': {
-          target: 'http://localhost:5000',
+          target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -78,7 +78,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
           },
         },
         '/test': {
-          target: 'http://localhost:5000',
+          target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
           ws: true,
