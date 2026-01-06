@@ -16,7 +16,7 @@ const app = express();
 // Important: credentials: true is required for cookie-based authentication
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://explorenow.vercel.app', 'https://*.vercel.app'] 
+    ? [process.env.FRONTEND_URL || 'https://explorenow.vercel.app', 'https://*.vercel.app', 'https://*.onrender.com'] 
     : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5000'],
   credentials: true, // Required for cookies to be sent with requests
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -101,20 +101,6 @@ app.use((req, res, next) => {
   // Add a simple test route to verify server is working
   app.get('/test', (req, res) => {
     res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
-  });
-
-  // Add root route to redirect to Vite dev server in development
-  app.get('/', (req, res) => {
-    if (app.get("env") === "development") {
-      res.redirect('http://localhost:5173/');
-    } else {
-      res.json({ 
-        message: 'ExploreNow API Server', 
-        status: 'running',
-        timestamp: new Date().toISOString(),
-        docs: '/graphql'
-      });
-    }
   });
 
   app.use(errorHandler);
