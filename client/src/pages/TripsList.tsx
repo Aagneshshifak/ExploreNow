@@ -1,0 +1,310 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { SEOHead } from '@/components/ui/seo-head';
+import { 
+  MapPin, 
+  DollarSign, 
+  Clock, 
+  Star,
+  Calendar,
+  Users,
+  Filter,
+  Search,
+  ShoppingCart
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PriceDisplay } from '@/components/ui/price-display';
+import { useToast } from '@/hooks/use-toast';
+
+interface Trip {
+  id: number;
+  title: string;
+  location: string;
+  description: string;
+  price: string;
+  duration: number;
+  tags: string[];
+  includes: string[];
+  imageUrl: string | null;
+  createdAt: string;
+}
+
+export default function TripsList() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priceFilter, setPriceFilter] = useState('');
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const { data: trips, isLoading, error } = useQuery({
+    queryKey: ['/api/trips'],
+    queryFn: async () => {
+      const response = await fetch('/api/trips', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch trips');
+      }
+      
+      const result = await response.json();
+      return result.data as Trip[];
+    },
+  });
+
+  const filteredTrips = (Array.isArray(trips) ? trips : []).filter(trip => {
+    const matchesSearch = trip.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         trip.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         trip.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesPrice = !priceFilter || parseFloat(trip.price) <= parseFloat(priceFilter);
+    
+    return matchesSearch && matchesPrice;
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <LoadingSpinner size="lg" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold mb-4">Error Loading Trips</h2>
+            <p className="text-muted-foreground">
+              There was an issue loading trips. Please try again later.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background py-16">
+      <SEOHead
+        title="Browse Trips - ExploreNow"
+        description="Explore our curated collection of amazing trips and destinations. Find your perfect adventure with detailed itineraries, pricing, and verified reviews."
+        keywords="travel trips, vacation packages, trip booking, travel destinations, ExploreNow trips"
+        canonicalUrl="https://explorenow.replit.app/trips"
+        ogTitle="Browse Amazing Trips - ExploreNow"
+        ogDescription="Explore our curated collection of amazing trips and destinations worldwide"
+      />
+      <div className="container mx-auto px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold mb-4">Explore Amazing Trips</h1>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Discover curated travel experiences from around the world
+            </p>
+          </div>
+
+          {/* Filters */}
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="search" className="flex items-center space-x-1">
+                    <Search className="h-4 w-4" />
+                    <span>Search Trips</span>
+                  </Label>
+                  <Input
+                    id="search"
+                    placeholder="Search by title, location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price" className="flex items-center space-x-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span>Max Price (USD)</span>
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    placeholder="e.g. 2000"
+                    value={priceFilter}
+                    onChange={(e) => setPriceFilter(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setPriceFilter('');
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Results */}
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-2">
+              {filteredTrips.length} {filteredTrips.length === 1 ? 'Trip' : 'Trips'} Available
+            </h2>
+          </div>
+
+          {/* Trip Cards */}
+          {filteredTrips.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTrips.map((trip) => (
+                <motion.div
+                  key={trip.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden">
+                    {/* Trip Image */}
+                    {trip.imageUrl && (
+                      <div className="relative w-full h-48 overflow-hidden">
+                        <img 
+                          src={trip.imageUrl} 
+                          alt={trip.title}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                        <div className="absolute bottom-4 left-4 text-white">
+                          <h3 className="text-lg font-semibold">{trip.title}</h3>
+                          <p className="text-sm opacity-90">{trip.location}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {/* Trip Header (fallback if no image) */}
+                        {!trip.imageUrl && (
+                          <div>
+                            <h3 className="text-xl font-semibold mb-2">{trip.title}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                              <div className="flex items-center space-x-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{trip.location}</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{trip.duration} days</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Trip Info for cards with images */}
+                        {trip.imageUrl && (
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                            <div className="flex items-center space-x-1">
+                              <Clock className="h-3 w-3" />
+                              <span>{trip.duration} days</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Description */}
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {trip.description}
+                        </p>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1">
+                          {trip.tags?.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+
+                        {/* Includes */}
+                        {trip.includes && trip.includes.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Includes:</h4>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                              {trip.includes.slice(0, 3).map((item, index) => (
+                                <li key={index} className="flex items-center space-x-1">
+                                  <span className="w-1 h-1 bg-primary rounded-full"></span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                              {trip.includes.length > 3 && (
+                                <li className="text-xs text-muted-foreground">
+                                  +{trip.includes.length - 3} more...
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Price and Action */}
+                        <div className="flex items-center justify-between pt-4 border-t">
+                          <div className="text-2xl text-primary">
+                            <PriceDisplay price={parseFloat(trip.price)} originalCurrency="USD" />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/trip/${trip.id}`)}
+                            >
+                              View Details
+                            </Button>
+                            <Button 
+                              size="sm"
+                              onClick={() => navigate(`/trip/${trip.id}/book`)}
+                              className="bg-primary hover:bg-primary/90"
+                            >
+                              <ShoppingCart className="h-4 w-4 mr-2" />
+                              Book Now
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No trips found</h3>
+              <p className="text-muted-foreground">
+                Try adjusting your search or filter criteria
+              </p>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    </div>
+  );
+}

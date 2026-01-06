@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>ExploreNow - Smart Travel Platform</title>
+    
+    <meta name="description" content="Discover, plan, and book your perfect trip with ExploreNow - the smart travel platform powered by AI recommendations and intelligent travel tools" />
+    <meta name="keywords" content="travel, trips, hotels, booking, AI recommendations, travel planning, currency converter, reviews" />
+    <meta name="author" content="ExploreNow" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#8b5cf6" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ExploreNow" />
+    
+    <!-- Content Security Policy for development -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:* https://replit.com; connect-src 'self' http://localhost:* https://replit.com ws://localhost:* wss://localhost:* https://*.googleapis.com https://*.gstatic.com https://images.unsplash.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* https://replit.com; style-src 'self' 'unsafe-inline' http://localhost:*; img-src 'self' data: blob: http://localhost:* https://images.unsplash.com;" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://explorenow.replit.app/" />
+    <meta property="og:title" content="ExploreNow - Smart Travel Platform" />
+    <meta property="og:description" content="Discover, plan, and book your perfect trip with AI-powered recommendations and smart travel tools" />
+    <meta property="og:image" content="/icon-512.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://explorenow.replit.app/" />
+    <meta property="twitter:title" content="ExploreNow - Smart Travel Platform" />
+    <meta property="twitter:description" content="Discover, plan, and book your perfect trip with AI-powered recommendations" />
+    <meta property="twitter:image" content="/icon-512.png" />
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- PWA Service Worker Registration - Disabled in Development -->
+    <script>
+      // Only register service worker in production
+      if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('SW registered: ', registration);
+            })
+            .catch(function(registrationError) {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      } else if (window.location.hostname === 'localhost') {
+        console.log('Service Worker disabled in development mode');
+        // Unregister any existing service workers in development
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+              registration.unregister();
+              console.log('Unregistered existing service worker');
+            }
+          });
+        }
+      }
+    </script>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+  </body>
+</html>

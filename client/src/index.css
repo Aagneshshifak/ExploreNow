@@ -1,0 +1,305 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ExploreNow Premium Monochrome Design System */
+
+@layer base {
+  :root {
+    /* Core Colors - Pure Monochrome */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+
+    /* Card System */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+
+    /* Surface Elements */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    /* Primary Brand Colors */
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary Elements */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 0%;
+
+    /* Muted/Disabled States */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    /* Accent Elements */
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 0%;
+
+    /* Status Colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Interactive Elements */
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 0%;
+
+    /* Design Tokens */
+    --radius: 1rem;
+    
+    /* Premium Gradients */
+    --gradient-radial: radial-gradient(circle, hsl(0 0% 100%) 0%, hsl(0 0% 96%) 100%);
+    --gradient-linear: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 2%) 0%, hsl(0 0% 8%) 100%);
+    
+    /* Elegant Shadows */
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 30px -5px hsl(0 0% 0% / 0.15);
+    --shadow-xl: 0 20px 40px -10px hsl(0 0% 0% / 0.2);
+    
+    /* Smooth Transitions */
+    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark Mode - Inverted Monochrome */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 0 0% 8%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 98%;
+    
+    /* Dark Mode Gradients */
+    --gradient-radial: radial-gradient(circle, hsl(0 0% 4%) 0%, hsl(0 0% 2%) 100%);
+    --gradient-linear: linear-gradient(180deg, hsl(0 0% 4%) 0%, hsl(0 0% 2%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 98%) 0%, hsl(0 0% 92%) 100%);
+    
+    /* Dark Mode Shadows */
+    --shadow-sm: 0 1px 3px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 10px 30px -5px hsl(0 0% 0% / 0.5);
+    --shadow-xl: 0 20px 40px -10px hsl(0 0% 0% / 0.6);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Typography Scale */
+  .text-hero {
+    @apply text-6xl md:text-7xl lg:text-8xl font-light tracking-tight leading-none;
+  }
+  
+  .text-display {
+    @apply text-4xl md:text-5xl lg:text-6xl font-light tracking-tight;
+  }
+  
+  .text-heading {
+    @apply text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight;
+  }
+  
+  .text-subheading {
+    @apply text-lg md:text-xl font-medium tracking-wide;
+  }
+  
+  .text-body-large {
+    @apply text-lg leading-relaxed;
+  }
+  
+  .text-body {
+    @apply text-base leading-relaxed;
+  }
+  
+  .text-caption {
+    @apply text-sm text-muted-foreground;
+  }
+  
+  /* Smooth Scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-foreground;
+  }
+}
+
+@layer components {
+  /* Premium Button Variants */
+  .btn-hero {
+    @apply inline-flex items-center justify-center px-8 py-4 text-lg font-medium bg-primary text-primary-foreground rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
+  }
+  
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-6 py-3 text-base font-medium bg-transparent text-foreground border border-border rounded-xl hover:bg-accent hover:text-accent-foreground transition-all duration-200;
+  }
+  
+  /* Glass Effect */
+  .glass {
+    @apply backdrop-blur-lg bg-background/80 border border-border/50;
+  }
+  
+  /* Hover Card Effect */
+  .hover-lift {
+    @apply transform transition-all duration-300 hover:scale-105 hover:shadow-xl;
+  }
+  
+  /* Grid Layouts */
+  .grid-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  
+  .grid-auto-fill {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Mobile-first touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improved mobile typography */
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.5rem; }
+  
+  /* PWA safe areas for mobile devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Improved mobile forms */
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Touch-friendly mobile interactions */
+  .mobile-touch {
+    touch-action: manipulation;
+  }
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  /* Hide browser UI elements when in PWA mode */
+  .pwa-hidden {
+    display: none;
+  }
+  
+  /* Adjust navigation for PWA */
+  .nav-standalone {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+@layer utilities {
+  /* Custom Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.8s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.5s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+}
