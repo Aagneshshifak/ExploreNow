@@ -96,6 +96,26 @@ export default defineConfig(async () => {
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
+      // Use terser to avoid invoking esbuild for minification on some platforms
+      minify: 'terser',
+      // Raise warning threshold for large chunks
+      chunkSizeWarningLimit: 2000,
+      rollupOptions: {
+        output: {
+          // Better manual chunking to separate vendor libs and large icon/UX libs
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+              if (id.includes('lucide-react')) return 'vendor-icons';
+              if (id.includes('tailwindcss') || id.includes('postcss')) return 'vendor-css';
+              return 'vendor';
+            }
+          }
+        }
+      },
+    },
+    optimizeDeps: {
+      disabled: true
     },
   };
 });
