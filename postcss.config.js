@@ -1,15 +1,12 @@
-export default async () => {
+module.exports = () => {
   const plugins = [];
-
   try {
-    const tailwind = await import('tailwindcss');
-    plugins.push(tailwind.default ?? tailwind);
+    // include tailwind if present
+    require.resolve('tailwindcss');
+    plugins.push(require('tailwindcss'));
   } catch {}
-
   try {
-    const autoprefixer = await import('autoprefixer');
-    plugins.push(autoprefixer.default ?? autoprefixer);
+    plugins.push(require('autoprefixer'));
   } catch {}
-
   return { plugins };
 };

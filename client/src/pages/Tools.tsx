@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -151,11 +152,7 @@ const Tools = () => {
                           {tool.tag}
                         </span>
                         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center group-hover:bg-muted/80 transition-colors">
-                          {IconComponent ? (
-                            <IconComponent className="w-8 h-8 text-foreground" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700" />
-                          )}
+                          <IconComponent className="w-8 h-8 text-foreground" />
                         </div>
                         <CardTitle className="text-xl text-card-foreground">
                           {tool.title}
