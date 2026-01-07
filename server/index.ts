@@ -125,7 +125,7 @@ app.use((req, res, next) => {
   // Serve the app on a configurable port (defaults to 5000)
   // This allows running the server on an alternate port if 5000 is in use.
   const port = process.env.PORT ? Number(process.env.PORT) : 5000;
-  server.listen(port, "0.0.0.0", () => {
+  server.listen(port, "localhost", () => {
     log(`serving on port ${port}`);
     if (app.get("env") === "development") {
       console.log('\n🚀 Development servers running:');
