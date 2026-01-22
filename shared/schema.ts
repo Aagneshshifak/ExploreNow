@@ -126,7 +126,6 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
-  isVerified: true,
 });
 
 
