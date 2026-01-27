@@ -339,6 +339,28 @@ export default function PaymentPage() {
     );
   }
 
+  if (!booking) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="container mx-auto px-4">
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Booking Not Found</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                The booking could not be loaded. Please try again or contact support.
+              </p>
+              <Button onClick={() => navigate('/dashboard')} variant="default">
+                Back to Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const totalAmount = parseFloat(booking.amount);
   const transportCost = getTransportCost(booking.transportMode);
 

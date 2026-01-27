@@ -18,7 +18,22 @@ const durations = [
   { value: '8+', label: '8+ days' }
 ];
 
-const mockRecommendations = [
+interface TripRecommendation {
+  id: number;
+  destination: string;
+  description: string;
+  budgetRange: string;
+  duration: string;
+  rating: number;
+  location?: string;
+  tags?: string[];
+  includes?: string[];
+  bestTimeToVisit?: string;
+  weatherInfo?: string;
+  culturalHighlights?: string[];
+}
+
+const mockRecommendations: TripRecommendation[] = [
   {
     id: 1,
     destination: 'Goa Beach Paradise',
@@ -49,7 +64,7 @@ const TripRecommender = () => {
   const [budget, setBudget] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [duration, setDuration] = useState('');
-  const [recommendations, setRecommendations] = useState<typeof mockRecommendations>([]);
+  const [recommendations, setRecommendations] = useState<TripRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleInterestToggle = (interest: string) => {

@@ -233,7 +233,7 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
         // Redirect to confirmation page
         navigate(`/confirmation/${result.data.createBooking.id}`);
       } else {
-        alert("Booking failed: " + (result.error?.message || "Unknown error"));
+        alert("Booking failed: " + ((result as any).error?.message || "Unknown error"));
       }
     } catch (err: any) {
       alert("Booking failed: " + (err.message || "Unknown error"));

@@ -18,7 +18,7 @@ export default function TripSuggestionByBudget() {
   const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
 
-  const { data: allTrips } = useQuery({
+  const { data: allTrips } = useQuery<{ data: Trip[] }>({
     queryKey: ["/api/trips"],
   });
 
@@ -342,13 +342,13 @@ export default function TripSuggestionByBudget() {
         )}
 
         {/* All Trips Preview */}
-        {!hasSearched && allTrips?.data && (
+        {!hasSearched && allTrips?.data && Array.isArray(allTrips.data) && (
           <div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
               All Available Trips
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {allTrips.data.slice(0, 6).map((trip: Trip) => (
+              {Array.isArray(allTrips.data) && allTrips.data.slice(0, 6).map((trip: Trip) => (
                 <Card key={trip.id} className="overflow-hidden">
                   {trip.imageUrl && (
                     <div className="h-32 bg-gray-200 dark:bg-gray-700">
