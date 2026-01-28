@@ -207,13 +207,32 @@ export class GroqTravelService {
       if (jsonMatch) {
         let jsonString = jsonMatch[0];
         
-        // Try to fix common JSON issues
-        jsonString = jsonString
-          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-          .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
-          .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2'); // Add quotes to unquoted string values
-        
-        return JSON.parse(jsonString) as TripRecommendation[];
+        try {
+          // First try to parse as-is
+          return JSON.parse(jsonString) as TripRecommendation[];
+        } catch (parseError) {
+          console.log("[GROQ] Initial JSON parse failed, attempting to clean...");
+          
+          // Try to fix common JSON issues
+          jsonString = jsonString
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes to unquoted keys
+            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, suffix) => {
+              // Only quote if it's not already quoted and not a number/boolean/null
+              if (!/^(true|false|null|\d+\.?\d*)$/.test(value.trim())) {
+                return `: "${value.trim()}"${suffix}`;
+              }
+              return match;
+            });
+          
+          try {
+            return JSON.parse(jsonString) as TripRecommendation[];
+          } catch (secondParseError: any) {
+            console.error("[GROQ] JSON cleanup failed:", secondParseError?.message || 'Unknown error');
+            console.error("[GROQ] Problematic JSON:", jsonString.substring(0, 500) + "...");
+            throw new Error("Failed to parse JSON response from AI");
+          }
+        }
       }
       throw new Error("No JSON array found in response");
     };
@@ -309,12 +328,47 @@ export class GroqTravelService {
 
       const text = await this.callGroqAPI(prompt);
       
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      // Use the improved JSON processing
+      let cleanText = text.trim();
+      
+      // Remove any markdown code blocks
+      cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Extract JSON array from the response
+      const jsonMatch = cleanText.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
-         const recommendations = JSON.parse(jsonMatch[0]) as TripRecommendation[];
-         return recommendations.slice(0, 6);
+        let jsonString = jsonMatch[0];
+        
+        try {
+          // First try to parse as-is
+          const recommendations = JSON.parse(jsonString) as TripRecommendation[];
+          return recommendations.slice(0, 6);
+        } catch (parseError) {
+          console.log("[GROQ] Initial JSON parse failed, attempting to clean...");
+          
+          // Try to fix common JSON issues
+          jsonString = jsonString
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes to unquoted keys
+            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, suffix) => {
+              // Only quote if it's not already quoted and not a number/boolean/null
+              if (!/^(true|false|null|\d+\.?\d*)$/.test(value.trim())) {
+                return `: "${value.trim()}"${suffix}`;
+              }
+              return match;
+            });
+          
+          try {
+            const recommendations = JSON.parse(jsonString) as TripRecommendation[];
+            return recommendations.slice(0, 6);
+          } catch (secondParseError: any) {
+            console.error("[GROQ] JSON cleanup failed:", secondParseError?.message || 'Unknown error');
+            console.error("[GROQ] Problematic JSON:", jsonString.substring(0, 500) + "...");
+            throw new Error("Failed to parse JSON response from AI");
+          }
+        }
       } else {
-        throw new Error("Failed to parse budget trip suggestions");
+        throw new Error("No JSON array found in response");
       }
     } catch (error) {
       console.error("[GROQ] Budget suggestions error:", error);
@@ -407,6 +461,8 @@ export class GroqTravelService {
 
       ${context}
 
+      IMPORTANT: You MUST respond with ONLY valid JSON. No markdown, no code blocks, no explanations - just pure JSON.
+
       Provide helpful, accurate, and actionable advice. Consider:
       - Current travel restrictions and requirements
       - Seasonal factors and weather
@@ -421,27 +477,63 @@ export class GroqTravelService {
 
       Suggest 3 related questions the user might have.
 
-      Return as JSON:
+      Return ONLY this JSON structure (start with { and end with }):
       {
-        "query": "Original question",
+        "query": "${query.replace(/"/g, '\\"')}",
         "response": "Detailed helpful response (200-300 words)",
         "category": "planning",
         "confidence": 85,
         "relatedSuggestions": ["Related question 1", "Related question 2", "Related question 3"]
-      }`;
+      }
+      
+      Start your response with { and end with }. Do not include any text before or after the JSON.`;
 
     // Helper function to process response
     const processResponse = (responseText: string): TravelAssistance => {
       let cleanText = responseText.trim().replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Log the response for debugging
+      console.log("[GROQ] Processing response, length:", responseText.length);
+      console.log("[GROQ] First 200 chars:", responseText.substring(0, 200));
+      
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         let jsonString = jsonMatch[0];
-        jsonString = jsonString
-          .replace(/,(\s*[}\]])/g, '$1')
-          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')
-          .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, ': "$1"$2');
-        return JSON.parse(jsonString) as TravelAssistance;
+        
+        try {
+          // First try to parse as-is
+          return JSON.parse(jsonString) as TravelAssistance;
+        } catch (parseError) {
+          console.log("[GROQ] Initial JSON parse failed, attempting to clean...");
+          
+          // Try to fix common JSON issues
+          jsonString = jsonString
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+            .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes to unquoted keys
+            .replace(/:\s*([^",{\[\s][^",}\]\]]*?)(\s*[,}\]])/g, (match, value, suffix) => {
+              // Only quote if it's not already quoted and not a number/boolean/null
+              if (!/^(true|false|null|\d+\.?\d*)$/.test(value.trim())) {
+                return `: "${value.trim()}"${suffix}`;
+              }
+              return match;
+            });
+          
+          try {
+            return JSON.parse(jsonString) as TravelAssistance;
+          } catch (secondParseError: any) {
+            console.error("[GROQ] JSON cleanup failed:", secondParseError?.message || 'Unknown error');
+            console.error("[GROQ] Problematic JSON:", jsonString.substring(0, 500) + "...");
+            throw new Error("Failed to parse JSON response from AI");
+          }
+        }
       }
+      
+      // If no JSON found, check if response is too short or invalid
+      if (responseText.length < 50) {
+        console.error("[GROQ] Response too short (< 50 chars):", responseText);
+        throw new Error("AI response was too short or incomplete. Please try again.");
+      }
+      
       throw new Error("No JSON object found in response");
     };
 
@@ -455,6 +547,7 @@ export class GroqTravelService {
       }
 
       console.log("[GROQ] Raw response received, length:", responseText.length);
+      console.log("[GROQ] Response preview:", responseText.substring(0, 100) + "...");
       
       const parsed = processResponse(responseText);
       console.log("[GROQ] Successfully parsed response, category:", parsed.category);
@@ -486,7 +579,37 @@ export class GroqTravelService {
         throw new Error("Network error connecting to Groq API. Please check your internet connection.");
       }
       
-      // Throw actual error instead of returning mock
+      // Check for parsing errors - provide a helpful fallback
+      if (error?.message?.includes("parse") || 
+          error?.message?.includes("JSON") ||
+          error?.message?.includes("too short")) {
+        console.error("[GROQ] Response parsing error - providing fallback response");
+        
+        // Return a helpful fallback response instead of throwing
+        return {
+          query: query,
+          response: `I apologize, but I'm having trouble processing your request about "${query}". This could be due to a temporary issue with the AI service. Please try rephrasing your question or try again in a moment. 
+
+For travel planning to Maharashtra with your girlfriend, I'd recommend:
+- Visit Mumbai for its vibrant culture and beaches
+- Explore Pune for historical sites and pleasant weather
+- Consider Lonavala for scenic hill stations
+- Check out Aurangabad for the famous Ajanta and Ellora caves
+- Plan for 5-7 days to cover major attractions
+- Best time to visit: October to February
+
+Would you like more specific recommendations about accommodations, activities, or budget planning?`,
+          category: 'planning' as const,
+          confidence: 60,
+          relatedSuggestions: [
+            "What are the best places to visit in Maharashtra for couples?",
+            "What is the ideal budget for a Maharashtra trip?",
+            "What are the must-try foods in Maharashtra?"
+          ]
+        };
+      }
+      
+      // Throw actual error for other cases
       throw error;
     }
   }

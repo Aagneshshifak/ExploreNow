@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles } from "lucide-react";
+import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
 
 interface AssistanceResponse {
   response: string;
   category: string;
   confidence: number;
   relatedSuggestions: string[];
+  query?: string;
+  timestamp?: string;
+}
+
+interface SavedResponse {
+  id: string;
+  query: string;
+  response: AssistanceResponse;
+  savedAt: string;
 }
 
 export default function AIAssistant() {
@@ -25,6 +34,67 @@ export default function AIAssistant() {
   const [selectedDestination, setSelectedDestination] = useState("");
   const [destinationLoading, setDestinationLoading] = useState(false);
   const [destinationInsights, setDestinationInsights] = useState<any>(null);
+  const [savedResponses, setSavedResponses] = useState<SavedResponse[]>([]);
+  const [currentQuery, setCurrentQuery] = useState("");
+
+  // Load saved responses from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('aiAssistantBookmarks');
+    if (saved) {
+      try {
+        setSavedResponses(JSON.parse(saved));
+      } catch (error) {
+        console.error('Failed to load bookmarks:', error);
+      }
+    }
+  }, []);
+
+  // Save bookmarks to localStorage
+  const saveBookmark = () => {
+    if (!response || !currentQuery) return;
+    
+    const newBookmark: SavedResponse = {
+      id: Date.now().toString(),
+      query: currentQuery,
+      response: response,
+      savedAt: new Date().toISOString()
+    };
+    
+    const updated = [newBookmark, ...savedResponses];
+    setSavedResponses(updated);
+    localStorage.setItem('aiAssistantBookmarks', JSON.stringify(updated));
+    
+    toast({
+      title: "Bookmark Saved",
+      description: "Response saved to your bookmarks",
+    });
+  };
+
+  // Delete bookmark
+  const deleteBookmark = (id: string) => {
+    const updated = savedResponses.filter(b => b.id !== id);
+    setSavedResponses(updated);
+    localStorage.setItem('aiAssistantBookmarks', JSON.stringify(updated));
+    
+    toast({
+      title: "Bookmark Removed",
+      description: "Response removed from bookmarks",
+    });
+  };
+
+  // Check if current response is bookmarked
+  const isBookmarked = () => {
+    return savedResponses.some(b => b.query === currentQuery && b.response.response === response?.response);
+  };
+
+  // Format text to remove markdown bold syntax
+  const formatText = (text: string) => {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove ** bold markers
+      .replace(/\*(.+?)\*/g, '$1') // Remove * italic markers
+      .replace(/‑/g, '-') // Replace non-breaking hyphens
+      .trim();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +159,7 @@ export default function AIAssistant() {
       
       if (data.success && data.data) {
         setResponse(data.data);
+        setCurrentQuery(query); // Save the query for bookmarking
         toast({
           title: "AI Response Ready",
           description: `Category: ${data.data.category || "General"}`,
@@ -179,8 +250,11 @@ export default function AIAssistant() {
       </div>
 
       <Tabs defaultValue="assistant" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="assistant">Travel Assistant</TabsTrigger>
+          <TabsTrigger value="bookmarks">
+            Bookmarks ({savedResponses.length})
+          </TabsTrigger>
           <TabsTrigger value="chat">Live Chat</TabsTrigger>
           <TabsTrigger value="insights">Destination Insights</TabsTrigger>
         </TabsList>
@@ -253,7 +327,25 @@ export default function AIAssistant() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>AI Response</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={saveBookmark}
+                      disabled={isBookmarked()}
+                    >
+                      {isBookmarked() ? (
+                        <>
+                          <BookmarkCheck className="h-4 w-4 mr-1" />
+                          Saved
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark className="h-4 w-4 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </Button>
                     <Badge variant="secondary">{response.category}</Badge>
                     <Badge variant={response.confidence > 80 ? "default" : "outline"}>
                       {response.confidence}% confidence
@@ -263,7 +355,18 @@ export default function AIAssistant() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="bg-muted p-4 rounded-lg">
-                  <p className="whitespace-pre-wrap">{response.response}</p>
+                  <div className="prose prose-sm max-w-none">
+                    {formatText(response.response).split('\n\n').map((paragraph, idx) => (
+                      <p key={idx} className="mb-3 last:mb-0 leading-relaxed">
+                        {paragraph.split('\n').map((line, lineIdx) => (
+                          <span key={lineIdx}>
+                            {line}
+                            {lineIdx < paragraph.split('\n').length - 1 && <br />}
+                          </span>
+                        ))}
+                      </p>
+                    ))}
+                  </div>
                 </div>
                 
                 {response.relatedSuggestions && response.relatedSuggestions.length > 0 && (
@@ -287,6 +390,70 @@ export default function AIAssistant() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Bookmarks Tab */}
+        <TabsContent value="bookmarks" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bookmark className="h-5 w-5" />
+                Saved Responses ({savedResponses.length})
+              </CardTitle>
+              <CardDescription>
+                Your bookmarked AI travel assistance responses
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {savedResponses.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  <Bookmark className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No bookmarks yet</p>
+                  <p className="text-sm mt-2">Save helpful responses to access them later</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {savedResponses.map((saved) => (
+                    <Card key={saved.id} className="border-2">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-base">{saved.query}</CardTitle>
+                            <CardDescription className="text-xs mt-1">
+                              Saved on {new Date(saved.savedAt).toLocaleDateString()} at {new Date(saved.savedAt).toLocaleTimeString()}
+                            </CardDescription>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteBookmark(saved.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-muted p-3 rounded-lg text-sm">
+                          <div className="prose prose-sm max-w-none">
+                            {formatText(saved.response.response).split('\n\n').slice(0, 2).map((paragraph, idx) => (
+                              <p key={idx} className="mb-2 last:mb-0">
+                                {paragraph.length > 200 ? paragraph.substring(0, 200) + '...' : paragraph}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <Badge variant="secondary" className="text-xs">{saved.response.category}</Badge>
+                          <Badge variant="outline" className="text-xs">{saved.response.confidence}% confidence</Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Live Chat Tab */}
