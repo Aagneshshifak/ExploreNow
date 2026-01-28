@@ -354,10 +354,10 @@ export default function AIAssistant() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-muted p-4 rounded-lg">
-                  <div className="prose prose-sm max-w-none">
+                <div className="bg-muted/50 p-6 rounded-lg border border-border">
+                  <div className="prose prose-sm max-w-none text-foreground">
                     {formatText(response.response).split('\n\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-3 last:mb-0 leading-relaxed">
+                      <p key={idx} className="mb-4 last:mb-0 leading-relaxed text-base text-foreground">
                         {paragraph.split('\n').map((line, lineIdx) => (
                           <span key={lineIdx}>
                             {line}
@@ -434,10 +434,10 @@ export default function AIAssistant() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="bg-muted p-3 rounded-lg text-sm">
-                          <div className="prose prose-sm max-w-none">
+                        <div className="bg-muted/50 p-4 rounded-lg border border-border text-sm">
+                          <div className="prose prose-sm max-w-none text-foreground">
                             {formatText(saved.response.response).split('\n\n').slice(0, 2).map((paragraph, idx) => (
-                              <p key={idx} className="mb-2 last:mb-0">
+                              <p key={idx} className="mb-2 last:mb-0 text-foreground">
                                 {paragraph.length > 200 ? paragraph.substring(0, 200) + '...' : paragraph}
                               </p>
                             ))}

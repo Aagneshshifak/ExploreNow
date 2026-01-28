@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql } from "./db";
-import { bookings, trips, hotels } from "@shared/schema";
+import { bookings, trips, hotels, bookmarks, userPreferences } from "@shared/schema";
 import { requireUser, requireAdmin, generateToken, createResponse } from "./middleware";
 import { convertCurrency } from "./controllers/utils";
 import { emailService } from "./services/emailService";
@@ -1890,7 +1890,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user preferences - GET /api/user/preferences
   app.get("/api/user/preferences", requireUser, async (req, res) => {
     try {
-      const preferences = await storage.getUserPreferences(req.user!.id);
+      const userId = req.user!.id;
+      
+      // Query user preferences from database
+      const [preferences] = await db
+        .select()
+        .from(userPreferences)
+        .where(eq(userPreferences.userId, userId))
+        .limit(1);
+
+      // Return preferences or default values if not found
+      if (!preferences) {
+        const defaultPreferences = {
+          userId,
+          currency: "USD",
+          language: "en",
+          theme: "light",
+          notificationsEnabled: true,
+          emailNotifications: true,
+        };
+        return res.json(createResponse(true, defaultPreferences, "Default preferences returned"));
+      }
+
       res.json(createResponse(true, preferences, "User preferences retrieved successfully"));
     } catch (error) {
       console.error("Get user preferences error:", error);
@@ -1901,7 +1922,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create/update user preferences - POST /api/user/preferences
   app.post("/api/user/preferences", requireUser, async (req, res) => {
     try {
-      // Basic validation - userPreferences table not in schema yet
+      const userId = req.user!.id;
+      const { currency, language, theme, notificationsEnabled, emailNotifications } = req.body;
+
+      // Basic validation
       if (!req.body || typeof req.body !== 'object') {
         return res.status(400).json(
           createResponse(false, null, "Invalid preferences data")
@@ -1909,24 +1933,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if preferences exist
-      const existing = await storage.getUserPreferences(req.user!.id);
+      const [existing] = await db
+        .select()
+        .from(userPreferences)
+        .where(eq(userPreferences.userId, userId))
+        .limit(1);
+
       let preferences;
-      
-      const preferencesData = {
-        ...req.body,
-        userId: req.user!.id
-      };
-      
+
       if (existing) {
-        preferences = await storage.updateUserPreferences(req.user!.id, preferencesData);
+        // Update existing preferences
+        [preferences] = await db
+          .update(userPreferences)
+          .set({
+            currency: currency || existing.currency,
+            language: language || existing.language,
+            theme: theme || existing.theme,
+            notificationsEnabled: notificationsEnabled !== undefined ? notificationsEnabled : existing.notificationsEnabled,
+            emailNotifications: emailNotifications !== undefined ? emailNotifications : existing.emailNotifications,
+            updatedAt: new Date(),
+          })
+          .where(eq(userPreferences.userId, userId))
+          .returning();
       } else {
-        preferences = await storage.createUserPreferences(preferencesData);
+        // Create new preferences
+        [preferences] = await db
+          .insert(userPreferences)
+          .values({
+            userId,
+            currency: currency || "USD",
+            language: language || "en",
+            theme: theme || "light",
+            notificationsEnabled: notificationsEnabled !== undefined ? notificationsEnabled : true,
+            emailNotifications: emailNotifications !== undefined ? emailNotifications : true,
+          })
+          .returning();
       }
 
       res.json(createResponse(true, preferences, "User preferences saved successfully"));
     } catch (error) {
       console.error("Save user preferences error:", error);
       res.status(500).json(createResponse(false, null, "Failed to save user preferences"));
+    }
+  });
+
+  // ============================================
+  // USER BOOKMARKS ROUTES
+  // ============================================
+
+  // Get user bookmarks - GET /api/user/bookmarks
+  app.get("/api/user/bookmarks", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Query bookmarks with trip and hotel details
+      const userBookmarks = await db
+        .select({
+          id: bookmarks.id,
+          userId: bookmarks.userId,
+          tripId: bookmarks.tripId,
+          hotelId: bookmarks.hotelId,
+          createdAt: bookmarks.createdAt,
+          updatedAt: bookmarks.updatedAt,
+          trip: {
+            id: trips.id,
+            title: trips.title,
+            location: trips.location,
+            description: trips.description,
+            price: trips.price,
+            imageUrl: trips.imageUrl,
+            duration: trips.duration,
+          },
+          hotel: {
+            id: hotels.id,
+            name: hotels.name,
+            location: hotels.location,
+            description: hotels.description,
+            price: hotels.price,
+            imageUrl: hotels.imageUrl,
+            rating: hotels.rating,
+          },
+        })
+        .from(bookmarks)
+        .leftJoin(trips, eq(bookmarks.tripId, trips.id))
+        .leftJoin(hotels, eq(bookmarks.hotelId, hotels.id))
+        .where(eq(bookmarks.userId, userId))
+        .orderBy(desc(bookmarks.createdAt));
+
+      res.json(createResponse(true, userBookmarks, "Bookmarks retrieved successfully"));
+    } catch (error) {
+      console.error("Get bookmarks error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to retrieve bookmarks"));
+    }
+  });
+
+  // Create bookmark - POST /api/user/bookmarks
+  app.post("/api/user/bookmarks", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { tripId, hotelId } = req.body;
+
+      // Validate that either tripId or hotelId is provided, but not both
+      if ((!tripId && !hotelId) || (tripId && hotelId)) {
+        return res.status(400).json(
+          createResponse(false, null, "Either tripId or hotelId must be provided, but not both")
+        );
+      }
+
+      // Check if bookmark already exists
+      const existing = await db
+        .select()
+        .from(bookmarks)
+        .where(
+          and(
+            eq(bookmarks.userId, userId),
+            tripId ? eq(bookmarks.tripId, tripId) : eq(bookmarks.hotelId, hotelId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.status(400).json(
+          createResponse(false, null, "Bookmark already exists")
+        );
+      }
+
+      // Create bookmark
+      const [newBookmark] = await db
+        .insert(bookmarks)
+        .values({
+          userId,
+          tripId: tripId || null,
+          hotelId: hotelId || null,
+        })
+        .returning();
+
+      res.status(201).json(createResponse(true, newBookmark, "Bookmark created successfully"));
+    } catch (error) {
+      console.error("Create bookmark error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to create bookmark"));
+    }
+  });
+
+  // Delete bookmark - DELETE /api/user/bookmarks/:id
+  app.delete("/api/user/bookmarks/:id", requireUser, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const bookmarkId = parseInt(req.params.id);
+
+      if (isNaN(bookmarkId)) {
+        return res.status(400).json(
+          createResponse(false, null, "Invalid bookmark ID")
+        );
+      }
+
+      // Check if bookmark exists and belongs to user
+      const [bookmark] = await db
+        .select()
+        .from(bookmarks)
+        .where(eq(bookmarks.id, bookmarkId))
+        .limit(1);
+
+      if (!bookmark) {
+        return res.status(404).json(
+          createResponse(false, null, "Bookmark not found")
+        );
+      }
+
+      if (bookmark.userId !== userId) {
+        return res.status(403).json(
+          createResponse(false, null, "Access denied")
+        );
+      }
+
+      // Delete bookmark
+      await db
+        .delete(bookmarks)
+        .where(eq(bookmarks.id, bookmarkId));
+
+      res.json(createResponse(true, null, "Bookmark deleted successfully"));
+    } catch (error) {
+      console.error("Delete bookmark error:", error);
+      res.status(500).json(createResponse(false, null, "Failed to delete bookmark"));
     }
   });
 
