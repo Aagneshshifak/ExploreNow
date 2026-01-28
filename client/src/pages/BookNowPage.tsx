@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogIn, Sparkles, Calendar, CreditCard } from "lucide-react";
 import { graphqlClient, executeMutation } from "../lib/graphql";
 import Lottie from "lottie-react";
 
@@ -117,6 +121,7 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
   const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [trip, setTrip] = useState<Trip | null>(propTrip || null);
   const [hotel, setHotel] = useState<Hotel | null>(propHotel || null);
@@ -206,6 +211,15 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if user is logged in
+    if (!user) {
+      if (window.confirm("You need to sign in to make a booking. Would you like to sign in now?")) {
+        navigate('/login', { state: { from: { pathname: '/book-now' } } });
+      }
+      return;
+    }
+    
     if (!trip || !hotel) {
       alert("Please select both a trip and hotel before booking.");
       return;
@@ -348,7 +362,66 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8 relative">
+      {/* Blur Overlay for non-authenticated users */}
+      {!user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md mx-4 shadow-2xl">
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
+                  <LogIn className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl">Sign In to Book</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Please sign in to complete your booking and secure your amazing trip!
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm font-semibold mb-2">With an account, you can:</p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-500" />
+                    Book trips and hotels
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-green-500" />
+                    Secure payment processing
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                    Track your bookings
+                  </li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={() => navigate('/login', { state: { from: { pathname: '/book-now' } } })}
+                  className="w-full"
+                  size="lg"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
+                </Button>
+                <Button 
+                  onClick={() => navigate('/signup', { state: { from: { pathname: '/book-now' } } })}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  Create Account
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Don't have an account? Sign up for free!
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto px-4">
         <div className="bg-white rounded-lg shadow-xl overflow-hidden">
           {/* Header */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2, LogIn } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AssistanceResponse {
   response: string;
@@ -26,6 +38,8 @@ interface SavedResponse {
 
 export default function AIAssistant() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
@@ -36,6 +50,7 @@ export default function AIAssistant() {
   const [destinationInsights, setDestinationInsights] = useState<any>(null);
   const [savedResponses, setSavedResponses] = useState<SavedResponse[]>([]);
   const [currentQuery, setCurrentQuery] = useState("");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // Load saved responses from localStorage
   useEffect(() => {
@@ -52,6 +67,12 @@ export default function AIAssistant() {
   // Save bookmarks to localStorage
   const saveBookmark = () => {
     if (!response || !currentQuery) return;
+    
+    // Check if user is logged in
+    if (!user) {
+      setShowLoginDialog(true);
+      return;
+    }
     
     const newBookmark: SavedResponse = {
       id: Date.now().toString(),
@@ -237,7 +258,92 @@ export default function AIAssistant() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl relative">
+      {/* Blur Overlay for non-authenticated users */}
+      {!user && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md mx-4 shadow-2xl">
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
+                  <LogIn className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl">Sign In Required</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Please sign in to access the AI Travel Assistant and save your personalized travel recommendations.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm font-semibold mb-2">With an account, you can:</p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-yellow-500" />
+                    Get AI-powered travel advice
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Bookmark className="h-4 w-4 text-blue-500" />
+                    Save your favorite responses
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-purple-500" />
+                    Access personalized recommendations
+                  </li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={() => navigate('/login', { state: { from: { pathname: '/ai-assistant' } } })}
+                  className="w-full"
+                  size="lg"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
+                </Button>
+                <Button 
+                  onClick={() => navigate('/signup', { state: { from: { pathname: '/ai-assistant' } } })}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  Create Account
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Don't have an account? Sign up for free!
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Login Banner for non-authenticated users - Hidden when overlay is shown */}
+      {!user && (
+        <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 opacity-50">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <LogIn className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">
+                  Sign in to unlock all features
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Save bookmarks, access personalized recommendations, and more!
+                </p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => navigate('/login', { state: { from: { pathname: '/ai-assistant' } } })}
+              variant="default"
+              size="sm"
+            >
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Bot className="h-8 w-8 text-blue-600" />
@@ -590,6 +696,28 @@ export default function AIAssistant() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Login Dialog */}
+      <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <LogIn className="h-5 w-5" />
+              Sign In Required
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You need to sign in to save bookmarks and access personalized features. 
+              Create a free account to unlock all features!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue Browsing</AlertDialogCancel>
+            <AlertDialogAction onClick={() => navigate('/login', { state: { from: { pathname: '/ai-assistant' } } })}>
+              Sign In
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
