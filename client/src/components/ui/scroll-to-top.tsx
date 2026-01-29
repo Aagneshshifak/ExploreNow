@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 export function ScrollToTop() {
   const [isVisible, setIsVisible] = useState(false);
 
+  // Show/hide scroll to top button
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.pageYOffset > 300) {
