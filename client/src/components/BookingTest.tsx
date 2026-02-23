@@ -39,12 +39,12 @@ const BookingTest: React.FC = () => {
       const { data, error } = await executeMutation(CREATE_BOOKING_MUTATION, formData);
       
       if (error) {
-        setResult({ success: false, message: error.message });
+        setResult({ success: false, message: (error as any)?.message || 'GraphQL error occurred' });
       } else {
         setResult(data.createBooking);
       }
-    } catch (err) {
-      setResult({ success: false, message: 'An error occurred' });
+    } catch (err: any) {
+      setResult({ success: false, message: err?.message || 'An error occurred' });
     } finally {
       setLoading(false);
     }

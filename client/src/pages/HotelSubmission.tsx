@@ -192,6 +192,7 @@ export default function HotelSubmission() {
                           className="resize-none"
                           rows={4}
                           {...field}
+                          value={field.value || ''}
                         />
                       </FormControl>
                       <FormMessage />
@@ -228,7 +229,8 @@ export default function HotelSubmission() {
                             min="1" 
                             max="5" 
                             placeholder="4.5" 
-                            {...field} 
+                            {...field}
+                            value={field.value || ''}
                           />
                         </FormControl>
                         <FormMessage />
@@ -243,7 +245,7 @@ export default function HotelSubmission() {
                       <FormItem>
                         <FormLabel>Image URL</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://example.com/image.jpg" {...field} />
+                          <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

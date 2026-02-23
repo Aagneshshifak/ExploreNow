@@ -64,7 +64,7 @@ const TextTranslator = () => {
           
           // Remove common AI response prefixes
           translation = translation.replace(/^(Translation:|Translated text:|Here is the translation:|The translation is:)\s*/i, '');
-          translation = translation.replace(/^["'](.+)["']$/s, '$1'); // Remove quotes if wrapped
+          translation = translation.replace(/^["'](.+)["']$/g, '$1'); // Remove quotes if wrapped
           
           setOutputText(translation);
           toast({

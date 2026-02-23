@@ -1,0 +1,539 @@
+{
+  "title": "Groq API Response Schema Documentation",
+  "version": "1.0.0",
+  "description": "Comprehensive schema definitions for all Groq AI-powered travel API endpoints",
+  "baseUrl": "http://localhost:5000/api/ai",
+  "authentication": "Cookie-based JWT authentication required for some endpoints",
+  "commonResponseStructure": {
+    "success": {
+      "type": "boolean",
+      "description": "Indicates if the request was successful"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable message about the operation"
+    },
+    "data": {
+      "type": "object",
+      "description": "Contains the actual response data"
+    },
+    "error": {
+      "type": "string",
+      "optional": true,
+      "description": "Error message if success is false"
+    }
+  },
+  "endpoints": {
+    "/api/ai/recommend": {
+      "method": "POST",
+      "description": "Generate personalized trip recommendations using Groq AI",
+      "requestSchema": {
+        "type": "object",
+        "required": ["budget", "interests", "duration"],
+        "properties": {
+          "budget": {
+            "type": "number",
+            "description": "Travel budget in USD",
+            "minimum": 100,
+            "example": 2000
+          },
+          "interests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of travel interests",
+            "example": ["adventure", "culture", "nature", "food"]
+          },
+          "duration": {
+            "type": "number",
+            "description": "Trip duration in days",
+            "minimum": 1,
+            "maximum": 30,
+            "example": 7
+          },
+          "destination": {
+            "type": "string",
+            "optional": true,
+            "description": "Preferred destination or region",
+            "example": "Southeast Asia"
+          },
+          "travelStyle": {
+            "type": "string",
+            "optional": true,
+            "enum": ["Budget", "Standard", "Luxury"],
+            "default": "Standard",
+            "example": "Standard"
+          }
+        }
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "trips": {
+                "type": "array",
+                "description": "Array of recommended trips",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "description": "Unique trip identifier" },
+                    "name": { "type": "string", "description": "Trip name/title" },
+                    "location": { "type": "string", "description": "Destination location" },
+                    "cost": { "type": "number", "description": "Estimated cost in USD" },
+                    "duration": { "type": "string", "description": "Trip duration" },
+                    "tags": { "type": "array", "items": { "type": "string" }, "description": "Trip tags/categories" },
+                    "description": { "type": "string", "description": "Trip description" },
+                    "rating": { "type": "number", "minimum": 0, "maximum": 5, "description": "Trip rating" },
+                    "includes": { "type": "array", "items": { "type": "string" }, "description": "What's included" },
+                    "bestTimeToVisit": { "type": "string", "description": "Best time to visit" },
+                    "weatherInfo": { "type": "string", "description": "Weather information" },
+                    "culturalHighlights": { "type": "array", "items": { "type": "string" }, "description": "Cultural highlights" }
+                  }
+                }
+              },
+              "recommendations": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Additional travel recommendations"
+              },
+              "budgetBreakdown": {
+                "type": "object",
+                "description": "Budget breakdown by category",
+                "properties": {
+                  "accommodation": { "type": "string" },
+                  "transportation": { "type": "string" },
+                  "food": { "type": "string" },
+                  "activities": { "type": "string" },
+                  "total": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "exampleResponse": {
+        "success": true,
+        "message": "Trip recommendations generated successfully",
+        "data": {
+          "trips": [
+            {
+              "id": "trip_001",
+              "name": "Bangkok Cultural Adventure",
+              "location": "Bangkok, Thailand",
+              "cost": 1800,
+              "duration": "7 days",
+              "tags": ["culture", "food", "temples", "urban"],
+              "description": "Explore ancient temples, vibrant markets, and authentic Thai cuisine",
+              "rating": 4.7,
+              "includes": ["Accommodation", "Breakfast", "Temple tours", "Cooking class"],
+              "bestTimeToVisit": "November to March",
+              "weatherInfo": "Cool and dry season, perfect for sightseeing",
+              "culturalHighlights": ["Grand Palace", "Wat Pho Temple", "Floating Markets"]
+            }
+          ],
+          "recommendations": [
+            "Book accommodations in advance for better rates",
+            "Try local street food for authentic experiences"
+          ],
+          "budgetBreakdown": {
+            "accommodation": "$600",
+            "transportation": "$400",
+            "food": "$300",
+            "activities": "$500",
+            "total": "$1800"
+          }
+        }
+      }
+    },
+    "/api/ai/budget-suggestions": {
+      "method": "POST",
+      "description": "Get budget-friendly trip suggestions with cost optimization",
+      "requestSchema": {
+        "type": "object",
+        "required": ["budget", "currency"],
+        "properties": {
+          "budget": {
+            "type": "number",
+            "description": "Maximum budget amount",
+            "minimum": 100,
+            "example": 1500
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "enum": ["USD", "EUR", "GBP", "INR", "JPY", "CAD", "AUD"],
+            "example": "USD"
+          },
+          "preferences": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Travel preferences",
+            "example": ["budget", "culture", "food"]
+          },
+          "duration": {
+            "type": "number",
+            "description": "Trip duration in days",
+            "example": 5
+          }
+        }
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "trips": {
+                "type": "array",
+                "description": "Budget-friendly trip options",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "location": { "type": "string" },
+                    "cost": { "type": "number" },
+                    "savings": { "type": "string", "description": "Amount saved compared to standard pricing" },
+                    "budgetTips": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              },
+              "budgetTips": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Money-saving tips"
+              },
+              "alternatives": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Alternative budget options"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/optimize-route": {
+      "method": "POST",
+      "description": "Optimize travel route for multiple destinations",
+      "requestSchema": {
+        "type": "object",
+        "required": ["destinations"],
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of destinations to visit",
+            "example": ["Bangkok", "Chiang Mai", "Phuket"]
+          },
+          "budget": {
+            "type": "number",
+            "optional": true,
+            "description": "Total budget for the route",
+            "example": 2500
+          },
+          "duration": {
+            "type": "number",
+            "optional": true,
+            "description": "Total trip duration in days",
+            "example": 10
+          },
+          "preferences": {
+            "type": "array",
+            "items": { "type": "string" },
+            "optional": true,
+            "description": "Travel preferences",
+            "example": ["culture", "beaches", "food"]
+          }
+        }
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "totalDistance": { "type": "string", "description": "Total travel distance" },
+              "totalDuration": { "type": "string", "description": "Total travel time" },
+              "estimatedCost": { "type": "string", "description": "Estimated total cost" },
+              "route": {
+                "type": "array",
+                "description": "Optimized route with stops",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "order": { "type": "number", "description": "Stop order" },
+                    "destination": { "type": "string", "description": "Destination name" },
+                    "arrivalTime": { "type": "string", "description": "Estimated arrival time" },
+                    "stayDuration": { "type": "string", "description": "Recommended stay duration" },
+                    "activities": { "type": "array", "items": { "type": "string" }, "description": "Recommended activities" },
+                    "estimatedCost": { "type": "string", "description": "Cost for this stop" },
+                    "travelTime": { "type": "string", "description": "Travel time to next destination" },
+                    "accommodationSuggestions": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              },
+              "recommendations": { "type": "array", "items": { "type": "string" } },
+              "weatherWarnings": { "type": "array", "items": { "type": "string" } },
+              "budgetBreakdown": {
+                "type": "object",
+                "properties": {
+                  "transportation": { "type": "string" },
+                  "accommodation": { "type": "string" },
+                  "food": { "type": "string" },
+                  "activities": { "type": "string" },
+                  "total": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/assistant": {
+      "method": "POST",
+      "description": "General travel assistance and Q&A using Groq AI",
+      "requestSchema": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Travel-related question or request",
+            "example": "What are the best places to visit in Japan for first-time travelers?"
+          },
+          "userContext": {
+            "type": "object",
+            "optional": true,
+            "description": "Additional context about the user",
+            "properties": {
+              "budget": { "type": "number", "optional": true },
+              "duration": { "type": "number", "optional": true },
+              "interests": { "type": "array", "items": { "type": "string" }, "optional": true },
+              "travelStyle": { "type": "string", "optional": true }
+            }
+          }
+        }
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "query": { "type": "string", "description": "Original user query" },
+              "response": { "type": "string", "description": "AI-generated response" },
+              "category": {
+                "type": "string",
+                "enum": ["planning", "booking", "destination", "general"],
+                "description": "Query category"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "AI confidence score"
+              },
+              "relatedSuggestions": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Related suggestions or follow-up questions"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/destination-insights": {
+      "method": "POST",
+      "description": "Get detailed insights about a specific destination",
+      "requestSchema": {
+        "type": "object",
+        "required": ["destination"],
+        "properties": {
+          "destination": {
+            "type": "string",
+            "description": "Destination name",
+            "example": "Tokyo, Japan"
+          },
+          "interests": {
+            "type": "array",
+            "items": { "type": "string" },
+            "optional": true,
+            "description": "Areas of interest",
+            "example": ["culture", "food", "technology"]
+          },
+          "budget": {
+            "type": "number",
+            "optional": true,
+            "description": "Budget for the destination",
+            "example": 2000
+          },
+          "duration": {
+            "type": "number",
+            "optional": true,
+            "description": "Stay duration in days",
+            "example": 7
+          }
+        }
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "destination": { "type": "string", "description": "Destination name" },
+              "overview": { "type": "string", "description": "Destination overview" },
+              "attractions": {
+                "type": "array",
+                "description": "Top attractions",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "category": { "type": "string" },
+                    "estimatedCost": { "type": "string" },
+                    "timeNeeded": { "type": "string" }
+                  }
+                }
+              },
+              "cuisine": {
+                "type": "array",
+                "description": "Local cuisine highlights",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dish": { "type": "string" },
+                    "description": { "type": "string" },
+                    "whereToTry": { "type": "string" },
+                    "priceRange": { "type": "string" }
+                  }
+                }
+              },
+              "culture": {
+                "type": "object",
+                "description": "Cultural information",
+                "properties": {
+                  "language": { "type": "string" },
+                  "currency": { "type": "string" },
+                  "customs": { "type": "array", "items": { "type": "string" } },
+                  "etiquette": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "budgetGuide": {
+                "type": "object",
+                "description": "Budget guidance",
+                "properties": {
+                  "budget": { "type": "string", "description": "Budget category" },
+                  "dailyCost": { "type": "string", "description": "Average daily cost" },
+                  "accommodation": { "type": "string", "description": "Accommodation costs" },
+                  "food": { "type": "string", "description": "Food costs" },
+                  "transport": { "type": "string", "description": "Transportation costs" },
+                  "activities": { "type": "string", "description": "Activity costs" }
+                }
+              },
+              "bestTimeToVisit": { "type": "string", "description": "Best time to visit" },
+              "weatherInfo": { "type": "string", "description": "Weather information" },
+              "travelTips": { "type": "array", "items": { "type": "string" }, "description": "Travel tips" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "errorHandling": {
+    "description": "All endpoints follow consistent error handling patterns",
+    "commonErrors": {
+      "400": {
+        "description": "Bad Request - Invalid input parameters",
+        "example": {
+          "success": false,
+          "message": "Invalid budget amount. Must be greater than 100.",
+          "error": "INVALID_INPUT"
+        }
+      },
+      "401": {
+        "description": "Unauthorized - Missing or invalid authentication",
+        "example": {
+          "success": false,
+          "message": "Authentication required",
+          "error": "UNAUTHORIZED"
+        }
+      },
+      "429": {
+        "description": "Rate Limit Exceeded - Too many requests",
+        "example": {
+          "success": false,
+          "message": "Rate limit exceeded. Please try again later.",
+          "error": "RATE_LIMIT_EXCEEDED"
+        }
+      },
+      "500": {
+        "description": "Internal Server Error - Groq API or server error",
+        "example": {
+          "success": false,
+          "message": "Failed to generate recommendations. Please try again.",
+          "error": "GROQ_API_ERROR"
+        }
+      },
+      "503": {
+        "description": "Service Unavailable - Groq API temporarily unavailable",
+        "example": {
+          "success": false,
+          "message": "AI service temporarily unavailable. Using fallback data.",
+          "error": "SERVICE_UNAVAILABLE"
+        }
+      }
+    }
+  },
+  "rateLimiting": {
+    "description": "API rate limiting information",
+    "limits": {
+      "perMinute": 60,
+      "perHour": 1000,
+      "perDay": 10000
+    },
+    "headers": {
+      "X-RateLimit-Limit": "Rate limit ceiling for the endpoint",
+      "X-RateLimit-Remaining": "Number of requests remaining in current window",
+      "X-RateLimit-Reset": "UTC epoch seconds when the rate limit resets"
+    }
+  },
+  "bestPractices": {
+    "description": "Best practices for using the Groq AI travel API",
+    "recommendations": [
+      "Always check the 'success' field before processing data",
+      "Implement proper error handling for all possible HTTP status codes",
+      "Cache responses when appropriate to reduce API calls",
+      "Provide meaningful user context for better AI responses",
+      "Use specific and descriptive queries for better results",
+      "Implement retry logic with exponential backoff for failed requests",
+      "Validate input parameters before sending requests",
+      "Monitor API usage to stay within rate limits"
+    ]
+  },
+  "examples": {
+    "description": "Complete request/response examples for testing",
+    "curlExamples": {
+      "tripRecommendations": "curl -X POST http://localhost:5000/api/ai/recommend -H 'Content-Type: application/json' -d '{\"budget\": 2000, \"interests\": [\"culture\", \"food\"], \"duration\": 7}'",
+      "budgetSuggestions": "curl -X POST http://localhost:5000/api/ai/budget-suggestions -H 'Content-Type: application/json' -d '{\"budget\": 1500, \"currency\": \"USD\", \"preferences\": [\"budget\", \"culture\"], \"duration\": 5}'",
+      "routeOptimization": "curl -X POST http://localhost:5000/api/ai/optimize-route -H 'Content-Type: application/json' -d '{\"destinations\": [\"Bangkok\", \"Chiang Mai\"], \"budget\": 2000, \"duration\": 8}'",
+      "travelAssistant": "curl -X POST http://localhost:5000/api/ai/assistant -H 'Content-Type: application/json' -d '{\"query\": \"Best time to visit Japan?\", \"userContext\": {\"budget\": 3000}}'"
+    }
+  }
+}

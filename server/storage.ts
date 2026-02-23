@@ -1,4 +1,4 @@
-import { eq, desc, and, lte, gte, inArray, ilike, asc } from "drizzle-orm";
+import { eq, desc, and, lte, gte, inArray, ilike, asc, isNotNull } from "drizzle-orm";
 import { db } from "./db";
 import { 
   users, trips, hotels, bookings, reviews, payments,
@@ -203,7 +203,7 @@ export class DatabaseStorage implements IStorage {
       transportDetails: booking.transportDetails,
       createdAt: booking.createdAt,
       trip: booking.tripId ? {
-        id: booking.tripId,
+        id: typeof booking.tripId === 'string' ? parseInt(booking.tripId) : booking.tripId, 
         title: booking.tripTitle!,
         location: booking.tripLocation!,
         description: null,
@@ -213,9 +213,9 @@ export class DatabaseStorage implements IStorage {
         tags: null,
         includes: null,
         createdAt: null,
-      } : undefined,
+      } as unknown as Trip : undefined,
       hotel: booking.hotelId ? {
-        id: booking.hotelId,
+        id: typeof booking.hotelId === 'string' ? parseInt(booking.hotelId) : booking.hotelId,
         name: booking.hotelName!,
         location: booking.hotelLocation!,
         description: null,
@@ -226,7 +226,7 @@ export class DatabaseStorage implements IStorage {
         includes: null,
         amenities: null,
         createdAt: null,
-      } : undefined,
+      } as unknown as Hotel : undefined,
     }));
   }
 
@@ -254,16 +254,20 @@ export class DatabaseStorage implements IStorage {
     if (type && itemId) {
       if (type === 'trip') {
         return await db.select().from(reviews)
-          .where(eq(reviews.tripId, itemId))
+          .where(and(eq(reviews.tripId, itemId), isNotNull(reviews.tripId)))
           .orderBy(desc(reviews.createdAt));
       } else {
         return await db.select().from(reviews)
-          .where(eq(reviews.hotelId, itemId))
+          .where(and(eq(reviews.hotelId, itemId), isNotNull(reviews.hotelId)))
           .orderBy(desc(reviews.createdAt));
       }
-    } else if (type) {
+    } else if (type === 'trip') {
       return await db.select().from(reviews)
-        .where(eq(reviews.type, type))
+        .where(isNotNull(reviews.tripId))
+        .orderBy(desc(reviews.createdAt));
+    } else if (type === 'hotel') {
+      return await db.select().from(reviews)
+        .where(isNotNull(reviews.hotelId))
         .orderBy(desc(reviews.createdAt));
     }
     
@@ -355,7 +359,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await query.where(and(...conditions));
     }
     
     return await query;
@@ -389,7 +393,13 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      // Don't reassign query, create new Promise
+      const results = await query.where(and(...conditions));
+      const recommendedTrips = results.filter(trip => {
+        if (!trip.tags || trip.tags.length === 0) return false;
+        return data.preferences.some(pref => trip.tags!.includes(pref));
+      });
+      return recommendedTrips.length > 0 ? recommendedTrips : results.slice(0, 5);
     }
 
     const allTrips = await query;
@@ -436,7 +446,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPaymentByBookingId(bookingId: number): Promise<Payment | undefined> {
-    const [payment] = await db.select().from(payments).where(eq(payments.bookingId, bookingId));
+    const [payment] = await db.select().from(payments).where(eq(payments.bookingId, bookingId.toString()));
     return payment;
   }
 

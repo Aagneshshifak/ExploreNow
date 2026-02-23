@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import { ScrollToTop } from './components/ui/scroll-to-top';
+import { PageTransition } from './components/PageTransition';
 import { AuthProvider } from './hooks/use-auth';
 import { ProtectedRoute } from './components/ui/protected-route';
 import { CurrencyProvider } from './contexts/CurrencyContext';
@@ -99,7 +100,8 @@ const App = () => {
               <Sonner />
               <BrowserRouter>
             <div className="min-h-screen bg-background text-foreground">
-              <Routes>
+              <PageTransition>
+                <Routes>
                 {/* Routes without navigation */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -126,6 +128,7 @@ const App = () => {
                 <Route path="/trips" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripsList /></Layout>} />
                 <Route path="/trip/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripDetails /></Layout>} />
                 <Route path="/hotel/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelDetails /></Layout>} />
+                <Route path="/hotels" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
                 <Route path="/hotels-list" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
                 <Route path="/transports" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TransportsPage /></Layout>} />
                 <Route path="/currency-converter" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExpenseConverter /></Layout>} />
@@ -212,6 +215,7 @@ const App = () => {
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </PageTransition>
               <ScrollToTop />
             </div>
           </BrowserRouter>

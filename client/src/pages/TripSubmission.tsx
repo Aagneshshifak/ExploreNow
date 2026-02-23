@@ -194,6 +194,7 @@ export default function TripSubmission() {
                           className="resize-none"
                           rows={4}
                           {...field}
+                          value={field.value || ''}
                         />
                       </FormControl>
                       <FormMessage />
@@ -230,7 +231,8 @@ export default function TripSubmission() {
                             max="30" 
                             placeholder="7" 
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
                           />
                         </FormControl>
                         <FormMessage />
@@ -245,7 +247,7 @@ export default function TripSubmission() {
                       <FormItem>
                         <FormLabel>Cover Image URL</FormLabel>
                         <FormControl>
-                          <Input placeholder="https://example.com/image.jpg" {...field} />
+                          <Input placeholder="https://example.com/image.jpg" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

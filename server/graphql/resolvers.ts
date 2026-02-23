@@ -5,15 +5,25 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createResponse } from '../middleware';
 
+interface UserPayload {
+  userId: number; // db uses number or string? Schema check required, but typically number in SQL. Previous code used parseInt.
+  email: string;
+  role: string;
+}
+
 // Helper function to get user from context
-const getUserFromContext = (context: any) => {
+const getUserFromContext = (context: any): UserPayload | null => {
   if (!context || !context.req) return null;
   const token = context.req.cookies?.token;
   if (!token) return null;
   
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
-    return decoded;
+    // Ensure the decoded object matches our expected payload structure
+    if (typeof decoded === 'object' && decoded !== null && 'userId' in decoded) {
+      return decoded as UserPayload;
+    }
+    return null;
   } catch (error) {
     return null;
   }

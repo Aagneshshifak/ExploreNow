@@ -198,7 +198,7 @@ const useDashboardData = () => {
         cancelled: mockBookings.filter(b => b.status === 'cancelled'),
         stats: {
           totalBookings: mockBookings.length,
-          totalSpent: mockBookings.reduce((sum, b) => sum + b.amount, 0),
+          totalSpent: mockBookings.reduce((sum, b) => sum + (typeof b.amount === 'string' ? parseFloat(b.amount) : b.amount), 0),
           upcomingTrips: mockBookings.filter(b => b.status === 'confirmed').length,
           completedTrips: mockBookings.filter(b => b.status === 'completed').length,
           cancelledTrips: mockBookings.filter(b => b.status === 'cancelled').length

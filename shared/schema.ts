@@ -44,7 +44,7 @@ export const hotels = pgTable("hotels", {
 // Bookings table - Updated for Phase 1 (matching actual database structure)
 export const bookings = pgTable("bookings", {
   id: varchar("id").primaryKey(),
-  userId: integer("userId").notNull(),
+  userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   tripId: varchar("tripId"),
   hotelId: varchar("hotelId"),
   type: varchar("type").notNull(),
@@ -63,6 +63,29 @@ export const bookings = pgTable("bookings", {
   emergencyPhone: varchar("emergencyPhone"),
   transportDetails: varchar("transportDetails"),
   currency: varchar("currency"),
+});
+
+// Bookmarks table - New for protected routes feature
+export const bookmarks = pgTable("bookmarks", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tripId: integer("tripId").references(() => trips.id, { onDelete: "cascade" }),
+  hotelId: integer("hotelId").references(() => hotels.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
+});
+
+// User Preferences table - New for protected routes feature
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  language: varchar("language", { length: 5 }).default("en"),
+  theme: varchar("theme", { length: 10 }).default("light"),
+  notificationsEnabled: boolean("notificationsEnabled").default(true),
+  emailNotifications: boolean("emailNotifications").default(true),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow(),
 });
 
 // Payments table - Cleaned up
@@ -126,7 +149,18 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
 export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
-  isVerified: true,
+});
+
+export const insertBookmarkSchema = createInsertSchema(bookmarks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 
@@ -215,6 +249,10 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type Review = typeof reviews.$inferSelect;
+export type InsertBookmark = z.infer<typeof insertBookmarkSchema>;
+export type Bookmark = typeof bookmarks.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+export type UserPreferences = typeof userPreferences.$inferSelect;
 
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type RegisterRequest = z.infer<typeof registerSchema>;

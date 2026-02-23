@@ -176,7 +176,7 @@ export const yogaMiddleware = async (expressReq: ExpressRequest, expressRes: Exp
     const response = await yoga.fetch(fetchRequest, {
       req: expressReq,
       res: expressRes,
-    });
+    } as any);
     
     // Clean up request store after processing
     requestStore.delete(requestId);

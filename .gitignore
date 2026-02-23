@@ -1,4 +1,106 @@
-.env
-.env.example
+# Dependencies
 node_modules/
-dist/  
+.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.vscode/*
+.kiro/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backend specific
+backend/.env
+backend/.env.local
+backend/.env.*.local
+backend/.env.*
+backend/prisma/.env
+
+# Frontend specific
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/.env.*
+frontend/build/
+frontend/dist/
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.js
+frontend/.next/
+frontend/out/
+
+# Prisma
+prisma/.env
+prisma/.env.local
+prisma/.env.*.local
+prisma/.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Bin files
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Cache files
+.cache/
+.next/
+.next/cache/
+.next/static/
+.next/build-stats.json
+.next/webpack-cache/
+.next/server/app/
+.next/server/pages/
+.next/server/middleware-build-manifest.json
+.next/server/middleware-manifest.json
+.next/server/middleware-react-loadable-manifest.json
+
+# Package manager
+.pnpm-store/
+.pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+/.env
+.env.local
+.env.*.local
+.env.*
+.env.example
