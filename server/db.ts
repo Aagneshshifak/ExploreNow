@@ -15,7 +15,8 @@ try {
   sql = postgres(process.env.DATABASE_URL, {
     max: 10,
     idle_timeout: 20,
-    connect_timeout: 10,
+    connect_timeout: 30, // Increased from 10 to 30 seconds for Neon pooler
+    ssl: 'require', // Explicitly require SSL for Neon
   });
   db = drizzle(sql, { schema });
   console.log("✅ Database connection initialized");

@@ -13,7 +13,7 @@ export const users = pgTable("users", {
 });
 
 // Trips table
-export const trips = pgTable("trips", {
+export const trips = pgTable("trips",{
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   location: text("location").notNull(),
