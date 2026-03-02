@@ -209,7 +209,7 @@ export default function ReviewsPage() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground dark:bg-gradient-to-r dark:from-blue-400 dark:to-purple-400 dark:bg-clip-text dark:text-transparent mb-4">
             Travel Reviews
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">

@@ -15,9 +15,7 @@ const app = express();
 // CORS configuration for frontend compatibility
 // Important: credentials: true is required for cookie-based authentication
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://explorenow.vercel.app', 'https://*.vercel.app', 'https://*.onrender.com'] 
-    : ['http://localhost:5000', 'http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5000'],
+  origin: true, // Allow all origins in development
   credentials: true, // Required for cookies to be sent with requests
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept', 'Origin', 'X-Requested-With'],
@@ -89,10 +87,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
-  
-  // Use translation routes
+  // Use translation routes BEFORE registerRoutes to avoid conflicts
   app.use('/api', translateRoutes);
+  
+  const server = await registerRoutes(app);
   
   // Setup GraphQL - must be before Vite setup
   // Use middleware wrapper to properly pass Express req/res with cookies

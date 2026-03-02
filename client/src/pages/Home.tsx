@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Star, MapPin, Calendar, Users, Shield, Award, Globe, Quote, Plane, DollarSign, CheckCircle, Clock, HeadphonesIcon, CreditCard, Lock, Navigation, Calculator, FolderOpen, Compass } from 'lucide-react';
+import { ArrowRight, Star, MapPin, Calendar, Users, Shield, Award, Globe, Plane, DollarSign, CheckCircle, Clock, HeadphonesIcon, CreditCard, Lock, Navigation, Calculator, FolderOpen, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
@@ -96,28 +96,6 @@ export default function Home() {
     description: 'Visualize and plan the best travel route from your location to the destination.',
     action: 'Find Route',
     href: '/tools/route-finder'
-  }];
-  const testimonials = [{
-    id: 1,
-    name: 'Sarah Chen',
-    role: 'Travel Enthusiast',
-    content: 'ExploreNow transformed our family vacation into an unforgettable adventure. The attention to detail and personalized service exceeded all expectations.',
-    image: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face&auto=format',
-    rating: 5
-  }, {
-    id: 2,
-    name: 'Michael Rodriguez',
-    role: 'Business Traveler',
-    content: 'Professional, efficient, and incredibly thorough. ExploreNow takes care of every detail so I can focus on what matters most to me.',
-    image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format',
-    rating: 5
-  }, {
-    id: 3,
-    name: 'Emma Thompson',
-    role: 'Digital Nomad',
-    content: 'The curated experiences and seamless booking process make ExploreNow my go-to platform for discovering authentic travel destinations.',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face&auto=format',
-    rating: 5
   }];
   return <div className="min-h-screen">
       <Helmet>
@@ -490,68 +468,6 @@ export default function Home() {
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Link>
                     </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>)}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-6">
-          <motion.div className="text-center mb-16" initial={{
-          opacity: 0,
-          y: 20
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }} viewport={{
-          once: true
-        }}>
-            <h2 className="text-display mb-6">What Our Travelers Say</h2>
-            <p className="text-body text-muted-foreground max-w-3xl mx-auto">
-              Real experiences from real travelers who chose ExploreNow for their adventures.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => <motion.div key={testimonial.id} initial={{
-            opacity: 0,
-            y: 20
-          }} whileInView={{
-            opacity: 1,
-            y: 0
-          }} transition={{
-            duration: 0.6,
-            delay: index * 0.1
-          }} viewport={{
-            once: true
-          }}>
-                <Card className="hover-lift border-0 shadow-elegant-lg h-full">
-                  <CardContent className="p-8">
-                    <div className="flex items-center space-x-1 mb-6">
-                      {[...Array(testimonial.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-foreground fill-current" />)}
-                    </div>
-                    <Quote className="w-8 h-8 text-muted-foreground mb-4" />
-                    <p className="text-body mb-6 leading-relaxed text-foreground">
-                      "{testimonial.content}"
-                    </p>
-                     <div className="flex items-center space-x-4">
-                       <div className="w-12 h-12 rounded-full bg-muted overflow-hidden">
-                         <LazyImage 
-                           src={testimonial.image} 
-                           alt={testimonial.name} 
-                           className="w-full h-full object-cover grayscale"
-                         />
-                       </div>
-                      <div>
-                        <h4 className="font-medium text-foreground">{testimonial.name}</h4>
-                        <p className="text-caption">{testimonial.role}</p>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               </motion.div>)}

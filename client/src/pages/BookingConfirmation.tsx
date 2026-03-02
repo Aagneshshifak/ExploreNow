@@ -196,10 +196,10 @@ Thank you for choosing ExploreNow!
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <Card className="shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+            <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 text-white dark:text-black">
               <CardTitle className="flex items-center justify-between">
                 <span>Booking Details</span>
-                <Badge variant="secondary" className="bg-white text-blue-600">
+                <Badge variant="secondary" className="bg-white dark:bg-black text-blue-600 dark:text-blue-400">
                   {booking.status}
                 </Badge>
               </CardTitle>

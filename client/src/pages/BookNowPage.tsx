@@ -273,10 +273,10 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-8">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+          <div className="bg-card rounded-lg shadow-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 text-white dark:text-black p-6">
               <h1 className="text-3xl font-bold">Select Your Trip & Hotel</h1>
-              <p className="text-blue-100 mt-2">Choose your destination and accommodation</p>
+              <p className="text-blue-100 dark:text-blue-900 mt-2">Choose your destination and accommodation</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 p-6">
@@ -423,11 +423,11 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
       )}
 
       <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+        <div className="bg-card rounded-lg shadow-xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 text-white dark:text-black p-6">
             <h1 className="text-3xl font-bold">Complete Your Booking</h1>
-            <p className="text-blue-100 mt-2">Final step to secure your amazing trip!</p>
+            <p className="text-blue-100 dark:text-blue-900 mt-2">Final step to secure your amazing trip!</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 p-6">
@@ -608,7 +608,7 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
                 <button
                   type="submit"
                   disabled={confirming}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 text-white dark:text-black py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-500 dark:hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {confirming ? (
                     <div className="flex items-center justify-center">

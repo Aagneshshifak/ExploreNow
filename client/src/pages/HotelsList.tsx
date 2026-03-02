@@ -45,6 +45,8 @@ export default function HotelsList() {
       
       return response.json();
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
   });
 
   const hotels = hotelsResponse?.data || [];
@@ -96,7 +98,7 @@ export default function HotelsList() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
             Book Amazing Hotels
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -204,9 +206,9 @@ export default function HotelsList() {
                           </div>
                         </div>
                         {hotel.rating && (
-                          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+                          <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs font-medium">{hotel.rating}</span>
+                            <span className="text-xs font-medium text-white">{hotel.rating}</span>
                           </div>
                         )}
                       </div>

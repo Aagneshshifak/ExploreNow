@@ -130,6 +130,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Login - POST /api/auth/login
   app.post("/api/auth/login", async (req, res) => {
+    console.log("[LOGIN] ========== LOGIN ROUTE HIT ==========");
+    console.log("[LOGIN] Method:", req.method);
+    console.log("[LOGIN] Path:", req.path);
+    console.log("[LOGIN] URL:", req.url);
+    console.log("[LOGIN] Origin:", req.headers.origin);
+    console.log("[LOGIN] Content-Type:", req.headers['content-type']);
+    
     try {
       console.log("[LOGIN] Login request received");
       console.log("[LOGIN] Request body:", { email: req.body?.email, hasPassword: !!req.body?.password });
@@ -296,7 +303,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Logout - POST /api/auth/logout
   app.post("/api/auth/logout", (req, res) => {
-    res.clearCookie("token");
+    const isProduction = process.env.NODE_ENV === "production";
+    // Clear cookie with same options as when it was set
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+      path: "/"
+    });
     res.json(createResponse(true, null, "Logged out successfully"));
   });
   
