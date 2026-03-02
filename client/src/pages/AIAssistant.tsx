@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2, LogIn } from "lucide-react";
+import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2, LogIn, Copy, Check } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +44,7 @@ export default function AIAssistant() {
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<"enhancing" | "generating" | null>(null);
   const [response, setResponse] = useState<AssistanceResponse | null>(null);
   const [selectedDestination, setSelectedDestination] = useState("");
   const [destinationLoading, setDestinationLoading] = useState(false);
@@ -51,6 +52,7 @@ export default function AIAssistant() {
   const [savedResponses, setSavedResponses] = useState<SavedResponse[]>([]);
   const [currentQuery, setCurrentQuery] = useState("");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Load saved responses from localStorage
   useEffect(() => {
@@ -108,13 +110,46 @@ export default function AIAssistant() {
     return savedResponses.some(b => b.query === currentQuery && b.response.response === response?.response);
   };
 
-  // Format text to remove markdown bold syntax
+  // Format text - keep bold markdown but remove other markers
   const formatText = (text: string) => {
     return text
-      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove ** bold markers
-      .replace(/\*(.+?)\*/g, '$1') // Remove * italic markers
       .replace(/‑/g, '-') // Replace non-breaking hyphens
       .trim();
+  };
+
+  // Render text with markdown bold support
+  const renderTextWithBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const boldText = part.slice(2, -2);
+        return <strong key={index} className="font-semibold">{boldText}</strong>;
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
+  // Copy response to clipboard
+  const copyToClipboard = async () => {
+    if (!response) return;
+    
+    try {
+      // Strip markdown bold for clipboard
+      const plainText = formatText(response.response).replace(/\*\*(.+?)\*\*/g, '$1');
+      await navigator.clipboard.writeText(plainText);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Response copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,10 +164,14 @@ export default function AIAssistant() {
     }
 
     setLoading(true);
+    setLoadingStep("enhancing");
     setResponse(null); // Clear previous response
     
     try {
       console.log("[AI ASSISTANT] Sending request:", { query: query.substring(0, 50) + "...", location, budget });
+      
+      // Simulate step transition for better UX
+      setTimeout(() => setLoadingStep("generating"), 1500);
       
       const res = await fetch("/api/ai/assistant", {
         method: "POST",
@@ -221,6 +260,7 @@ export default function AIAssistant() {
       });
     } finally {
       setLoading(false);
+      setLoadingStep(null);
     }
   };
 
@@ -414,7 +454,7 @@ export default function AIAssistant() {
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Getting AI Response...
+                      {loadingStep === "enhancing" ? "Analyzing your query..." : "Generating your travel plan..."}
                     </>
                   ) : (
                     <>
@@ -427,72 +467,223 @@ export default function AIAssistant() {
             </CardContent>
           </Card>
 
+          {/* Loading Indicator with Two-Step Process */}
+          {loading && (
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardContent className="py-8">
+                <div className="flex flex-col items-center justify-center space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 ${loadingStep === "enhancing" ? "text-primary" : "text-muted-foreground"}`}>
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${loadingStep === "enhancing" ? "border-primary bg-primary/10" : "border-muted"}`}>
+                        {loadingStep === "enhancing" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <span className="text-xs font-semibold">1</span>
+                        )}
+                      </div>
+                      <span className="font-medium">Analyzing Query</span>
+                    </div>
+                    
+                    <div className="h-px w-12 bg-border" />
+                    
+                    <div className={`flex items-center gap-2 ${loadingStep === "generating" ? "text-primary" : "text-muted-foreground"}`}>
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${loadingStep === "generating" ? "border-primary bg-primary/10" : "border-muted"}`}>
+                        {loadingStep === "generating" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <span className="text-xs font-semibold">2</span>
+                        )}
+                      </div>
+                      <span className="font-medium">Creating Plan</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-sm font-medium mb-1">
+                      {loadingStep === "enhancing" ? "Understanding your travel needs..." : "Crafting your personalized itinerary..."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {loadingStep === "enhancing" 
+                        ? "Our AI is analyzing your preferences and requirements" 
+                        : "Generating a comprehensive travel plan tailored for you"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Assistant Response */}
           {response && (
-            <Card>
-              <CardHeader>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
                 <CardTitle className="flex items-center justify-between">
-                  <span>AI Response</span>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Bot className="h-5 w-5 text-primary" />
+                    </div>
+                    <span>AI Travel Expert</span>
+                  </div>
                   <div className="flex gap-2 items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyToClipboard}
+                      className="gap-1"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={saveBookmark}
                       disabled={isBookmarked()}
+                      className="gap-1"
                     >
                       {isBookmarked() ? (
                         <>
-                          <BookmarkCheck className="h-4 w-4 mr-1" />
+                          <BookmarkCheck className="h-4 w-4" />
                           Saved
                         </>
                       ) : (
                         <>
-                          <Bookmark className="h-4 w-4 mr-1" />
+                          <Bookmark className="h-4 w-4" />
                           Save
                         </>
                       )}
                     </Button>
-                    <Badge variant="secondary">{response.category}</Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      {response.category}
+                    </Badge>
                     <Badge variant={response.confidence > 80 ? "default" : "outline"}>
                       {response.confidence}% confidence
                     </Badge>
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-muted/50 p-6 rounded-lg border border-border">
-                  <div className="prose prose-sm max-w-none text-foreground">
-                    {formatText(response.response).split('\n\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-4 last:mb-0 leading-relaxed text-base text-foreground">
-                        {paragraph.split('\n').map((line, lineIdx) => (
-                          <span key={lineIdx}>
-                            {line}
-                            {lineIdx < paragraph.split('\n').length - 1 && <br />}
-                          </span>
-                        ))}
-                      </p>
-                    ))}
-                  </div>
+              <CardContent className="space-y-6 pt-6 max-h-[600px] overflow-y-auto">
+                {/* Main Response with Better Formatting */}
+                <div className="space-y-4 pr-2">{/* Added padding-right for scrollbar spacing */}
+                  {formatText(response.response).split('\n\n').map((section, idx) => {
+                    // Check if section is a heading (contains ** around text and ends with colon)
+                    const headingMatch = section.match(/^\*\*(.+?)\*\*:?\s*$/);
+                    const isBulletPoint = section.trim().startsWith('-') || section.trim().startsWith('•');
+                    const isNumberedList = section.match(/^\d+\./);
+                    
+                    if (headingMatch) {
+                      return (
+                        <div key={idx} className="flex items-center gap-2 mt-6 first:mt-0">
+                          <div className="h-1 w-1 rounded-full bg-primary" />
+                          <h3 className="text-xl font-bold text-primary">
+                            {headingMatch[1]}
+                          </h3>
+                          <div className="flex-1 h-px bg-border" />
+                        </div>
+                      );
+                    }
+                    
+                    if (isBulletPoint) {
+                      const points = section.split('\n').filter(line => line.trim());
+                      return (
+                        <ul key={idx} className="space-y-3 ml-4">
+                          {points.map((point, pointIdx) => {
+                            const cleanPoint = point.replace(/^[-•]\s*/, '');
+                            return (
+                              <li key={pointIdx} className="flex gap-3 items-start">
+                                <div className="mt-2 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                                <span className="text-base leading-relaxed text-foreground flex-1">
+                                  {renderTextWithBold(cleanPoint)}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      );
+                    }
+                    
+                    if (isNumberedList) {
+                      const points = section.split('\n').filter(line => line.trim());
+                      return (
+                        <ol key={idx} className="space-y-3 ml-4">
+                          {points.map((point, pointIdx) => {
+                            const match = point.match(/^(\d+)\.\s*(.+)$/);
+                            if (match) {
+                              return (
+                                <li key={pointIdx} className="flex gap-3 items-start">
+                                  <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                                    {match[1]}
+                                  </span>
+                                  <span className="text-base leading-relaxed text-foreground flex-1 pt-0.5">
+                                    {renderTextWithBold(match[2])}
+                                  </span>
+                                </li>
+                              );
+                            }
+                            return null;
+                          })}
+                        </ol>
+                      );
+                    }
+                    
+                    return (
+                      <div key={idx} className="bg-muted/30 p-4 rounded-lg border-l-4 border-primary/50">
+                        <p className="text-base leading-relaxed text-foreground">
+                          {section.split('\n').map((line, lineIdx) => (
+                            <span key={lineIdx} className="block">
+                              {renderTextWithBold(line)}
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
                 
+                {/* Related Suggestions with Better UI */}
                 {response.relatedSuggestions && response.relatedSuggestions.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Related Questions:</h4>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="pt-6 border-t">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lightbulb className="h-4 w-4 text-yellow-500" />
+                      <h4 className="font-semibold text-sm">You might also want to ask:</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {response.relatedSuggestions.map((suggestion, index) => (
                         <Button
                           key={index}
                           variant="outline"
                           size="sm"
                           onClick={() => setQuery(suggestion)}
-                          className="text-xs"
+                          className="text-left justify-start h-auto py-3 px-4 hover:bg-primary/5 hover:border-primary/50 transition-all"
                         >
-                          {suggestion}
+                          <MessageCircle className="h-3 w-3 mr-2 flex-shrink-0 text-primary" />
+                          <span className="text-xs line-clamp-2">{suggestion}</span>
                         </Button>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {/* Feedback Section */}
+                <div className="pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Powered by AI
+                  </span>
+                  <span className="text-xs">
+                    Response generated in real-time
+                  </span>
+                </div>
               </CardContent>
             </Card>
           )}
