@@ -53,6 +53,7 @@ import HotelsPage from "./pages/HotelsPage";
 import TransportsPage from "./pages/TransportsPage";
 import RewardsPage from "./pages/RewardsPage";
 import AIAssistant from "./pages/AIAssistant";
+import AgentSystem from "./pages/AgentSystem";
 import BookNowPage from "./pages/BookNowPage";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import PaymentPage from "./pages/PaymentPage";
@@ -125,6 +126,7 @@ const App = () => {
                 <Route path="/tools/explorer" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><LocalExplorer /></Layout>} />
                 <Route path="/search" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><SearchFilter /></Layout>} />
                 <Route path="/ai-assistant" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><AIAssistant /></Layout>} />
+                <Route path="/agent-system" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><AgentSystem /></Layout>} />
                 <Route path="/trips" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripsList /></Layout>} />
                 <Route path="/trip/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripDetails /></Layout>} />
                 <Route path="/hotel/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelDetails /></Layout>} />

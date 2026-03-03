@@ -35,6 +35,7 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
   const navigationItems = [
     { name: 'Home', href: '/' },
     { name: 'AI Assistant', href: '/ai-assistant' },
+    { name: 'Agent System', href: '/agent-system' },
     { name: 'Trips', href: '/trips' },
     { name: 'Currency', href: '/currency-converter' },
     { name: 'Tools', href: '/tools' },

@@ -2403,6 +2403,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(statusCode).json(createResponse(false, null, errorMessage));
     }
   });
+  // Multi-Agent System - POST /api/ai/agent-system
+  app.post("/api/ai/agent-system", async (req, res) => {
+    try {
+      console.log("[AGENT SYSTEM] Request received");
+      const { query, userContext } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        console.error("[AGENT SYSTEM] Invalid query:", { query, type: typeof query });
+        return res.status(400).json(createResponse(false, null, "Query is required and must be a string"));
+      }
+  
+      console.log("[AGENT SYSTEM] Processing query:", query.substring(0, 50) + "...");
+      console.log("[AGENT SYSTEM] User context:", userContext);
+      
+      // Import agent system
+      const { agentSystem } = await import("./services/agentSystem");
+      
+      // Process query through agent system
+      const context = {
+        userContext,
+        db
+      };
+      
+      const result = await agentSystem.processQuery(query, context);
+      console.log("[AGENT SYSTEM] Processing complete, success:", result.success);
+  
+      res.json(createResponse(true, {
+        ...result,
+        aiPowered: true,
+        multiAgent: true,
+        timestamp: new Date().toISOString()
+      }, result.message));
+    } catch (error: any) {
+      console.error("[AGENT SYSTEM] Error occurred");
+      console.error("[AGENT SYSTEM] Error type:", error?.constructor?.name || typeof error);
+      console.error("[AGENT SYSTEM] Error message:", error?.message || "Unknown error");
+      console.error("[AGENT SYSTEM] Error stack:", error?.stack);
+      
+      let statusCode = 500;
+      let errorMessage = "Failed to process request through agent system";
+      
+      if (error?.message?.includes("API key") || error?.message?.includes("GROQ_API_KEY")) {
+        statusCode = 503;
+        errorMessage = "AI service is not configured. Please contact support.";
+      } else if (error?.message?.includes("quota") || error?.message?.includes("limit")) {
+        statusCode = 429;
+        errorMessage = "AI service quota exceeded. Please try again later.";
+      } else if (error?.message?.includes("network") || error?.code === "ECONNREFUSED" || error?.code === "ETIMEDOUT") {
+        statusCode = 503;
+        errorMessage = "Unable to connect to AI service. Please try again later.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      res.status(statusCode).json(createResponse(false, null, errorMessage));
+    }
+  });
+
   // AI Destination Insights - GET /api/ai/destination/:destination
   app.get("/api/ai/destination/:destination", async (req, res) => {
     try {
