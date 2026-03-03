@@ -219,10 +219,7 @@ export default function AgentSystem() {
       {/* Header */}
       <div className="text-center mb-12">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-            <Network className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-600 to-gray-400 bg-clip-text text-transparent">
             AI Travel Assistant
           </h1>
         </div>
@@ -242,8 +239,8 @@ export default function AgentSystem() {
         ].map((agent) => (
           <Card key={agent.type} className="text-center hover:shadow-md transition-shadow">
             <CardContent className="pt-4 pb-4">
-              <div className={`w-10 h-10 mx-auto mb-2 rounded-full ${getAgentColor(agent.type)} flex items-center justify-center`}>
-                <agent.icon className="h-5 w-5" />
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <agent.icon className="h-5 w-5 text-black dark:text-white" />
               </div>
               <p className="text-sm font-semibold">{agent.name}</p>
               <p className="text-xs text-muted-foreground mt-1">{agent.desc}</p>

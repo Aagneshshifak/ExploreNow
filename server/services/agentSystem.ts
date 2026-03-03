@@ -269,8 +269,24 @@ export class PlanningAgent extends BaseAgent {
     console.log("[PLANNING AGENT] Processing trip planning request");
 
     try {
+      // Enhance query to ensure comprehensive response like AI Assistant
+      const enhancedQuery = `${query}
+
+Please provide a comprehensive travel plan including:
+- Transportation options with costs and durations
+- Specific hotel recommendations across budget tiers
+- Day-by-day itinerary with morning, afternoon, and evening activities
+- Detailed budget breakdown by category
+- Best time to visit with weather information
+- Safety tips and required documents
+- Local transportation options
+- Restaurant recommendations
+- Insider tips and hidden gems
+
+Provide detailed, actionable information in a well-structured format.`;
+
       // Use existing groqService for trip planning
-      const result = await groqService.provideTravelAssistance(query, context?.userContext, context?.db);
+      const result = await groqService.provideTravelAssistance(enhancedQuery, context?.userContext, context?.db);
 
       return {
         agentType: "planning",
@@ -313,8 +329,22 @@ export class InformationAgent extends BaseAgent {
     console.log("[INFORMATION AGENT] Processing information request");
 
     try {
+      // Enhance query to ensure comprehensive response
+      const enhancedQuery = `${query}
+
+Please provide comprehensive information including:
+- Specific hotel names with ratings, prices, and amenities
+- Top attractions with descriptions and entry fees
+- Restaurant recommendations with cuisine types
+- Best time to visit and weather information
+- Transportation options and local transit
+- Cultural highlights and insider tips
+- Practical information for travelers
+
+Provide detailed, specific information with real names and current data.`;
+
       // Use groqService for information queries
-      const result = await groqService.provideTravelAssistance(query, context?.userContext, context?.db);
+      const result = await groqService.provideTravelAssistance(enhancedQuery, context?.userContext, context?.db);
 
       return {
         agentType: "information",
@@ -357,12 +387,23 @@ export class BookingAgent extends BaseAgent {
     console.log("[BOOKING AGENT] Processing booking request");
 
     try {
+      // Enhance query for comprehensive booking guidance
+      const enhancedQuery = `${query}
+
+Provide comprehensive booking guidance including:
+- Best booking platforms and websites
+- Step-by-step booking process
+- Tips for getting the best deals and discounts
+- What to watch out for (hidden fees, cancellation policies)
+- Best time to book for lowest prices
+- Payment options and security tips
+- Confirmation and documentation needed
+- Customer service and support information
+
+Give detailed, actionable advice with specific platform recommendations.`;
+
       // For now, provide booking guidance using AI
-      const result = await groqService.provideTravelAssistance(
-        `${query}. Provide detailed booking guidance including where to book, best platforms, tips for getting good deals, and what to watch out for.`,
-        context?.userContext,
-        context?.db
-      );
+      const result = await groqService.provideTravelAssistance(enhancedQuery, context?.userContext, context?.db);
 
       return {
         agentType: "booking",
@@ -404,11 +445,22 @@ export class TranslationAgent extends BaseAgent {
     console.log("[TRANSLATION AGENT] Processing translation request");
 
     try {
+      // Enhance query for comprehensive translation
+      const enhancedQuery = `${query}
+
+Provide comprehensive translation including:
+- Accurate translation with proper grammar
+- Pronunciation guide (phonetic spelling)
+- Cultural context and usage notes
+- Formal vs informal variations if applicable
+- Common phrases related to the translation
+- Tips for using the phrase appropriately
+- Regional variations if any
+
+Make it practical and useful for travelers.`;
+
       // Use AI for translation
-      const result = await groqService.provideTravelAssistance(
-        `${query}. Provide accurate translation with pronunciation guide and cultural context if relevant.`,
-        context?.userContext
-      );
+      const result = await groqService.provideTravelAssistance(enhancedQuery, context?.userContext);
 
       return {
         agentType: "translation",
@@ -450,11 +502,24 @@ export class CurrencyAgent extends BaseAgent {
     console.log("[CURRENCY AGENT] Processing currency conversion request");
 
     try {
+      // Enhance query for comprehensive currency information
+      const enhancedQuery = `${query}
+
+Provide comprehensive currency information including:
+- Current exchange rate with exact conversion
+- Historical rate trends (if rates are favorable now)
+- Best places to exchange currency (banks, ATMs, exchange offices)
+- Tips for getting the best exchange rates
+- Fees and commissions to watch out for
+- Using credit cards vs cash abroad
+- ATM withdrawal tips and fees
+- Currency exchange apps and tools
+- When to exchange (before travel vs at destination)
+
+Give practical, money-saving advice for travelers.`;
+
       // Use AI for currency conversion with current rates
-      const result = await groqService.provideTravelAssistance(
-        `${query}. Provide current exchange rates and conversion. Include tips for getting best rates when traveling.`,
-        context?.userContext
-      );
+      const result = await groqService.provideTravelAssistance(enhancedQuery, context?.userContext);
 
       return {
         agentType: "currency",
