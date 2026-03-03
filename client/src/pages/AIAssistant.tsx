@@ -19,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface AssistanceResponse {
   response: string;
@@ -298,7 +300,7 @@ export default function AIAssistant() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl relative">
+    <div className="container mx-auto px-4 py-8 pb-8 max-w-6xl relative">{/* Removed bottom padding for footer */}
       {/* Blur Overlay for non-authenticated users */}
       {!user && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -573,81 +575,62 @@ export default function AIAssistant() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6 pt-6 max-h-[600px] overflow-y-auto">
-                {/* Main Response with Better Formatting */}
-                <div className="space-y-4 pr-2">{/* Added padding-right for scrollbar spacing */}
-                  {formatText(response.response).split('\n\n').map((section, idx) => {
-                    // Check if section is a heading (contains ** around text and ends with colon)
-                    const headingMatch = section.match(/^\*\*(.+?)\*\*:?\s*$/);
-                    const isBulletPoint = section.trim().startsWith('-') || section.trim().startsWith('•');
-                    const isNumberedList = section.match(/^\d+\./);
-                    
-                    if (headingMatch) {
-                      return (
-                        <div key={idx} className="flex items-center gap-2 mt-6 first:mt-0">
-                          <div className="h-1 w-1 rounded-full bg-primary" />
-                          <h3 className="text-xl font-bold text-primary">
-                            {headingMatch[1]}
-                          </h3>
-                          <div className="flex-1 h-px bg-border" />
+                {/* Main Response with Markdown Rendering */}
+                <div className="prose prose-slate dark:prose-invert max-w-none pr-2">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Headings
+                      h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-primary mt-6 mb-4 first:mt-0 flex items-center gap-2" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-xl font-bold text-primary mt-6 mb-3 first:mt-0 flex items-center gap-2 border-b border-border pb-2" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props} />,
+                      
+                      // Paragraphs
+                      p: ({node, ...props}) => <p className="text-base leading-relaxed text-foreground mb-4" {...props} />,
+                      
+                      // Lists
+                      ul: ({node, ...props}) => <ul className="space-y-2 ml-6 mb-4 list-disc marker:text-primary" {...props} />,
+                      ol: ({node, ...props}) => <ol className="space-y-2 ml-6 mb-4 list-decimal marker:text-primary marker:font-semibold" {...props} />,
+                      li: ({node, ...props}) => <li className="text-base leading-relaxed text-foreground pl-2" {...props} />,
+                      
+                      // Tables
+                      table: ({node, ...props}) => (
+                        <div className="overflow-x-auto my-6">
+                          <table className="min-w-full border-collapse border border-border rounded-lg" {...props} />
                         </div>
-                      );
-                    }
-                    
-                    if (isBulletPoint) {
-                      const points = section.split('\n').filter(line => line.trim());
-                      return (
-                        <ul key={idx} className="space-y-3 ml-4">
-                          {points.map((point, pointIdx) => {
-                            const cleanPoint = point.replace(/^[-•]\s*/, '');
-                            return (
-                              <li key={pointIdx} className="flex gap-3 items-start">
-                                <div className="mt-2 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
-                                <span className="text-base leading-relaxed text-foreground flex-1">
-                                  {renderTextWithBold(cleanPoint)}
-                                </span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      );
-                    }
-                    
-                    if (isNumberedList) {
-                      const points = section.split('\n').filter(line => line.trim());
-                      return (
-                        <ol key={idx} className="space-y-3 ml-4">
-                          {points.map((point, pointIdx) => {
-                            const match = point.match(/^(\d+)\.\s*(.+)$/);
-                            if (match) {
-                              return (
-                                <li key={pointIdx} className="flex gap-3 items-start">
-                                  <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-                                    {match[1]}
-                                  </span>
-                                  <span className="text-base leading-relaxed text-foreground flex-1 pt-0.5">
-                                    {renderTextWithBold(match[2])}
-                                  </span>
-                                </li>
-                              );
-                            }
-                            return null;
-                          })}
-                        </ol>
-                      );
-                    }
-                    
-                    return (
-                      <div key={idx} className="bg-muted/30 p-4 rounded-lg border-l-4 border-primary/50">
-                        <p className="text-base leading-relaxed text-foreground">
-                          {section.split('\n').map((line, lineIdx) => (
-                            <span key={lineIdx} className="block">
-                              {renderTextWithBold(line)}
-                            </span>
-                          ))}
-                        </p>
-                      </div>
-                    );
-                  })}
+                      ),
+                      thead: ({node, ...props}) => <thead className="bg-muted" {...props} />,
+                      tbody: ({node, ...props}) => <tbody className="divide-y divide-border" {...props} />,
+                      tr: ({node, ...props}) => <tr className="hover:bg-muted/50 transition-colors" {...props} />,
+                      th: ({node, ...props}) => <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border border-border" {...props} />,
+                      td: ({node, ...props}) => <td className="px-4 py-3 text-sm text-foreground border border-border" {...props} />,
+                      
+                      // Emphasis
+                      strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
+                      em: ({node, ...props}) => <em className="italic text-foreground" {...props} />,
+                      
+                      // Code
+                      code: ({node, inline, ...props}: any) => 
+                        inline ? (
+                          <code className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono text-primary" {...props} />
+                        ) : (
+                          <code className="block p-4 bg-muted rounded-lg text-sm font-mono overflow-x-auto" {...props} />
+                        ),
+                      
+                      // Blockquotes
+                      blockquote: ({node, ...props}) => (
+                        <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 bg-muted/30 rounded-r-lg italic text-muted-foreground" {...props} />
+                      ),
+                      
+                      // Links
+                      a: ({node, ...props}) => <a className="text-primary hover:underline font-medium" {...props} />,
+                      
+                      // Horizontal Rule
+                      hr: ({node, ...props}) => <hr className="my-6 border-border" {...props} />,
+                    }}
+                  >
+                    {response.response}
+                  </ReactMarkdown>
                 </div>
                 
                 {/* Related Suggestions with Better UI */}
@@ -663,7 +646,16 @@ export default function AIAssistant() {
                           key={index}
                           variant="outline"
                           size="sm"
-                          onClick={() => setQuery(suggestion)}
+                          onClick={() => {
+                            setQuery(suggestion);
+                            // Automatically submit the form
+                            setTimeout(() => {
+                              const form = document.querySelector('form');
+                              if (form) {
+                                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                              }
+                            }, 100);
+                          }}
                           className="text-left justify-start h-auto py-3 px-4 hover:bg-primary/5 hover:border-primary/50 transition-all"
                         >
                           <MessageCircle className="h-3 w-3 mr-2 flex-shrink-0 text-primary" />

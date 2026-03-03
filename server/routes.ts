@@ -2365,7 +2365,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[AI ASSISTANT] Processing query:", query.substring(0, 50) + "...");
       console.log("[AI ASSISTANT] User context:", userContext);
       
-      const assistance = await groqService.provideTravelAssistance(query, userContext);
+      // Pass database connection to groqService for hotel lookup
+      const assistance = await groqService.provideTravelAssistance(query, userContext, db);
       console.log("[AI ASSISTANT] Assistance generated successfully, category:", assistance.category);
   
       res.json(createResponse(true, {
@@ -2448,7 +2449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         budget: req.body.userBudget,
         travelDates: req.body.userTravelDates,
         groupSize: req.body.userGroupSize
-      });
+      }, db);
   
       res.json(createResponse(true, {
         message: response.response,

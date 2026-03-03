@@ -506,9 +506,9 @@ Now enhance the user's query:`;
   }
 
   // Step 2: Use AI with web browsing capability to get current information
-  private async getRealtimeTravelInfo(query: string): Promise<string> {
+  private async getRealtimeTravelInfo(query: string, db?: any): Promise<string> {
     try {
-      console.log("[GROQ] Step 2: Getting real-time travel information with web browsing");
+      console.log("[GROQ] Step 2: Getting real-time travel information with web browsing + database");
       
       // Extract destination from query
       const destinationMatch = query.match(/(?:to|in|visit|explore|plan.*?(?:to|for))\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
@@ -519,54 +519,108 @@ Now enhance the user's query:`;
         return "";
       }
 
+      // Fetch hotels from database if available
+      let platformHotels = "";
+      if (db) {
+        try {
+          const { hotels } = await import("../../shared/schema");
+          const { like } = await import("drizzle-orm");
+          
+          const dbHotels = await db
+            .select()
+            .from(hotels)
+            .where(like(hotels.location, `%${destination}%`))
+            .limit(5);
+          
+          if (dbHotels.length > 0) {
+            platformHotels = `\n\n**🏨 HOTELS AVAILABLE ON OUR PLATFORM IN ${destination.toUpperCase()}:**\n`;
+            dbHotels.forEach((hotel: any) => {
+              platformHotels += `- **${hotel.name}** (${hotel.rating || 'N/A'} ⭐) - $${hotel.price}/night\n`;
+              platformHotels += `  Location: ${hotel.location}\n`;
+              if (hotel.amenities && hotel.amenities.length > 0) {
+                platformHotels += `  Amenities: ${hotel.amenities.join(', ')}\n`;
+              }
+              platformHotels += `  ${hotel.description || 'Comfortable accommodation'}\n\n`;
+            });
+            console.log("[GROQ] ✅ Found", dbHotels.length, "hotels from platform database");
+          }
+        } catch (dbError) {
+          console.error("[GROQ] Database query error:", dbError);
+        }
+      }
+
       // Use GPT-120B with web browsing instructions to get current information
       const webBrowsingPrompt = `You are a travel information expert with web browsing capability. Search and provide CURRENT, UP-TO-DATE information about ${destination} as of 2024.
 
-**IMPORTANT**: Provide REAL, SPECIFIC information as if you just searched the web. Include:
+**CRITICAL**: Provide REAL, SPECIFIC information as if you just searched the web. Include actual hotel names, real attractions, and current prices.
+
+**🚗 TRANSPORTATION TO ${destination.toUpperCase()}:**
+- Flight options: Airlines, typical duration, cost range
+- Train options: Operators, duration, cost range  
+- Bus options: Companies, duration, cost range
+- Car rental: Companies, daily rates
+- Best time to book for each option
 
 **🏨 HOTELS & ACCOMMODATION (with current 2024 data):**
-- List 5-7 specific hotel names with:
+- List 7-10 specific hotel names with:
   * Star rating (3-star, 4-star, 5-star)
   * Approximate price per night in local currency and USD
-  * Location/area in the city
-  * Key amenities (pool, spa, restaurant, etc.)
+  * Exact location/neighborhood in the city
+  * Key amenities (pool, spa, restaurant, gym, WiFi, etc.)
   * Guest rating (e.g., 4.5/5 on booking sites)
+  * Booking tips (best rates, advance booking recommendations)
+- Include budget ($50-100), mid-range ($100-200), and luxury ($200+) options
 
 **📍 TOP ATTRACTIONS & PLACES:**
-- List 8-10 must-visit places with:
+- List 10-15 must-visit places with:
   * Exact names of attractions
-  * Brief description (1-2 sentences)
-  * Approximate entry fees (if applicable)
-  * Best time to visit
+  * Detailed description (2-3 sentences with historical/cultural context)
+  * Approximate entry fees in local currency and USD
+  * Best time to visit (time of day, season)
+  * How long to spend there
   * Current status (open/closed, any renovations)
+  * How to get there
 
-**🌅 BEST VIEWPOINTS & PHOTO SPOTS:**
-- List 5-6 scenic locations with:
-  * Exact location names
-  * What makes them special
-  * Best time for photos (sunrise/sunset)
-  * Accessibility information
+**🍽️ RESTAURANTS & DINING:**
+- List 5-7 specific restaurant names with:
+  * Cuisine type
+  * Price range
+  * Location
+  * Specialties
+  * Atmosphere
+
+**🚕 LOCAL TRANSPORTATION:**
+- Public transit options and costs
+- Taxi/ride-sharing apps available
+- Rental options (car, scooter, bike)
+- Transportation passes
 
 **🌤️ CURRENT WEATHER & SEASON:**
 - Current season and typical weather
-- Temperature ranges
-- Best months to visit
+- Temperature ranges by month
+- Best months to visit and why
 - What to pack
 
 **💰 CURRENT COSTS (2024 prices):**
 - Average hotel per night (budget/mid-range/luxury)
-- Average meal costs
-- Transportation costs
+- Average meal costs (street food, casual, fine dining)
+- Transportation costs (taxi, public transit)
 - Activity/attraction costs
 
-Provide SPECIFIC names, numbers, and details. Make it sound like you just researched this information online.`;
+**🗺️ OPTIMIZED ROUTE SUGGESTIONS:**
+- Best areas to stay for first-time visitors
+- Recommended itinerary flow (which areas to visit in sequence)
+- Transportation between major attractions
+- Time-saving tips
+
+Provide SPECIFIC names, numbers, and details. Make it sound like you just researched this information online with real data.`;
 
       const realtimeInfo = await this.callGroqAPI(webBrowsingPrompt, this.responseModel, 2500);
       
-      if (realtimeInfo) {
+      if (realtimeInfo || platformHotels) {
         console.log("[GROQ] ✅ Real-time web browsing information retrieved successfully");
-        console.log("[GROQ] Information length:", realtimeInfo.length, "characters");
-        return `\n\n**🌐 REAL-TIME WEB BROWSING RESULTS FOR ${destination.toUpperCase()} (2024):**\n\n${realtimeInfo}\n\n**📌 IMPORTANT: Use the specific hotel names, attractions, prices, and details from above in your response. Mention these real places and current information to provide accurate, up-to-date recommendations.**`;
+        console.log("[GROQ] Information length:", realtimeInfo?.length || 0, "characters");
+        return `\n\n**🌐 REAL-TIME WEB BROWSING RESULTS FOR ${destination.toUpperCase()} (2024):**\n\n${platformHotels}${realtimeInfo}\n\n**📌 IMPORTANT: Use the specific hotel names, attractions, prices, and details from above in your response. Mention these real places and current information to provide accurate, up-to-date recommendations. Include BOTH platform hotels and external options.**`;
       }
 
       return "";
@@ -698,7 +752,8 @@ Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
       budget?: number;
       travelDates?: string;
       groupSize?: number;
-    }
+    },
+    db?: any
   ): Promise<TravelAssistance> {
     // Check for inappropriate content FIRST
     if (this.isInappropriateQuery(query)) {
@@ -710,90 +765,114 @@ Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
     const enhancedQuery = await this.enhanceQuery(query, userContext);
     console.log("[GROQ] Using enhanced query for response generation");
 
-    // Step 2: Get real-time travel information (hotels, attractions, etc.)
-    const webContext = await this.getRealtimeTravelInfo(enhancedQuery);
+    // Step 2: Get real-time travel information (hotels, attractions, etc.) + database hotels
+    const webContext = await this.getRealtimeTravelInfo(enhancedQuery, db);
 
     // Build prompt outside try block so it's accessible in catch block
     const context = userContext ? 
       `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
       : "";
 
-    const prompt = `As an expert travel assistant, help with this enhanced travel query: "${enhancedQuery}"
+    const prompt = `You are an intelligent, agentic travel planning assistant. Analyze the user's query and provide the MOST HELPFUL response format based on what they're asking.
 
-      Original user query: "${query}"
+      User query: "${query}"
+      Enhanced query: "${enhancedQuery}"
       ${context}
       ${webContext}
 
-      CRITICAL FORMATTING RULES:
-      1. You MUST respond with ONLY valid JSON. No markdown, no code blocks, no explanations - just pure JSON.
-      2. NEVER write paragraph responses. ALWAYS use structured format with headings and lists.
-      3. For trip planning queries, ALWAYS provide day-wise itinerary.
-      4. Use emojis SPARINGLY - only for main section headings (✈️ 📅 💰 🌤️ 💡). Do NOT use emojis in every bullet point or sentence.
-      5. Use markdown bold (**text**) for important information, headings, and key details
-      6. Use clear section headings with minimal emojis (e.g., "**✈️ Trip Overview:**", "**📅 Day 1:**", "**💰 Budget Breakdown:**")
-      7. Use bullet points (- ) for activities and tips
-      8. Use numbered lists (1. 2. 3.) for sequential steps or budget items
-      9. Separate sections with double line breaks (\\n\\n)
-      10. **IMPORTANT**: If real-time web information is provided above, USE IT to recommend specific hotels, current attractions, and up-to-date travel information
-      11. Provide DETAILED explanations (2-3 sentences) for each activity, attraction, and recommendation
-      12. Include WHY something is recommended, not just WHAT to do
+      🤖 AGENTIC BEHAVIOR - YOU DECIDE:
+      - Analyze what the user is REALLY asking for
+      - Choose the best format to answer their specific question
+      - Don't force a template - be flexible and intelligent
+      - Provide exactly what they need, nothing more, nothing less
+      - Use web search data to give current, specific information
 
-      DETAILED CONTENT REQUIREMENTS:
-      - Each activity should have 2-3 sentences explaining what it is, why it's worth visiting, and what to expect
-      - Hotel recommendations should include detailed descriptions of amenities, location benefits, and why it's suitable
-      - Attractions should have historical context, cultural significance, or unique features explained
-      - Tips should be practical and actionable with reasoning
-      - Budget items should explain what's included and why the cost is estimated that way
+      📋 RESPONSE GUIDELINES (not strict rules):
 
-      EMOJI USAGE RULES:
-      - Use emojis ONLY for main section headings (Trip Overview, Day headings, Budget, Tips, etc.)
-      - Do NOT use emojis in bullet points, activity descriptions, or within sentences
-      - Keep it professional and readable, not cluttered with icons
+      **For trip planning queries:**
+      - Start with a brief overview
+      - Provide transportation options if relevant
+      - Give 2-3 itinerary options (high-level, not detailed day-by-day)
+      - Include accommodation suggestions (platform hotels + external)
+      - Add budget estimates
+      - Include practical tips (visa, safety, best time)
+      - End with follow-up questions
 
-      HOTEL & ACCOMMODATION RECOMMENDATIONS:
-      - If web search data includes hotel information, mention specific hotel names with detailed descriptions
-      - Explain the location advantages, nearby attractions, and transportation access
-      - Include information about hotel amenities and why they matter for travelers
-      - Mention booking considerations, best rates, and reservation tips
-      - Provide context about the neighborhood and safety
+      **For specific questions (hotels, flights, activities):**
+      - Answer directly and concisely
+      - Provide specific names, prices, and details
+      - Use web search data for current information
+      - Give 3-5 options with comparisons
+      - Include booking tips
 
-      ATTRACTIONS & PLACES:
-      - Use web search data to recommend currently popular attractions with full descriptions
-      - Explain the historical, cultural, or natural significance of each place
-      - Include practical details: how to get there, how long to spend, best times to avoid crowds
-      - Mention any seasonal events, festivals, or special exhibitions
-      - Provide photography tips and best viewpoints with explanations
+      **For general travel advice:**
+      - Be conversational and helpful
+      - Provide actionable tips
+      - Use examples and specific recommendations
+      - Keep it concise (300-500 words)
 
-      REQUIRED FORMAT FOR TRIP PLANNING (with minimal emojis and detailed content):
-      "**✈️ Trip Overview:**\\nProvide 3-4 sentences introducing the trip, highlighting what makes it special, and setting expectations for the journey.\\n\\n**📅 Day 1: [City Name]:**\\n- **Morning:** Detailed description of the morning activity (2-3 sentences explaining what it is, why it's significant, what to expect, and practical tips)\\n- **Afternoon:** Detailed description of afternoon plans with context and reasoning\\n- **Evening:** Detailed evening activity with atmosphere description and recommendations\\n\\n**📅 Day 2: [City Name]:**\\n- **Morning:** Comprehensive activity description with historical or cultural context\\n- **Afternoon:** Detailed plans with practical information and tips\\n- **Evening:** Evening recommendations with ambiance and experience details\\n\\n**💰 Budget Breakdown:**\\n1. **Accommodation:** Amount with explanation of what type of hotels, locations, and what's included\\n2. **Transportation:** Amount with breakdown of different transport modes and routes\\n3. **Food & Dining:** Amount explaining meal types, restaurant categories, and dining experiences\\n4. **Activities:** Amount detailing which activities, entry fees, and guided tour costs\\n5. **Total:** Sum with notes on potential savings or splurges\\n\\n**🌤️ Best Time to Visit:**\\nDetailed explanation of seasons, weather patterns, tourist crowds, and why certain months are recommended. Include temperature ranges and what to pack.\\n\\n**💡 Travel Tips:**\\n- Detailed practical tip with reasoning and specific examples\\n- Another comprehensive tip explaining the why and how\\n- Actionable advice with context and benefits"
+      **For destination information:**
+      - Highlight top attractions with context
+      - Include best time to visit
+      - Mention local cuisine and culture
+      - Provide safety and practical tips
+      - Suggest optimal duration
 
-      REQUIRED FORMAT FOR TRIP PLANNING WITH EMOJIS AND BOLD:
-      "**✈️ Trip Overview:**\\nBrief 2-3 sentence introduction with excitement\\n\\n**📅 Day 1: [City Name] 🌆:**\\n- 🌅 **Morning:** [Activity]\\n- ☀️ **Afternoon:** [Activity]\\n- 🌙 **Evening:** [Activity]\\n\\n**📅 Day 2: [City Name] 🏛️:**\\n- 🌅 **Morning:** [Activity]\\n- ☀️ **Afternoon:** [Activity]\\n- 🌙 **Evening:** [Activity]\\n\\n**📅 Day 3: [City Name] 🏞️:**\\n- 🌅 **Morning:** [Activity]\\n- ☀️ **Afternoon:** [Activity]\\n- 🌙 **Evening:** [Activity]\\n\\n**💰 Budget Breakdown:**\\n1. 🏨 **Accommodation:** [Amount]\\n2. 🚗 **Transportation:** [Amount]\\n3. 🍽️ **Food & Dining:** [Amount]\\n4. 🎭 **Activities & Entertainment:** [Amount]\\n5. 💵 **Total Estimated Cost:** [Amount]\\n\\n**🌤️ Best Time to Visit:**\\n[Season/months with reason]\\n\\n**💡 Travel Tips:**\\n- 🎯 [Tip 1]\\n- 🎯 [Tip 2]\\n- 🎯 [Tip 3]\\n- 🎯 [Tip 4]"
+      🎯 KEY PRINCIPLES:
+      1. **Be Concise**: 600-900 words maximum (unless query needs more detail)
+      2. **Be Specific**: Use real hotel names, prices, and places from web search
+      3. **Be Helpful**: Answer what they asked, not what you think they should know
+      4. **Be Current**: Use 2024 data and current information
+      5. **Be Actionable**: Provide next steps and follow-up options
+      6. **Include Platform Hotels**: Always mention hotels from our database when available
 
-      EXAMPLE (for a 5-day trip with minimal emojis and detailed explanations):
-      "**✈️ Trip Overview:**\\nExperience the diverse beauty of Maharashtra with this carefully crafted 5-day journey through India's most dynamic state. This itinerary combines the cosmopolitan energy of Mumbai, the historical richness of Pune, and the natural serenity of Lonavala, offering a perfect balance of urban exploration and peaceful retreats. You'll discover ancient caves, colonial architecture, bustling markets, and misty hill stations while experiencing authentic Maharashtrian culture and cuisine.\\n\\n**📅 Day 1: Mumbai Arrival:**\\n- **Morning:** Arrive at Chhatrapati Shivaji Maharaj International Airport and transfer to your hotel in the Colaba area, which offers easy access to major attractions and the waterfront. After checking in and freshening up, begin your Mumbai exploration with a visit to the iconic Gateway of India, a magnificent basalt arch monument built during the British Raj in 1924 to commemorate the visit of King George V and Queen Mary. The monument stands majestically overlooking the Arabian Sea and is surrounded by street vendors, photographers, and the historic Taj Mahal Palace Hotel.\\n- **Afternoon:** Take a short walk to the Taj Mahal Palace Hotel for lunch at one of its restaurants, experiencing the grandeur of this legendary 1903 heritage building. After lunch, explore the Colaba Causeway, a vibrant shopping street where you can find everything from antiques and jewelry to clothing and handicrafts. The area is perfect for picking up souvenirs and experiencing Mumbai's street shopping culture. Don't miss the Afghan Church and the nearby art galleries that showcase contemporary Indian art.\\n- **Evening:** Head to Marine Drive, Mumbai's iconic 3.5-kilometer boulevard along the coast, often called the Queen's Necklace due to its sparkling street lights at night. Arrive before sunset to watch the sun dip into the Arabian Sea while locals jog, families stroll, and couples enjoy the sea breeze. The promenade offers stunning views and is an excellent spot for people-watching and understanding Mumbai's relaxed evening culture.\\n\\n**📅 Day 2: Mumbai Cultural Exploration:**\\n- **Morning:** Take an early morning ferry from the Gateway of India to Elephanta Island, home to the UNESCO World Heritage Site Elephanta Caves. The hour-long ferry ride offers beautiful views of Mumbai's skyline and harbor. The caves, dating back to the 5th to 8th centuries, feature impressive rock-cut sculptures dedicated to Lord Shiva, including the famous 20-foot Trimurti sculpture. Hire a local guide to understand the intricate carvings and the historical significance of this ancient Hindu temple complex.\\n- **Afternoon:** Return to Mumbai and have lunch at the historic Leopold Cafe in Colaba, a favorite among travelers since 1871. Afterward, visit the Chhatrapati Shivaji Terminus, a stunning example of Victorian Gothic Revival architecture and another UNESCO World Heritage Site. The railway station, completed in 1888, serves as a functioning terminal while being an architectural masterpiece with its turrets, pointed arches, and eccentric ground plan. Continue to Crawford Market, a bustling wholesale market where you can experience the authentic chaos of Mumbai's trading culture and shop for fresh fruits, spices, and local products.\\n- **Evening:** Experience Mumbai's street food scene at Juhu Beach, where you can try local favorites like pav bhaji, bhel puri, and vada pav from the numerous food stalls. The beach comes alive in the evening with families, street performers, and food vendors creating a lively atmosphere. Watch the sunset over the Arabian Sea while enjoying your snacks, and if time permits, visit the nearby ISKCON temple for its peaceful ambiance and evening aarti ceremony.\\n\\n**💰 Budget Breakdown:**\\n1. **Accommodation:** ₹10,000-15,000 (approximately $120-180 USD) for 4 nights in comfortable 3-star hotels or boutique guesthouses in prime locations like Colaba, Fort, or Bandra. This budget includes hotels with air conditioning, Wi-Fi, breakfast, and helpful staff who can assist with local recommendations and bookings.\\n2. **Transportation:** ₹6,000-8,000 (approximately $72-96 USD) covering airport transfers, inter-city travel between Mumbai and Pune by train or private car, local transportation via app-based cabs, auto-rickshaws, and the ferry to Elephanta Island. Consider purchasing a Mumbai local train day pass for authentic experience and savings.\\n3. **Food & Dining:** ₹7,000-10,000 (approximately $84-120 USD) for a mix of street food experiences, local restaurants, and occasional fine dining. This allows for breakfast at hotels, street food tastings, lunch at mid-range restaurants, and dinners at recommended eateries. Budget includes trying regional specialties and international cuisine options.\\n4. **Activities & Entertainment:** ₹4,000-6,000 (approximately $48-72 USD) covering entry fees to Elephanta Caves, Shaniwar Wada, Aga Khan Palace, various museums, guided tours where beneficial, and any adventure activities in Lonavala. Some attractions offer discounted rates for students and senior citizens.\\n5. **Total Estimated Cost:** ₹27,000-39,000 (approximately $324-468 USD) per person for a comfortable mid-range experience. This budget can be reduced by choosing budget accommodations, using public transport more frequently, and eating primarily at local restaurants, or increased for luxury hotels and fine dining experiences.\\n\\n**🌤️ Best Time to Visit:**\\nThe ideal time to visit Maharashtra is from October to February when the weather is pleasant and comfortable for sightseeing. During these months, temperatures range from 15°C to 30°C (59°F to 86°F), with clear skies and minimal rainfall. October and November offer post-monsoon freshness with lush green landscapes, while December and January provide cooler temperatures perfect for exploring cities and hill stations. February marks the beginning of warmer weather but remains comfortable. Avoid the monsoon season from June to September as heavy rains can disrupt travel plans, though Lonavala becomes exceptionally beautiful during this time. Summer months from March to May can be hot and humid in Mumbai and Pune, with temperatures reaching 35-40°C (95-104°F), making outdoor activities uncomfortable.\\n\\n**💡 Travel Tips:**\\n- Book your accommodations well in advance, especially if traveling during peak season (December-January) or during major festivals like Ganesh Chaturthi. Hotels in prime locations fill up quickly, and advance booking often secures better rates and room choices. Consider staying in areas like Colaba or Fort in Mumbai for easy access to attractions, and Koregaon Park in Pune for its cafes and restaurants.\\n- Mumbai's local train system is an authentic experience but can be extremely crowded during peak hours (7-10 AM and 5-8 PM). If you want to try it, travel during off-peak hours and stick to the first-class compartment for more comfort. For convenience and safety, use app-based cab services like Uber or Ola, which are reliable and reasonably priced throughout Maharashtra.\\n- Maharashtrian cuisine is diverse and flavorful, so make sure to try authentic dishes like vada pav, misal pav, pav bhaji, puran poli, and modak. Visit local eateries and street food stalls for the most authentic experience, but ensure they maintain good hygiene standards. Don't miss trying the seafood in Mumbai, especially at restaurants in Bandra or Juhu.\\n- Dress modestly when visiting religious sites and carry a scarf or shawl to cover your head if required. Remove shoes before entering temples and be respectful of local customs and photography restrictions. Many temples and historical sites don't allow leather items inside, so plan accordingly."
+      📝 FORMATTING:
+      - Use markdown for structure (##, ###, **, -, tables)
+      - Use emojis sparingly (only for main sections)
+      - Use tables for comparisons (transport, budget, hotels)
+      - Use bullet points for lists
+      - Keep it scannable and easy to read
 
-      Provide helpful, accurate, and actionable advice. Consider:
-      - Current travel restrictions and requirements
-      - Seasonal factors and weather
-      - Budget considerations
-      - Safety and health guidelines
-      - Local customs and etiquette
-      - Practical logistics
+      ⚠️ AVOID:
+      - Don't create detailed minute-by-minute itineraries unless specifically asked
+      - Don't use rigid templates - adapt to the query
+      - Don't provide information they didn't ask for
+      - Don't be overly verbose - be efficient
 
-      Classify the query category as: planning, booking, destination, or general
+      🏨 PLATFORM HOTELS:
+      ${webContext.includes('HOTELS AVAILABLE ON OUR PLATFORM') ? 'IMPORTANT: Hotels from our platform are included in the web context above. Mention these as "Available on our platform" and also suggest external options.' : 'Note: Check if platform hotels are available in web context and mention them.'}
 
-      Rate your confidence (0-100) based on query clarity and available information.
+      💡 EXAMPLES OF GOOD RESPONSES:
 
-      Suggest 3 related questions the user might have.
+      **Query: "plan a trip to Goa from Coimbatore"**
+      → Provide: Transport options, 5-day itinerary overview (not detailed), accommodation tiers, budget, tips, follow-up questions
 
-      Return ONLY this JSON structure (start with { and end with }):
+      **Query: "best hotels in Paris"**
+      → Provide: 5-7 specific hotel names with prices, ratings, locations, booking tips
+
+      **Query: "what to do in Tokyo for 3 days"**
+      → Provide: Top 10 attractions with brief descriptions, suggested 3-day flow, transport tips, food recommendations
+
+      **Query: "cheapest way to travel from Mumbai to Delhi"**
+      → Provide: Comparison of flight/train/bus with prices, booking tips, time considerations
+
+      **Query: "is Bali safe for solo female travelers"**
+      → Provide: Direct answer, safety tips, recommended areas, precautions, general advice
+
+      🎨 BE CREATIVE AND INTELLIGENT:
+      - If they ask for beaches, focus on coastal destinations
+      - If they mention budget, emphasize cost-saving tips
+      - If they ask about culture, highlight historical and cultural aspects
+      - If they want adventure, suggest activities and experiences
+      - If they need quick info, be brief and direct
+
+      Return ONLY this JSON structure:
       {
         "query": "${query.replace(/"/g, '\\"')}",
-        "response": "YOUR VIBRANT STRUCTURED RESPONSE HERE with emojis - MUST follow the format above with emoji headings, day-wise plans, bullet points, and numbered lists. 400-600 words.",
+        "response": "YOUR INTELLIGENT, ADAPTIVE MARKDOWN RESPONSE - format based on what the query needs",
         "category": "planning",
         "confidence": 85,
-        "relatedSuggestions": ["Related question 1", "Related question 2", "Related question 3"]
+        "relatedSuggestions": ["Relevant follow-up question 1", "Relevant follow-up question 2", "Relevant follow-up question 3"]
       }
       
       Start your response with { and end with }. Do not include any text before or after the JSON.`;
