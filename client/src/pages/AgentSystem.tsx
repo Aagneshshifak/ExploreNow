@@ -181,12 +181,8 @@ export default function AgentSystem() {
       );
     }
 
-    // Otherwise, render as JSON
-    return (
-      <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    );
+    // Don't render raw JSON - return null to hide technical data
+    return null;
   };
 
   return (
@@ -221,46 +217,50 @@ export default function AgentSystem() {
       )}
 
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Network className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">Multi-Agent AI System</h1>
-          <Zap className="h-6 w-6 text-yellow-500" />
+      <div className="text-center mb-12">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+            <Network className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            AI Travel Assistant
+          </h1>
         </div>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Experience the power of collaborative AI agents working together to solve your travel needs.
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Powered by multiple specialized AI agents working together to plan your perfect trip
         </p>
       </div>
 
-      {/* Agent Info Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      {/* Agent Info Cards - More compact and elegant */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         {[
-          { type: "planning", name: "Planning", icon: Calendar },
-          { type: "information", name: "Information", icon: BookOpen },
-          { type: "booking", name: "Booking", icon: MapPin },
-          { type: "currency", name: "Currency", icon: DollarSign },
-          { type: "translation", name: "Translation", icon: Languages },
+          { type: "planning", name: "Planning", icon: Calendar, desc: "Trip itineraries" },
+          { type: "information", name: "Info", icon: BookOpen, desc: "Hotels & places" },
+          { type: "booking", name: "Booking", icon: MapPin, desc: "Reservations" },
+          { type: "currency", name: "Currency", icon: DollarSign, desc: "Conversions" },
+          { type: "translation", name: "Translate", icon: Languages, desc: "Languages" },
         ].map((agent) => (
-          <Card key={agent.type} className="text-center">
-            <CardContent className="pt-6">
-              <div className={`w-12 h-12 mx-auto mb-2 rounded-full ${getAgentColor(agent.type)} flex items-center justify-center`}>
-                <agent.icon className="h-6 w-6" />
+          <Card key={agent.type} className="text-center hover:shadow-md transition-shadow">
+            <CardContent className="pt-4 pb-4">
+              <div className={`w-10 h-10 mx-auto mb-2 rounded-full ${getAgentColor(agent.type)} flex items-center justify-center`}>
+                <agent.icon className="h-5 w-5" />
               </div>
-              <p className="text-sm font-medium">{agent.name}</p>
+              <p className="text-sm font-semibold">{agent.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">{agent.desc}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Query Input */}
-      <Card className="mb-6">
+      <Card className="mb-8 shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Ask Anything
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <Sparkles className="h-5 w-5 text-yellow-500" />
+            What would you like to know?
           </CardTitle>
-          <CardDescription>
-            Our AI agents will collaborate to provide the best answer
+          <CardDescription className="text-base">
+            Ask me anything about travel - I'll use the best AI agents to help you
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,19 +268,19 @@ export default function AgentSystem() {
             <Textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Try: 'Plan a 5-day trip to Japan with visa info and currency conversion' or 'Translate hello to Spanish' or 'Find hotels in Paris'"
-              className="min-h-[100px]"
+              placeholder="Examples:&#10;• Plan a 5-day trip to Japan&#10;• Find hotels in Paris under $200/night&#10;• Translate 'thank you' to Spanish&#10;• Convert 500 USD to EUR"
+              className="min-h-[120px] text-base"
             />
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full h-12 text-base font-semibold">
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing with AI Agents...
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  AI is thinking...
                 </>
               ) : (
                 <>
-                  <Network className="h-4 w-4 mr-2" />
-                  Process with Multi-Agent System
+                  <Zap className="h-5 w-5 mr-2" />
+                  Get AI Answer
                 </>
               )}
             </Button>
@@ -294,64 +294,45 @@ export default function AgentSystem() {
           <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Network className="h-5 w-5 text-primary" />
-                <span>Multi-Agent Response</span>
+                <Bot className="h-5 w-5 text-primary" />
+                <span>AI Travel Expert</span>
               </div>
-              <div className="flex gap-2 items-center flex-wrap">
-                {agentsUsed.map((agent) => (
-                  <Badge key={agent} className={`gap-1 ${getAgentColor(agent)}`}>
-                    {getAgentIcon(agent)}
-                    {agent}
-                  </Badge>
-                ))}
-                <Badge variant={response.confidence > 80 ? "default" : "outline"}>
-                  {response.confidence}% confidence
+              <div className="flex gap-2 items-center">
+                <Badge variant="secondary" className="gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Multi-Agent AI
                 </Badge>
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6 max-h-[600px] overflow-y-auto">
-            {/* Render response based on structure */}
+            {/* Render clean response without technical details */}
             {response.data && typeof response.data === 'object' && Object.keys(response.data).length > 0 ? (
               <div className="space-y-6">
-                {Object.entries(response.data).map(([agentType, agentData]) => (
-                  <div key={agentType} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Badge className={getAgentColor(agentType)}>
-                        {getAgentIcon(agentType)}
-                        {agentType} Agent
-                      </Badge>
+                {Object.entries(response.data).map(([agentType, agentData]) => {
+                  const renderedContent = renderAgentResponse(agentType, agentData);
+                  // Only render if there's actual content (not null)
+                  if (!renderedContent) return null;
+                  
+                  return (
+                    <div key={agentType}>
+                      {renderedContent}
                     </div>
-                    {renderAgentResponse(agentType, agentData)}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               renderAgentResponse(response.agentType, response.data)
             )}
 
-            {/* Tools Used */}
-            {response.toolsUsed && response.toolsUsed.length > 0 && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground mb-2">Tools Used:</p>
-                <div className="flex gap-2 flex-wrap">
-                  {response.toolsUsed.map((tool, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {tool}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
+            {/* Footer - simplified */}
             <div className="pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
               <span className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                Powered by Multi-Agent AI
+                Powered by AI
               </span>
               <span className="text-xs">
-                {agentsUsed.length} agent(s) collaborated
+                Response generated in real-time
               </span>
             </div>
           </CardContent>
