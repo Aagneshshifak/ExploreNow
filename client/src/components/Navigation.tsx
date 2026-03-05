@@ -36,6 +36,7 @@ export default function Navigation({ darkMode, toggleDarkMode }: NavigationProps
     { name: 'Home', href: '/' },
     { name: 'AI Assistant', href: '/ai-assistant' },
     { name: 'Trips', href: '/trips' },
+    { name: 'Tourist Map', href: '/tourist-map' },
     { name: 'Currency', href: '/currency-converter' },
     { name: 'Tools', href: '/tools' },
     { name: 'Hotels', href: '/hotels' },

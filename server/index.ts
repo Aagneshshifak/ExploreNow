@@ -9,6 +9,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
 import { yogaMiddleware } from "./graphql";
+import { startPredictionUpdateJob } from "./jobs/updatePredictions";
 
 const app = express();
 
@@ -133,6 +134,9 @@ app.use((req, res, next) => {
       console.log('   Test endpoint:   http://localhost:5000/test');
       console.log('\n💡 Use http://localhost:5173/ for the main application\n');
     }
+    
+    // Start prediction update job after server is listening
+    startPredictionUpdateJob();
   });
 
   // Add error handlers for the server

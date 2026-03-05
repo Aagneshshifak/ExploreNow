@@ -28,6 +28,7 @@ import DocumentWallet from "./pages/DocumentWallet";
 import AdminDashboard from "./pages/AdminDashboard";
 import Tools from "./pages/Tools";
 import TouristCrowdMap from "./pages/TouristCrowdMap";
+import TouristMap from "./pages/TouristMap";
 import HotelSubmission from "./pages/HotelSubmission";
 import TripSubmission from "./pages/TripSubmission";
 import TripSuggestionByBudget from "./pages/TripSuggestionByBudget";
@@ -117,6 +118,7 @@ const App = () => {
                 <Route path="/tools/route-finder" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><RouteFinder /></Layout>} />
                 <Route path="/tools/document-wallet" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><DocumentWallet /></Layout>} />
                 <Route path="/tools/tourist-crowd-map" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TouristCrowdMap /></Layout>} />
+                <Route path="/tourist-map" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TouristMap /></Layout>} />
                 <Route path="/tools/trip-suggestion-by-budget" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripSuggestionByBudget /></Layout>} />
                 <Route path="/tools/text-translator" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TextTranslator /></Layout>} />
                 <Route path="/tools/explore-guide" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><ExploreGuide /></Layout>} />

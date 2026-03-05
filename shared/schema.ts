@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, date, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, date, numeric, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -118,6 +118,79 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Tourist Spots table - Tourist & Crowd Map feature
+export const touristSpots = pgTable("tourist_spots", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  country: text("country").notNull(),
+  city: text("city").notNull(),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }).notNull(),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }).notNull(),
+  category: text("category").notNull(), // museum, beach, monument, park, religious_site, market, viewpoint
+  description: text("description").notNull(),
+  images: text("images").array().notNull().default([]),
+  openingHours: text("opening_hours"), // e.g., "9:00 AM - 6:00 PM" or "24/7" or "Sunrise to Sunset"
+  bestTimeToVisit: text("best_time_to_visit"), // e.g., "Early morning (6-9 AM)" or "Weekdays"
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  countryCity: index("tourist_spots_country_city_idx").on(table.country, table.city),
+}));
+
+// Historical Crowd Data Points table
+export const crowdDataPoints = pgTable("crowd_data_points", {
+  id: serial("id").primaryKey(),
+  spotId: integer("spot_id").notNull().references(() => touristSpots.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").notNull(),
+  crowdLevel: text("crowd_level").notNull(), // low, medium, high
+  dayOfWeek: integer("day_of_week").notNull(), // 0-6
+  hourOfDay: integer("hour_of_day").notNull(), // 0-23
+  month: integer("month").notNull(), // 0-11
+  season: text("season").notNull(), // spring, summer, fall, winter
+  isWeekend: boolean("is_weekend").notNull(),
+  isHoliday: boolean("is_holiday").notNull(),
+  weatherCondition: text("weather_condition"),
+  temperature: decimal("temperature", { precision: 4, scale: 1 }),
+  source: text("source").notNull(), // user_report, prediction, manual
+}, (table) => ({
+  spotIdTimestamp: index("crowd_data_points_spot_id_timestamp_idx").on(table.spotId, table.timestamp),
+}));
+
+// User Crowd Reports table
+export const crowdReports = pgTable("crowd_reports", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  spotId: integer("spot_id").notNull().references(() => touristSpots.id, { onDelete: "cascade" }),
+  crowdLevel: text("crowd_level").notNull(), // low, medium, high
+  reportedAt: timestamp("reported_at").defaultNow(),
+  userLatitude: decimal("user_latitude", { precision: 10, scale: 7 }).notNull(),
+  userLongitude: decimal("user_longitude", { precision: 10, scale: 7 }).notNull(),
+  validated: boolean("validated").notNull().default(false),
+});
+
+// Prediction Cache table
+export const predictionCache = pgTable("prediction_cache", {
+  id: serial("id").primaryKey(),
+  spotId: integer("spot_id").notNull().references(() => touristSpots.id, { onDelete: "cascade" }),
+  predictedFor: timestamp("predicted_for").notNull(),
+  crowdLevel: text("crowd_level").notNull(), // low, medium, high
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).notNull(), // 0.00 to 1.00
+  generatedAt: timestamp("generated_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  spotIdPredictedFor: index("prediction_cache_spot_id_predicted_for_idx").on(table.spotId, table.predictedFor),
+}));
+
+// API Cache table
+export const apiCache = pgTable("api_cache", {
+  id: serial("id").primaryKey(),
+  cacheKey: text("cache_key").notNull().unique(),
+  apiName: text("api_name").notNull(), // ipapi, openweather, nager
+  response: text("response").notNull(), // JSON stringified response
+  cachedAt: timestamp("cached_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 
 
 // Insert schemas
@@ -161,6 +234,58 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertTouristSpotSchema = createInsertSchema(touristSpots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).refine(
+  (data) => data.name.trim().length > 0,
+  { message: "Name cannot be empty or whitespace only", path: ["name"] }
+).refine(
+  (data) => data.country.trim().length > 0,
+  { message: "Country cannot be empty or whitespace only", path: ["country"] }
+).refine(
+  (data) => data.city.trim().length > 0,
+  { message: "City cannot be empty or whitespace only", path: ["city"] }
+).refine(
+  (data) => data.description.trim().length > 0,
+  { message: "Description cannot be empty or whitespace only", path: ["description"] }
+).refine(
+  (data) => {
+    const lat = typeof data.latitude === 'string' ? parseFloat(data.latitude) : data.latitude;
+    return !isNaN(lat) && lat >= -90 && lat <= 90;
+  },
+  { message: "Latitude must be between -90 and 90", path: ["latitude"] }
+).refine(
+  (data) => {
+    const lon = typeof data.longitude === 'string' ? parseFloat(data.longitude) : data.longitude;
+    return !isNaN(lon) && lon >= -180 && lon <= 180;
+  },
+  { message: "Longitude must be between -180 and 180", path: ["longitude"] }
+).refine(
+  (data) => categorySchema.safeParse(data.category).success,
+  { message: "Category must be one of: museum, beach, monument, park, religious_site, market, viewpoint", path: ["category"] }
+);
+
+export const insertCrowdDataPointSchema = createInsertSchema(crowdDataPoints).omit({
+  id: true,
+});
+
+export const insertCrowdReportSchema = createInsertSchema(crowdReports).omit({
+  id: true,
+  reportedAt: true,
+});
+
+export const insertPredictionCacheSchema = createInsertSchema(predictionCache).omit({
+  id: true,
+  generatedAt: true,
+});
+
+export const insertApiCacheSchema = createInsertSchema(apiCache).omit({
+  id: true,
+  cachedAt: true,
 });
 
 
@@ -236,6 +361,31 @@ export const aiRecommendationSchema = z.object({
   language: z.enum(["en", "fr", "de", "hi", "es", "ru", "zh", "ar", "pt"]).default("en"),
 });
 
+// Tourist & Crowd Map schemas
+export const categorySchema = z.enum(["museum", "beach", "monument", "park", "religious_site", "market", "viewpoint"]);
+
+export const crowdLevelSchema = z.enum(["low", "medium", "high"]);
+
+export const seasonSchema = z.enum(["spring", "summer", "fall", "winter"]);
+
+export const dataSourceSchema = z.enum(["user_report", "prediction", "manual"]);
+
+export const apiNameSchema = z.enum(["ipapi", "openweather", "nager"]);
+
+export const touristSpotFilterSchema = z.object({
+  country: z.string().optional(),
+  city: z.string().optional(),
+  category: categorySchema.optional(),
+  crowdLevel: crowdLevelSchema.optional(),
+});
+
+export const crowdReportSubmissionSchema = z.object({
+  spotId: z.number().int().positive(),
+  crowdLevel: crowdLevelSchema,
+  userLatitude: z.number().min(-90).max(90),
+  userLongitude: z.number().min(-180).max(180),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -262,3 +412,23 @@ export type PaymentFormData = z.infer<typeof paymentFormSchema>;
 export type TripFilterData = z.infer<typeof tripFilterSchema>;
 export type BudgetFilterData = z.infer<typeof budgetFilterSchema>;
 export type AIRecommendationData = z.infer<typeof aiRecommendationSchema>;
+
+// Tourist & Crowd Map types
+export type InsertTouristSpot = z.infer<typeof insertTouristSpotSchema>;
+export type TouristSpot = typeof touristSpots.$inferSelect;
+export type InsertCrowdDataPoint = z.infer<typeof insertCrowdDataPointSchema>;
+export type CrowdDataPoint = typeof crowdDataPoints.$inferSelect;
+export type InsertCrowdReport = z.infer<typeof insertCrowdReportSchema>;
+export type CrowdReport = typeof crowdReports.$inferSelect;
+export type InsertPredictionCache = z.infer<typeof insertPredictionCacheSchema>;
+export type PredictionCache = typeof predictionCache.$inferSelect;
+export type InsertApiCache = z.infer<typeof insertApiCacheSchema>;
+export type ApiCache = typeof apiCache.$inferSelect;
+
+export type Category = z.infer<typeof categorySchema>;
+export type CrowdLevel = z.infer<typeof crowdLevelSchema>;
+export type Season = z.infer<typeof seasonSchema>;
+export type DataSource = z.infer<typeof dataSourceSchema>;
+export type ApiName = z.infer<typeof apiNameSchema>;
+export type TouristSpotFilterData = z.infer<typeof touristSpotFilterSchema>;
+export type CrowdReportSubmissionData = z.infer<typeof crowdReportSubmissionSchema>;

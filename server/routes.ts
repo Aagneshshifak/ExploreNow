@@ -30,6 +30,7 @@ import {
   type Booking
 } from "@shared/schema";
 import { eq, desc, sql as drizzleSql, and, or, isNotNull, ne } from "drizzle-orm";
+import touristMapRoutes from "./routes/touristMapRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -2701,6 +2702,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to retrieve payment history"));
     }
   });
+
+  // ============================================
+  // TOURIST MAP ROUTES
+  // ============================================
+  
+  // Mount tourist map routes at /api/tourist-map
+  app.use("/api/tourist-map", touristMapRoutes);
   
   const httpServer = createServer(app);
   
