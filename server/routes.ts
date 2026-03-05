@@ -2407,7 +2407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/ai/agent-system", async (req, res) => {
     try {
       console.log("[AGENT SYSTEM] Request received");
-      const { query, userContext } = req.body;
+      const { query, conversationHistory, userContext } = req.body;
       
       if (!query || typeof query !== 'string') {
         console.error("[AGENT SYSTEM] Invalid query:", { query, type: typeof query });
@@ -2415,14 +2415,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
   
       console.log("[AGENT SYSTEM] Processing query:", query.substring(0, 50) + "...");
-      console.log("[AGENT SYSTEM] User context:", userContext);
+      console.log("[AGENT SYSTEM] Conversation history length:", conversationHistory?.length || 0);
       
       // Import agent system
       const { agentSystem } = await import("./services/agentSystem");
       
-      // Process query through agent system
+      // Process query through agent system with conversation history
       const context = {
         userContext,
+        conversationHistory: conversationHistory || [],
         db
       };
       

@@ -753,7 +753,8 @@ Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
       travelDates?: string;
       groupSize?: number;
     },
-    db?: any
+    db?: any,
+    conversationalMode?: boolean // New parameter to force conversational responses
   ): Promise<TravelAssistance> {
     // Check for inappropriate content FIRST
     if (this.isInappropriateQuery(query)) {
@@ -773,7 +774,39 @@ Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
       `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
       : "";
 
-    const prompt = `You are an intelligent, agentic travel planning assistant. Analyze the user's query and provide the MOST HELPFUL response format based on what they're asking.
+    // Use conversational mode if requested (for agent system)
+    let prompt: string;
+    
+    if (conversationalMode) {
+      // Conversational mode - short, focused responses
+      prompt = `You are a friendly, conversational travel assistant. Answer the user's question directly and briefly.
+
+User query: "${query}"
+${context}
+${webContext}
+
+CRITICAL RULES:
+- Do NOT create itineraries or day-by-day plans
+- Do NOT use emoji icons
+- Do NOT use section headers or tables
+- Answer in 100-150 words maximum
+- Be conversational and friendly
+- If you need more info, ask a follow-up question
+- Focus ONLY on what was asked
+
+Return ONLY this JSON structure:
+{
+  "query": "${query.replace(/"/g, '\\"')}",
+  "response": "YOUR BRIEF, CONVERSATIONAL RESPONSE (100-150 words max)",
+  "category": "planning",
+  "confidence": 85,
+  "relatedSuggestions": []
+}
+
+Start your response with { and end with }. Do not include any text before or after the JSON.`;
+    } else {
+      // Full mode - detailed responses
+      prompt = `You are an intelligent, agentic travel planning assistant. Analyze the user's query and provide the MOST HELPFUL response format based on what they're asking.
 
       User query: "${query}"
       Enhanced query: "${enhancedQuery}"
@@ -876,6 +909,7 @@ Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
       }
       
       Start your response with { and end with }. Do not include any text before or after the JSON.`;
+    } // Close the else block
 
     // Helper function to process response
     const processResponse = (responseText: string): TravelAssistance => {
