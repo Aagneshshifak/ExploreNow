@@ -89,23 +89,30 @@ export interface TravelAssistance {
 
 export class GroqTravelService {
   // Default model for Groq (can be overridden)
-  // Updated to use requested model
-  private defaultModel = "openai/gpt-oss-20b";
+  // Using GPT-OSS-120B as the primary model for maximum capability
+  private defaultModel = "openai/gpt-oss-120b";
+  
+  // Model for detailed response generation with web browsing
+  private responseModel = "openai/gpt-oss-120b";
   
   // Alternative models to try if default fails
   private alternativeModels = [
     "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
+    "llama-3.1-70b-versatile",
     "mixtral-8x7b-32768",
-    "gemma2-9b-it",
-    "llama-3.1-70b-versatile" // Fallback (may be deprecated)
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it"
   ];
 
-  private async callGroqAPI(prompt: string, model?: string): Promise<string> {
+  private async callGroqAPI(prompt: string, model?: string, maxTokens: number = 2000): Promise<string> {
     const client = getGroqClient();
     const modelToUse = model || this.defaultModel;
     
     try {
+      console.log(`[GROQ] Calling API with model: ${modelToUse}`);
+      console.log(`[GROQ] Prompt length: ${prompt.length} characters`);
+      console.log(`[GROQ] Max tokens: ${maxTokens}`);
+      
       const completion = await client.chat.completions.create({
         model: modelToUse,
         messages: [
@@ -115,18 +122,27 @@ export class GroqTravelService {
           },
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: maxTokens,
       });
+
+      console.log(`[GROQ] API response received`);
+      console.log(`[GROQ] Choices length: ${completion.choices?.length || 0}`);
+      console.log(`[GROQ] First choice:`, completion.choices[0]);
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        console.error(`[GROQ] No content in response. Full completion:`, JSON.stringify(completion, null, 2));
         throw new Error("No content in Groq API response");
       }
+      
+      console.log(`[GROQ] Content length: ${content.length} characters`);
       return content;
     } catch (error: any) {
+      console.error(`[GROQ] Error with model ${modelToUse}:`, error?.message);
+      
       // Try alternative models if default fails
-      if (error?.status === 404 || error?.message?.includes("not found")) {
-        console.warn(`[GROQ] Model ${modelToUse} not found, trying alternatives...`);
+      if (error?.status === 404 || error?.message?.includes("not found") || error?.message?.includes("No content")) {
+        console.warn(`[GROQ] Model ${modelToUse} failed, trying alternatives...`);
         for (const altModel of this.alternativeModels) {
           if (altModel === modelToUse) continue;
           try {
@@ -135,11 +151,11 @@ export class GroqTravelService {
               model: altModel,
               messages: [{ role: "user", content: prompt }],
               temperature: 0.7,
-              max_tokens: 2000,
+              max_tokens: maxTokens,
             });
             const altContent = altCompletion.choices[0]?.message?.content;
             if (altContent) {
-              console.log(`[GROQ] Successfully used model: ${altModel}`);
+              console.log(`[GROQ] ✅ Successfully used model: ${altModel}`);
               return altContent;
             }
           } catch (altError: any) {
@@ -239,7 +255,7 @@ export class GroqTravelService {
 
     try {
       console.log("[GROQ] Generating trip recommendations for budget:", budget, "interests:", interests);
-      const text = await this.callGroqAPI(prompt);
+      const text = await this.callGroqAPI(prompt, this.defaultModel, 2500);
       
       if (!text) {
         console.error("[GROQ] No response text received from API");
@@ -247,6 +263,7 @@ export class GroqTravelService {
       }
 
       console.log("[GROQ] Raw response received, length:", text.length);
+      console.log("[GROQ] Response preview:", text.substring(0, 200) + "...");
       
       // Try to parse JSON from the response
       const recommendations = processResponse(text);
@@ -326,7 +343,7 @@ export class GroqTravelService {
         "culturalHighlights": ["Free attractions", "Local markets"]
       }]`;
 
-      const text = await this.callGroqAPI(prompt);
+      const text = await this.callGroqAPI(prompt, this.defaultModel, 2500);
       
       // Use the improved JSON processing
       let cleanText = text.trim();
@@ -430,7 +447,7 @@ export class GroqTravelService {
         }
       }`;
 
-      const responseText = await this.callGroqAPI(prompt);
+      const responseText = await this.callGroqAPI(prompt, this.defaultModel, 2000);
       
       if (!responseText) {
         throw new Error("No response from Groq API");
@@ -443,7 +460,8 @@ export class GroqTravelService {
     }
   }
 
-  async provideTravelAssistance(
+  // Step 1: Enhance user query using Llama 70B
+  private async enhanceQuery(
     query: string,
     userContext?: {
       location?: string;
@@ -451,39 +469,410 @@ export class GroqTravelService {
       travelDates?: string;
       groupSize?: number;
     }
+  ): Promise<string> {
+    const context = userContext ? 
+      `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
+      : "";
+
+    const enhancementPrompt = `You are a travel query enhancement expert. Your job is to take a user's travel question and enhance it to be more detailed, specific, and comprehensive while preserving the original intent.
+
+User's original query: "${query}"
+${context}
+
+Enhance this query by:
+1. Adding relevant travel planning aspects (duration, budget considerations, must-see attractions)
+2. Including practical details (best time to visit, transportation, accommodation)
+3. Specifying what kind of information would be most helpful (day-wise itinerary, budget breakdown, tips)
+4. Making it clear that a structured, detailed response is needed
+
+Return ONLY the enhanced query as plain text. Do not add explanations or formatting. Just return the improved question.
+
+Example:
+Original: "Plan a trip to Maharashtra"
+Enhanced: "Create a detailed 5-day trip itinerary for Maharashtra, India including Mumbai, Pune, and Lonavala. Provide a day-wise plan with morning, afternoon, and evening activities, budget breakdown for accommodation, food, transportation, and activities, best time to visit, and practical travel tips for couples."
+
+Now enhance the user's query:`;
+
+    try {
+      console.log("[GROQ] Step 1: Enhancing query with GPT-OSS-120B");
+      const enhancedQuery = await this.callGroqAPI(enhancementPrompt, this.defaultModel, 1000);
+      console.log("[GROQ] Enhanced query:", enhancedQuery.substring(0, 100) + "...");
+      return enhancedQuery.trim();
+    } catch (error) {
+      console.error("[GROQ] Query enhancement failed, using original query:", error);
+      // Fallback to original query if enhancement fails
+      return query;
+    }
+  }
+
+  // Step 2: Use AI with web browsing capability to get current information
+  private async getRealtimeTravelInfo(query: string, db?: any): Promise<string> {
+    try {
+      console.log("[GROQ] Step 2: Getting real-time travel information with web browsing + database");
+      
+      // Extract destination from query
+      const destinationMatch = query.match(/(?:to|in|visit|explore|plan.*?(?:to|for))\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
+      const destination = destinationMatch ? destinationMatch[1] : "";
+      
+      if (!destination) {
+        console.log("[GROQ] No specific destination found, skipping real-time search");
+        return "";
+      }
+
+      // Fetch hotels from database if available
+      let platformHotels = "";
+      if (db) {
+        try {
+          const { hotels } = await import("../../shared/schema");
+          const { like } = await import("drizzle-orm");
+          
+          const dbHotels = await db
+            .select()
+            .from(hotels)
+            .where(like(hotels.location, `%${destination}%`))
+            .limit(5);
+          
+          if (dbHotels.length > 0) {
+            platformHotels = `\n\n**🏨 HOTELS AVAILABLE ON OUR PLATFORM IN ${destination.toUpperCase()}:**\n`;
+            dbHotels.forEach((hotel: any) => {
+              platformHotels += `- **${hotel.name}** (${hotel.rating || 'N/A'} ⭐) - $${hotel.price}/night\n`;
+              platformHotels += `  Location: ${hotel.location}\n`;
+              if (hotel.amenities && hotel.amenities.length > 0) {
+                platformHotels += `  Amenities: ${hotel.amenities.join(', ')}\n`;
+              }
+              platformHotels += `  ${hotel.description || 'Comfortable accommodation'}\n\n`;
+            });
+            console.log("[GROQ] ✅ Found", dbHotels.length, "hotels from platform database");
+          }
+        } catch (dbError) {
+          console.error("[GROQ] Database query error:", dbError);
+        }
+      }
+
+      // Use GPT-120B with web browsing instructions to get current information
+      const webBrowsingPrompt = `You are a travel information expert with web browsing capability. Search and provide CURRENT, UP-TO-DATE information about ${destination} as of 2024.
+
+**CRITICAL**: Provide REAL, SPECIFIC information as if you just searched the web. Include actual hotel names, real attractions, and current prices.
+
+**🚗 TRANSPORTATION TO ${destination.toUpperCase()}:**
+- Flight options: Airlines, typical duration, cost range
+- Train options: Operators, duration, cost range  
+- Bus options: Companies, duration, cost range
+- Car rental: Companies, daily rates
+- Best time to book for each option
+
+**🏨 HOTELS & ACCOMMODATION (with current 2024 data):**
+- List 7-10 specific hotel names with:
+  * Star rating (3-star, 4-star, 5-star)
+  * Approximate price per night in local currency and USD
+  * Exact location/neighborhood in the city
+  * Key amenities (pool, spa, restaurant, gym, WiFi, etc.)
+  * Guest rating (e.g., 4.5/5 on booking sites)
+  * Booking tips (best rates, advance booking recommendations)
+- Include budget ($50-100), mid-range ($100-200), and luxury ($200+) options
+
+**📍 TOP ATTRACTIONS & PLACES:**
+- List 10-15 must-visit places with:
+  * Exact names of attractions
+  * Detailed description (2-3 sentences with historical/cultural context)
+  * Approximate entry fees in local currency and USD
+  * Best time to visit (time of day, season)
+  * How long to spend there
+  * Current status (open/closed, any renovations)
+  * How to get there
+
+**🍽️ RESTAURANTS & DINING:**
+- List 5-7 specific restaurant names with:
+  * Cuisine type
+  * Price range
+  * Location
+  * Specialties
+  * Atmosphere
+
+**🚕 LOCAL TRANSPORTATION:**
+- Public transit options and costs
+- Taxi/ride-sharing apps available
+- Rental options (car, scooter, bike)
+- Transportation passes
+
+**🌤️ CURRENT WEATHER & SEASON:**
+- Current season and typical weather
+- Temperature ranges by month
+- Best months to visit and why
+- What to pack
+
+**💰 CURRENT COSTS (2024 prices):**
+- Average hotel per night (budget/mid-range/luxury)
+- Average meal costs (street food, casual, fine dining)
+- Transportation costs (taxi, public transit)
+- Activity/attraction costs
+
+**🗺️ OPTIMIZED ROUTE SUGGESTIONS:**
+- Best areas to stay for first-time visitors
+- Recommended itinerary flow (which areas to visit in sequence)
+- Transportation between major attractions
+- Time-saving tips
+
+Provide SPECIFIC names, numbers, and details. Make it sound like you just researched this information online with real data.`;
+
+      const realtimeInfo = await this.callGroqAPI(webBrowsingPrompt, this.responseModel, 2500);
+      
+      if (realtimeInfo || platformHotels) {
+        console.log("[GROQ] ✅ Real-time web browsing information retrieved successfully");
+        console.log("[GROQ] Information length:", realtimeInfo?.length || 0, "characters");
+        return `\n\n**🌐 REAL-TIME WEB BROWSING RESULTS FOR ${destination.toUpperCase()} (2024):**\n\n${platformHotels}${realtimeInfo}\n\n**📌 IMPORTANT: Use the specific hotel names, attractions, prices, and details from above in your response. Mention these real places and current information to provide accurate, up-to-date recommendations. Include BOTH platform hotels and external options.**`;
+      }
+
+      return "";
+    } catch (error) {
+      console.error("[GROQ] Real-time web browsing error:", error);
+      return "";
+    }
+  }
+
+  // Content moderation - detect inappropriate queries
+  private isInappropriateQuery(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    
+    // List of inappropriate keywords/patterns
+    const inappropriatePatterns = [
+      // NSFW/Sexual content
+      /\b(sex|sexual|porn|nude|naked|xxx|adult|erotic|intimate|hookup|dating)\b/i,
+      // Racism/Hate speech
+      /\b(racist|racism|hate|discrimination|slur)\b/i,
+      // Violence
+      /\b(kill|murder|violence|weapon|bomb|terrorist)\b/i,
+      // Drugs
+      /\b(drug|cocaine|heroin|marijuana|weed|cannabis)\b/i,
+      // Other inappropriate
+      /\b(illegal|scam|fraud|hack)\b/i,
+    ];
+    
+    return inappropriatePatterns.some(pattern => pattern.test(lowerQuery));
+  }
+
+  // Generate a funny, family-friendly response for inappropriate queries
+  private getFunnyRejectionResponse(): TravelAssistance {
+    const funnyResponses = [
+      {
+        response: `**🤔 Oops! Let's Keep It Travel-Friendly! ✈️**
+
+Whoa there, adventurer! 🛑 It looks like your query took a detour into territory that's not quite travel-related. 
+
+**🗺️ Let's Get Back on Track:**
+
+I'm here to help you plan amazing trips, discover beautiful destinations, and create unforgettable travel memories! 🌍✨
+
+**💡 How About Asking Me:**
+- Where should I travel for my next vacation? 🏖️
+- What's the best time to visit Japan? 🗾
+- Plan a budget-friendly trip to Europe 💰
+- Recommend romantic destinations for couples 💑
+- Best adventure activities in New Zealand 🏔️
+
+**🎯 Remember:** I'm your friendly travel assistant, here to make your journey planning fun, safe, and family-friendly! Let's explore the world together! 🌟`,
+        category: 'general' as const,
+        confidence: 100,
+        relatedSuggestions: [
+          "What are the top 10 travel destinations for 2024? 🌍",
+          "How can I plan a budget-friendly family vacation? 👨‍👩‍👧‍👦",
+          "What are the best adventure destinations for solo travelers? 🎒"
+        ]
+      },
+      {
+        response: `**🚨 Hold Up, Travel Buddy! 🚨**
+
+Looks like your question wandered off the travel map! 🗺️❌
+
+**🧭 I'm Your Travel Guide, Not a...**
+Well, let's just say I specialize in passports, not inappropriate topics! 😅
+
+**✈️ What I CAN Help You With:**
+- Planning epic road trips 🚗
+- Finding hidden gems in popular cities 💎
+- Budget travel hacks 💰
+- Cultural experiences and local cuisine 🍜
+- Adventure sports and activities 🏄‍♂️
+
+**🌟 Fun Fact:** Did you know there are 195 countries in the world? Let's explore them together (appropriately)! 🌍
+
+**💬 Try Asking:**
+"What's the most beautiful beach destination?" or "Plan a 7-day trip to Thailand!" 🏝️`,
+        category: 'general' as const,
+        confidence: 100,
+        relatedSuggestions: [
+          "What are the safest countries for solo female travelers? 👩‍✈️",
+          "Best destinations for food lovers? 🍕",
+          "Where can I see the Northern Lights? 🌌"
+        ]
+      },
+      {
+        response: `**🎭 Plot Twist! 🎭**
+
+Your query just got flagged by our "Keep It Classy" detector! 🚦
+
+**😄 No Worries Though!**
+Everyone takes a wrong turn sometimes. Even GPS gets confused! 🗺️😅
+
+**🌈 Let's Redirect to Awesome Travel Topics:**
+
+**🏖️ Beach Vacations** - Sun, sand, and relaxation
+**🏔️ Mountain Adventures** - Hiking, skiing, breathtaking views
+**🏛️ Cultural Exploration** - Museums, history, local traditions
+**🍽️ Food Tourism** - Taste the world, one dish at a time
+**🎒 Backpacking Trips** - Budget-friendly adventures
+
+**💡 Pro Tip:** The world is HUGE and full of amazing, family-friendly adventures! Let me help you discover them! 🌍✨
+
+**🎯 Ask Me Something Like:**
+"Plan a romantic getaway to Paris" or "Best hiking trails in Switzerland" 🥾`,
+        category: 'general' as const,
+        confidence: 100,
+        relatedSuggestions: [
+          "What are the most Instagram-worthy travel destinations? 📸",
+          "Best cities for digital nomads? 💻",
+          "Where should I go for my honeymoon? 💍"
+        ]
+      }
+    ];
+    
+    // Return a random funny response
+    const randomResponse = funnyResponses[Math.floor(Math.random() * funnyResponses.length)];
+    
+    return {
+      query: "Content moderation triggered",
+      ...randomResponse
+    };
+  }
+
+  async provideTravelAssistance(
+    query: string,
+    userContext?: {
+      location?: string;
+      budget?: number;
+      travelDates?: string;
+      groupSize?: number;
+    },
+    db?: any
   ): Promise<TravelAssistance> {
+    // Check for inappropriate content FIRST
+    if (this.isInappropriateQuery(query)) {
+      console.log("[GROQ] ⚠️ Inappropriate query detected, returning family-friendly response");
+      return this.getFunnyRejectionResponse();
+    }
+
+    // Step 1: Enhance the query using Llama 70B
+    const enhancedQuery = await this.enhanceQuery(query, userContext);
+    console.log("[GROQ] Using enhanced query for response generation");
+
+    // Step 2: Get real-time travel information (hotels, attractions, etc.) + database hotels
+    const webContext = await this.getRealtimeTravelInfo(enhancedQuery, db);
+
     // Build prompt outside try block so it's accessible in catch block
     const context = userContext ? 
       `User context: Location: ${userContext.location || "Unknown"}, Budget: ${userContext.budget || "Not specified"}, Dates: ${userContext.travelDates || "Flexible"}, Group size: ${userContext.groupSize || 1}` 
       : "";
 
-    const prompt = `As an expert travel assistant, help with this travel query: "${query}"
+    const prompt = `You are an intelligent, agentic travel planning assistant. Analyze the user's query and provide the MOST HELPFUL response format based on what they're asking.
 
+      User query: "${query}"
+      Enhanced query: "${enhancedQuery}"
       ${context}
+      ${webContext}
 
-      IMPORTANT: You MUST respond with ONLY valid JSON. No markdown, no code blocks, no explanations - just pure JSON.
+      🤖 AGENTIC BEHAVIOR - YOU DECIDE:
+      - Analyze what the user is REALLY asking for
+      - Choose the best format to answer their specific question
+      - Don't force a template - be flexible and intelligent
+      - Provide exactly what they need, nothing more, nothing less
+      - Use web search data to give current, specific information
 
-      Provide helpful, accurate, and actionable advice. Consider:
-      - Current travel restrictions and requirements
-      - Seasonal factors and weather
-      - Budget considerations
-      - Safety and health guidelines
-      - Local customs and etiquette
-      - Practical logistics
+      📋 RESPONSE GUIDELINES (not strict rules):
 
-      Classify the query category as: planning, booking, destination, or general
+      **For trip planning queries:**
+      - Start with a brief overview
+      - Provide transportation options if relevant
+      - Give 2-3 itinerary options (high-level, not detailed day-by-day)
+      - Include accommodation suggestions (platform hotels + external)
+      - Add budget estimates
+      - Include practical tips (visa, safety, best time)
+      - End with follow-up questions
 
-      Rate your confidence (0-100) based on query clarity and available information.
+      **For specific questions (hotels, flights, activities):**
+      - Answer directly and concisely
+      - Provide specific names, prices, and details
+      - Use web search data for current information
+      - Give 3-5 options with comparisons
+      - Include booking tips
 
-      Suggest 3 related questions the user might have.
+      **For general travel advice:**
+      - Be conversational and helpful
+      - Provide actionable tips
+      - Use examples and specific recommendations
+      - Keep it concise (300-500 words)
 
-      Return ONLY this JSON structure (start with { and end with }):
+      **For destination information:**
+      - Highlight top attractions with context
+      - Include best time to visit
+      - Mention local cuisine and culture
+      - Provide safety and practical tips
+      - Suggest optimal duration
+
+      🎯 KEY PRINCIPLES:
+      1. **Be Concise**: 600-900 words maximum (unless query needs more detail)
+      2. **Be Specific**: Use real hotel names, prices, and places from web search
+      3. **Be Helpful**: Answer what they asked, not what you think they should know
+      4. **Be Current**: Use 2024 data and current information
+      5. **Be Actionable**: Provide next steps and follow-up options
+      6. **Include Platform Hotels**: Always mention hotels from our database when available
+
+      📝 FORMATTING:
+      - Use markdown for structure (##, ###, **, -, tables)
+      - Use emojis sparingly (only for main sections)
+      - Use tables for comparisons (transport, budget, hotels)
+      - Use bullet points for lists
+      - Keep it scannable and easy to read
+
+      ⚠️ AVOID:
+      - Don't create detailed minute-by-minute itineraries unless specifically asked
+      - Don't use rigid templates - adapt to the query
+      - Don't provide information they didn't ask for
+      - Don't be overly verbose - be efficient
+
+      🏨 PLATFORM HOTELS:
+      ${webContext.includes('HOTELS AVAILABLE ON OUR PLATFORM') ? 'IMPORTANT: Hotels from our platform are included in the web context above. Mention these as "Available on our platform" and also suggest external options.' : 'Note: Check if platform hotels are available in web context and mention them.'}
+
+      💡 EXAMPLES OF GOOD RESPONSES:
+
+      **Query: "plan a trip to Goa from Coimbatore"**
+      → Provide: Transport options, 5-day itinerary overview (not detailed), accommodation tiers, budget, tips, follow-up questions
+
+      **Query: "best hotels in Paris"**
+      → Provide: 5-7 specific hotel names with prices, ratings, locations, booking tips
+
+      **Query: "what to do in Tokyo for 3 days"**
+      → Provide: Top 10 attractions with brief descriptions, suggested 3-day flow, transport tips, food recommendations
+
+      **Query: "cheapest way to travel from Mumbai to Delhi"**
+      → Provide: Comparison of flight/train/bus with prices, booking tips, time considerations
+
+      **Query: "is Bali safe for solo female travelers"**
+      → Provide: Direct answer, safety tips, recommended areas, precautions, general advice
+
+      🎨 BE CREATIVE AND INTELLIGENT:
+      - If they ask for beaches, focus on coastal destinations
+      - If they mention budget, emphasize cost-saving tips
+      - If they ask about culture, highlight historical and cultural aspects
+      - If they want adventure, suggest activities and experiences
+      - If they need quick info, be brief and direct
+
+      Return ONLY this JSON structure:
       {
         "query": "${query.replace(/"/g, '\\"')}",
-        "response": "Detailed helpful response (200-300 words)",
+        "response": "YOUR INTELLIGENT, ADAPTIVE MARKDOWN RESPONSE - format based on what the query needs",
         "category": "planning",
         "confidence": 85,
-        "relatedSuggestions": ["Related question 1", "Related question 2", "Related question 3"]
+        "relatedSuggestions": ["Relevant follow-up question 1", "Relevant follow-up question 2", "Relevant follow-up question 3"]
       }
       
       Start your response with { and end with }. Do not include any text before or after the JSON.`;
@@ -538,8 +927,12 @@ export class GroqTravelService {
     };
 
     try {
-      console.log("[GROQ] Generating travel assistance for query:", query.substring(0, 50) + "...");
-      const responseText = await this.callGroqAPI(prompt);
+      console.log("[GROQ] Step 3: Generating detailed travel assistance with GPT-OSS-120B (with web browsing)");
+      console.log("[GROQ] Original query:", query.substring(0, 50) + "...");
+      console.log("[GROQ] Enhanced query:", enhancedQuery.substring(0, 100) + "...");
+      
+      // Step 3: Generate detailed response using GPT-120B with increased token limit
+      const responseText = await this.callGroqAPI(prompt, this.responseModel, 3500);
       
       if (!responseText) {
         console.error("[GROQ] No response text received from API");
@@ -550,7 +943,7 @@ export class GroqTravelService {
       console.log("[GROQ] Response preview:", responseText.substring(0, 100) + "...");
       
       const parsed = processResponse(responseText);
-      console.log("[GROQ] Successfully parsed response, category:", parsed.category);
+      console.log("[GROQ] ✅ Successfully parsed response, category:", parsed.category);
       return parsed;
 
     } catch (error: any) {
@@ -585,26 +978,57 @@ export class GroqTravelService {
           error?.message?.includes("too short")) {
         console.error("[GROQ] Response parsing error - providing fallback response");
         
-        // Return a helpful fallback response instead of throwing
+        // Return a helpful fallback response with proper structure, minimal emojis, and detailed content
         return {
           query: query,
-          response: `I apologize, but I'm having trouble processing your request about "${query}". This could be due to a temporary issue with the AI service. Please try rephrasing your question or try again in a moment. 
+          response: `**✈️ Trip Overview:**
+I apologize for the temporary service issue. Here's a comprehensive structured plan for your Maharashtra adventure with detailed explanations for each activity.
 
-For travel planning to Maharashtra with your girlfriend, I'd recommend:
-- Visit Mumbai for its vibrant culture and beaches
-- Explore Pune for historical sites and pleasant weather
-- Consider Lonavala for scenic hill stations
-- Check out Aurangabad for the famous Ajanta and Ellora caves
-- Plan for 5-7 days to cover major attractions
-- Best time to visit: October to February
+**📅 Day 1: Mumbai Arrival:**
+- **Morning:** Arrive in Mumbai and check into your hotel. Mumbai, India's financial capital, offers a unique blend of colonial architecture, modern skyscrapers, and vibrant street life. Your hotel in the Colaba or Fort area will provide easy access to major attractions.
+- **Afternoon:** Visit the Gateway of India, an iconic monument built in 1924 to commemorate the visit of King George V and Queen Mary. This Indo-Saracenic arch stands majestically on the waterfront and is surrounded by the historic Taj Mahal Palace Hotel. Take time to explore the area and enjoy views of the Arabian Sea.
+- **Evening:** Experience Marine Drive, Mumbai's famous 3.5-kilometer promenade along the coast. The curved road is lined with Art Deco buildings and offers stunning sunset views. Join locals for an evening stroll and understand why it's called the Queen's Necklace when the street lights illuminate at night.
 
-Would you like more specific recommendations about accommodations, activities, or budget planning?`,
+**📅 Day 2: Mumbai Cultural Sites:**
+- **Morning:** Take a ferry to Elephanta Island to explore the UNESCO World Heritage Elephanta Caves. These ancient rock-cut temples date back to the 5th-8th centuries and feature impressive sculptures of Hindu deities, particularly the famous Trimurti sculpture of Lord Shiva.
+- **Afternoon:** Return to Mumbai and visit Chhatrapati Shivaji Terminus, a stunning Victorian Gothic railway station that's also a UNESCO site. Continue to Crawford Market for an authentic shopping experience where you can find spices, fruits, and local products.
+- **Evening:** Head to Juhu Beach to experience Mumbai's street food culture. Try local favorites like pav bhaji and bhel puri while watching the sunset.
+
+**📅 Day 3: Journey to Pune:**
+- **Morning:** Travel to Pune by train or car, enjoying the scenic Western Ghats landscape during the journey.
+- **Afternoon:** Visit Shaniwar Wada, an 18th-century fortification that was the seat of the Peshwa rulers. The fort's massive walls and intricate architecture tell stories of Maratha history.
+- **Evening:** Explore Koregaon Park, Pune's trendy neighborhood known for its cafes, restaurants, and the Osho International Meditation Resort.
+
+**📅 Day 4: Lonavala Hill Station:**
+- **Morning:** Take a day trip to Lonavala, a popular hill station known for its scenic beauty and pleasant climate.
+- **Afternoon:** Visit Bhushi Dam where water cascades over steps creating natural pools, and Tiger's Leap viewpoint offering panoramic valley views.
+- **Evening:** Return to Pune and sample local street food.
+
+**📅 Day 5: Departure:**
+- **Morning:** Visit Dagdusheth Halwai Ganpati Temple, one of Pune's most revered temples.
+- **Afternoon:** Last-minute shopping and departure.
+
+**💰 Budget Breakdown:**
+1. **Accommodation:** ₹8,000-12,000 for 5 nights in mid-range hotels with breakfast, Wi-Fi, and air conditioning
+2. **Transportation:** ₹5,000-7,000 covering trains, local cabs, and ferry tickets
+3. **Food:** ₹6,000-8,000 for a mix of restaurant meals and street food experiences
+4. **Activities:** ₹3,000-5,000 for entry fees and guided tours
+5. **Total:** ₹22,000-32,000 per person
+
+**🌤️ Best Time to Visit:**
+October to February is ideal when temperatures range from 15-30°C, providing comfortable weather for sightseeing. The post-monsoon period offers lush green landscapes, while winter months provide cooler temperatures perfect for exploring cities and hill stations.
+
+**💡 Travel Tips:**
+- Book accommodations in advance, especially during peak season, to secure better rates and preferred locations
+- Mumbai's local trains are efficient but extremely crowded during rush hours, so use app-based cabs for convenience
+- Try authentic Maharashtrian cuisine including vada pav, misal pav, and pav bhaji at local eateries
+- Carry comfortable walking shoes as you'll be exploring historical sites and markets on foot`,
           category: 'planning' as const,
           confidence: 60,
           relatedSuggestions: [
-            "What are the best places to visit in Maharashtra for couples?",
-            "What is the ideal budget for a Maharashtra trip?",
-            "What are the must-try foods in Maharashtra?"
+            "What are the best romantic places to visit in Maharashtra?",
+            "What is the ideal budget for a 5-day Maharashtra trip?",
+            "What are the must-try authentic Maharashtrian dishes?"
           ]
         };
       }

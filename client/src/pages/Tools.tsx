@@ -48,16 +48,7 @@ const tools: Tool[] = [
     tag: 'Finance Tool',
     comingSoon: false
   },
-  {
-    id: 'expense-estimator',
-    title: 'Expense Estimator',
-    description: 'Calculate and breakdown your trip costs with detailed budget planning tools',
-    path: '/tools/expense-estimator',
-    icon: Calculator,
-    category: 'planning',
-    tag: 'Planning Tool',
-    comingSoon: true
-  },
+
   {
     id: 'trip-suggestion-by-budget',
     title: 'Trip Suggestion by Budget',
@@ -68,26 +59,8 @@ const tools: Tool[] = [
     tag: 'Smart Suggestion',
     comingSoon: false
   },
-  {
-    id: 'visa-checker',
-    title: 'Visa Checker',
-    description: 'Check visa requirements based on your nationality and destination',
-    path: '/tools/visa-checker',
-    icon: FileCheck,
-    category: 'essentials',
-    tag: 'Travel Essential',
-    comingSoon: true
-  },
-  {
-    id: 'document-wallet',
-    title: 'Document Wallet',
-    description: 'Securely store and manage your travel documents in one place',
-    path: '/tools/document-wallet',
-    icon: FolderOpen,
-    category: 'essentials',
-    tag: 'Security Tool',
-    comingSoon: true
-  },
+
+
   {
     id: 'text-translator',
     title: 'Text Translator',
@@ -98,26 +71,8 @@ const tools: Tool[] = [
     tag: 'Language Helper',
     comingSoon: false
   },
-  {
-    id: 'route-finder',
-    title: 'Route Finder',
-    description: 'Compare transportation options and find the best routes for your journey',
-    path: '/tools/route-finder',
-    icon: Route,
-    category: 'navigation',
-    tag: 'Navigation Tool',
-    comingSoon: true
-  },
-  {
-    id: 'travel-compass',
-    title: 'Travel Compass',
-    description: 'Discover new destinations with our interactive exploration tool',
-    path: '/tools/compass',
-    icon: Compass,
-    category: 'navigation',
-    tag: 'Discovery Tool',
-    comingSoon: true
-  },
+
+
   {
     id: 'tourist-crowd-map',
     title: 'Tourist & Crowd Map',
@@ -128,16 +83,7 @@ const tools: Tool[] = [
     tag: 'Local Insights',
     comingSoon: true
   },
-  {
-    id: 'explore-guide',
-    title: 'Explore Guide',
-    description: 'Your smart travel companion — get local routes, places to visit, and tips based on your current location',
-    path: '/tools/explore-guide',
-    icon: Navigation,
-    category: 'navigation',
-    tag: 'Travel Assistant',
-    comingSoon: true
-  },
+
   {
     id: 'trip-recommender',
     title: 'Trip Recommender',
@@ -148,27 +94,8 @@ const tools: Tool[] = [
     tag: 'Smart Suggestion',
     comingSoon: false
   },
-  {
-    id: 'local-explorer',
-    title: 'Local Explorer',
-    description: 'Discover amazing local spots, hidden gems, and authentic experiences near your location',
-    path: '/tools/explorer',
-    icon: Navigation,
-    category: 'navigation',
-    tag: 'Local Guide',
-    comingSoon: true
-  },
-  {
-    id: 'admin-dashboard',
-    title: 'Admin Dashboard',
-    description: 'Manage users, content, and system settings with administrative controls',
-    path: '/admin/dashboard',
-    icon: Shield,
-    adminOnly: true,
-    category: 'admin',
-    tag: 'Admin Control',
-    comingSoon: true
-  }
+
+
 ];
 
 const Tools = () => {

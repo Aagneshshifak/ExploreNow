@@ -30,6 +30,7 @@ import {
   type Booking
 } from "@shared/schema";
 import { eq, desc, sql as drizzleSql, and, or, isNotNull, ne } from "drizzle-orm";
+import touristMapRoutes from "./routes/touristMapRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -130,6 +131,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Login - POST /api/auth/login
   app.post("/api/auth/login", async (req, res) => {
+    console.log("[LOGIN] ========== LOGIN ROUTE HIT ==========");
+    console.log("[LOGIN] Method:", req.method);
+    console.log("[LOGIN] Path:", req.path);
+    console.log("[LOGIN] URL:", req.url);
+    console.log("[LOGIN] Origin:", req.headers.origin);
+    console.log("[LOGIN] Content-Type:", req.headers['content-type']);
+    
     try {
       console.log("[LOGIN] Login request received");
       console.log("[LOGIN] Request body:", { email: req.body?.email, hasPassword: !!req.body?.password });
@@ -296,7 +304,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Logout - POST /api/auth/logout
   app.post("/api/auth/logout", (req, res) => {
-    res.clearCookie("token");
+    const isProduction = process.env.NODE_ENV === "production";
+    // Clear cookie with same options as when it was set
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+      path: "/"
+    });
     res.json(createResponse(true, null, "Logged out successfully"));
   });
   
@@ -2351,7 +2366,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[AI ASSISTANT] Processing query:", query.substring(0, 50) + "...");
       console.log("[AI ASSISTANT] User context:", userContext);
       
-      const assistance = await groqService.provideTravelAssistance(query, userContext);
+      // Pass database connection to groqService for hotel lookup
+      const assistance = await groqService.provideTravelAssistance(query, userContext, db);
       console.log("[AI ASSISTANT] Assistance generated successfully, category:", assistance.category);
   
       res.json(createResponse(true, {
@@ -2434,7 +2450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         budget: req.body.userBudget,
         travelDates: req.body.userTravelDates,
         groupSize: req.body.userGroupSize
-      });
+      }, db);
   
       res.json(createResponse(true, {
         message: response.response,
@@ -2686,6 +2702,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json(createResponse(false, null, "Failed to retrieve payment history"));
     }
   });
+
+  // ============================================
+  // TOURIST MAP ROUTES
+  // ============================================
+  
+  // Mount tourist map routes at /api/tourist-map
+  app.use("/api/tourist-map", touristMapRoutes);
   
   const httpServer = createServer(app);
   

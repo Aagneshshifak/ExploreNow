@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2, LogIn } from "lucide-react";
+import { Bot, MessageCircle, MapPin, Lightbulb, Loader2, Send, Sparkles, Bookmark, BookmarkCheck, Trash2, LogIn, Copy, Check } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface AssistanceResponse {
   response: string;
@@ -44,6 +46,7 @@ export default function AIAssistant() {
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<"enhancing" | "generating" | null>(null);
   const [response, setResponse] = useState<AssistanceResponse | null>(null);
   const [selectedDestination, setSelectedDestination] = useState("");
   const [destinationLoading, setDestinationLoading] = useState(false);
@@ -51,6 +54,7 @@ export default function AIAssistant() {
   const [savedResponses, setSavedResponses] = useState<SavedResponse[]>([]);
   const [currentQuery, setCurrentQuery] = useState("");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Load saved responses from localStorage
   useEffect(() => {
@@ -108,13 +112,46 @@ export default function AIAssistant() {
     return savedResponses.some(b => b.query === currentQuery && b.response.response === response?.response);
   };
 
-  // Format text to remove markdown bold syntax
+  // Format text - keep bold markdown but remove other markers
   const formatText = (text: string) => {
     return text
-      .replace(/\*\*(.+?)\*\*/g, '$1') // Remove ** bold markers
-      .replace(/\*(.+?)\*/g, '$1') // Remove * italic markers
       .replace(/‑/g, '-') // Replace non-breaking hyphens
       .trim();
+  };
+
+  // Render text with markdown bold support
+  const renderTextWithBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const boldText = part.slice(2, -2);
+        return <strong key={index} className="font-semibold">{boldText}</strong>;
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
+  // Copy response to clipboard
+  const copyToClipboard = async () => {
+    if (!response) return;
+    
+    try {
+      // Strip markdown bold for clipboard
+      const plainText = formatText(response.response).replace(/\*\*(.+?)\*\*/g, '$1');
+      await navigator.clipboard.writeText(plainText);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Response copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,10 +166,14 @@ export default function AIAssistant() {
     }
 
     setLoading(true);
+    setLoadingStep("enhancing");
     setResponse(null); // Clear previous response
     
     try {
       console.log("[AI ASSISTANT] Sending request:", { query: query.substring(0, 50) + "...", location, budget });
+      
+      // Simulate step transition for better UX
+      setTimeout(() => setLoadingStep("generating"), 1500);
       
       const res = await fetch("/api/ai/assistant", {
         method: "POST",
@@ -221,6 +262,7 @@ export default function AIAssistant() {
       });
     } finally {
       setLoading(false);
+      setLoadingStep(null);
     }
   };
 
@@ -258,7 +300,7 @@ export default function AIAssistant() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl relative">
+    <div className="container mx-auto px-4 py-8 pb-8 max-w-6xl relative">{/* Removed bottom padding for footer */}
       {/* Blur Overlay for non-authenticated users */}
       {!user && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -414,7 +456,7 @@ export default function AIAssistant() {
                   {loading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Getting AI Response...
+                      {loadingStep === "enhancing" ? "Analyzing your query..." : "Generating your travel plan..."}
                     </>
                   ) : (
                     <>
@@ -427,72 +469,213 @@ export default function AIAssistant() {
             </CardContent>
           </Card>
 
+          {/* Loading Indicator with Two-Step Process */}
+          {loading && (
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardContent className="py-8">
+                <div className="flex flex-col items-center justify-center space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 ${loadingStep === "enhancing" ? "text-primary" : "text-muted-foreground"}`}>
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${loadingStep === "enhancing" ? "border-primary bg-primary/10" : "border-muted"}`}>
+                        {loadingStep === "enhancing" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <span className="text-xs font-semibold">1</span>
+                        )}
+                      </div>
+                      <span className="font-medium">Analyzing Query</span>
+                    </div>
+                    
+                    <div className="h-px w-12 bg-border" />
+                    
+                    <div className={`flex items-center gap-2 ${loadingStep === "generating" ? "text-primary" : "text-muted-foreground"}`}>
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${loadingStep === "generating" ? "border-primary bg-primary/10" : "border-muted"}`}>
+                        {loadingStep === "generating" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <span className="text-xs font-semibold">2</span>
+                        )}
+                      </div>
+                      <span className="font-medium">Creating Plan</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-sm font-medium mb-1">
+                      {loadingStep === "enhancing" ? "Understanding your travel needs..." : "Crafting your personalized itinerary..."}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {loadingStep === "enhancing" 
+                        ? "Our AI is analyzing your preferences and requirements" 
+                        : "Generating a comprehensive travel plan tailored for you"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Assistant Response */}
           {response && (
-            <Card>
-              <CardHeader>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
                 <CardTitle className="flex items-center justify-between">
-                  <span>AI Response</span>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Bot className="h-5 w-5 text-primary" />
+                    </div>
+                    <span>AI Travel Expert</span>
+                  </div>
                   <div className="flex gap-2 items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyToClipboard}
+                      className="gap-1"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={saveBookmark}
                       disabled={isBookmarked()}
+                      className="gap-1"
                     >
                       {isBookmarked() ? (
                         <>
-                          <BookmarkCheck className="h-4 w-4 mr-1" />
+                          <BookmarkCheck className="h-4 w-4" />
                           Saved
                         </>
                       ) : (
                         <>
-                          <Bookmark className="h-4 w-4 mr-1" />
+                          <Bookmark className="h-4 w-4" />
                           Save
                         </>
                       )}
                     </Button>
-                    <Badge variant="secondary">{response.category}</Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      {response.category}
+                    </Badge>
                     <Badge variant={response.confidence > 80 ? "default" : "outline"}>
                       {response.confidence}% confidence
                     </Badge>
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-muted/50 p-6 rounded-lg border border-border">
-                  <div className="prose prose-sm max-w-none text-foreground">
-                    {formatText(response.response).split('\n\n').map((paragraph, idx) => (
-                      <p key={idx} className="mb-4 last:mb-0 leading-relaxed text-base text-foreground">
-                        {paragraph.split('\n').map((line, lineIdx) => (
-                          <span key={lineIdx}>
-                            {line}
-                            {lineIdx < paragraph.split('\n').length - 1 && <br />}
-                          </span>
-                        ))}
-                      </p>
-                    ))}
-                  </div>
+              <CardContent className="space-y-6 pt-6 max-h-[600px] overflow-y-auto">
+                {/* Main Response with Markdown Rendering */}
+                <div className="prose prose-slate dark:prose-invert max-w-none pr-2">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Headings
+                      h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-primary mt-6 mb-4 first:mt-0 flex items-center gap-2" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-xl font-bold text-primary mt-6 mb-3 first:mt-0 flex items-center gap-2 border-b border-border pb-2" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props} />,
+                      
+                      // Paragraphs
+                      p: ({node, ...props}) => <p className="text-base leading-relaxed text-foreground mb-4" {...props} />,
+                      
+                      // Lists
+                      ul: ({node, ...props}) => <ul className="space-y-2 ml-6 mb-4 list-disc marker:text-primary" {...props} />,
+                      ol: ({node, ...props}) => <ol className="space-y-2 ml-6 mb-4 list-decimal marker:text-primary marker:font-semibold" {...props} />,
+                      li: ({node, ...props}) => <li className="text-base leading-relaxed text-foreground pl-2" {...props} />,
+                      
+                      // Tables
+                      table: ({node, ...props}) => (
+                        <div className="overflow-x-auto my-6">
+                          <table className="min-w-full border-collapse border border-border rounded-lg" {...props} />
+                        </div>
+                      ),
+                      thead: ({node, ...props}) => <thead className="bg-muted" {...props} />,
+                      tbody: ({node, ...props}) => <tbody className="divide-y divide-border" {...props} />,
+                      tr: ({node, ...props}) => <tr className="hover:bg-muted/50 transition-colors" {...props} />,
+                      th: ({node, ...props}) => <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border border-border" {...props} />,
+                      td: ({node, ...props}) => <td className="px-4 py-3 text-sm text-foreground border border-border" {...props} />,
+                      
+                      // Emphasis
+                      strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
+                      em: ({node, ...props}) => <em className="italic text-foreground" {...props} />,
+                      
+                      // Code
+                      code: ({node, inline, ...props}: any) => 
+                        inline ? (
+                          <code className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono text-primary" {...props} />
+                        ) : (
+                          <code className="block p-4 bg-muted rounded-lg text-sm font-mono overflow-x-auto" {...props} />
+                        ),
+                      
+                      // Blockquotes
+                      blockquote: ({node, ...props}) => (
+                        <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 bg-muted/30 rounded-r-lg italic text-muted-foreground" {...props} />
+                      ),
+                      
+                      // Links
+                      a: ({node, ...props}) => <a className="text-primary hover:underline font-medium" {...props} />,
+                      
+                      // Horizontal Rule
+                      hr: ({node, ...props}) => <hr className="my-6 border-border" {...props} />,
+                    }}
+                  >
+                    {response.response}
+                  </ReactMarkdown>
                 </div>
                 
+                {/* Related Suggestions with Better UI */}
                 {response.relatedSuggestions && response.relatedSuggestions.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Related Questions:</h4>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="pt-6 border-t">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lightbulb className="h-4 w-4 text-yellow-500" />
+                      <h4 className="font-semibold text-sm">You might also want to ask:</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {response.relatedSuggestions.map((suggestion, index) => (
                         <Button
                           key={index}
                           variant="outline"
                           size="sm"
-                          onClick={() => setQuery(suggestion)}
-                          className="text-xs"
+                          onClick={() => {
+                            setQuery(suggestion);
+                            // Automatically submit the form
+                            setTimeout(() => {
+                              const form = document.querySelector('form');
+                              if (form) {
+                                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                              }
+                            }, 100);
+                          }}
+                          className="text-left justify-start h-auto py-3 px-4 hover:bg-primary/5 hover:border-primary/50 transition-all"
                         >
-                          {suggestion}
+                          <MessageCircle className="h-3 w-3 mr-2 flex-shrink-0 text-primary" />
+                          <span className="text-xs line-clamp-2">{suggestion}</span>
                         </Button>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {/* Feedback Section */}
+                <div className="pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Powered by AI
+                  </span>
+                  <span className="text-xs">
+                    Response generated in real-time
+                  </span>
+                </div>
               </CardContent>
             </Card>
           )}

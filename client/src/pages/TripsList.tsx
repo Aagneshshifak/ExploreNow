@@ -56,6 +56,8 @@ export default function TripsList() {
       const result = await response.json();
       return result.data as Trip[];
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
   });
 
   const filteredTrips = (Array.isArray(trips) ? trips : []).filter(trip => {

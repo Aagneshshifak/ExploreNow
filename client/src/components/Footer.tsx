@@ -53,31 +53,6 @@ export default function Footer() {
   return (
     <footer className="bg-gradient-linear border-t border-border">
       <div className="container mx-auto px-6 py-16">
-        {/* Newsletter Section */}
-        <motion.div
-          className="mb-16 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-        >
-          <h3 className="text-heading mb-4">Stay Updated</h3>
-          <p className="text-body text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Get the latest travel deals, destination guides, and insider tips delivered to your inbox.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-            <Input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 rounded-xl border-border bg-background"
-            />
-            <Button className="bg-white text-black dark:bg-black dark:text-white hover:opacity-90 px-4 py-2 rounded-md font-semibold shadow-sm transition group" aria-label="Subscribe to newsletter">
-              Subscribe
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </div>
-        </motion.div>
-
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-8 mb-12">
           {/* Brand Section */}
