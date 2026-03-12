@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { PriceDisplay } from '@/components/ui/price-display';
 import { useToast } from '@/hooks/use-toast';
 import { Hotel } from '@shared/schema';
 
@@ -272,7 +273,7 @@ export default function HotelsList() {
                         <div className="flex items-center justify-between pt-4 border-t">
                           <div>
                             <div className="flex items-baseline space-x-1">
-                              <span className="text-2xl font-bold">${hotel.price}</span>
+                              <PriceDisplay price={hotel.price} originalCurrency="USD" className="text-2xl font-bold" />
                               <span className="text-sm text-muted-foreground">/night</span>
                             </div>
                           </div>

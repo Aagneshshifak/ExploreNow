@@ -89,8 +89,20 @@ export default function BookingFlow() {
   const { convertPrice, currency, exchangeRates, loading } = useCurrency();
   
   const searchParams = new URLSearchParams(location.search || '');
-  const itemType = searchParams.get('type') as 'trip' | 'hotel';
-  const itemId = parseInt(params.id || '0');
+  
+  // Determine item type and ID based on the route
+  let itemType: 'trip' | 'hotel';
+  let itemId: number;
+  
+  if (location.pathname.includes('/hotel/') && location.pathname.includes('/book')) {
+    // Route: /hotel/:id/book
+    itemType = 'hotel';
+    itemId = parseInt(params.id || '0');
+  } else {
+    // Route: /book/:id?type=hotel or /book/:id?type=trip
+    itemType = (searchParams.get('type') as 'trip' | 'hotel') || 'trip';
+    itemId = parseInt(params.id || '0');
+  }
 
   // Redirect to login if not authenticated
   if (!isLoading && !user) {

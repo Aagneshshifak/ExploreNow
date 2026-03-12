@@ -130,6 +130,13 @@ const App = () => {
                 <Route path="/trips" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripsList /></Layout>} />
                 <Route path="/trip/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TripDetails /></Layout>} />
                 <Route path="/hotel/:id" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelDetails /></Layout>} />
+                <Route path="/hotel/:id/book" element={
+                  <ProtectedRoute requireAuth={true}>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <BookingFlow />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
                 <Route path="/hotels" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
                 <Route path="/hotels-list" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><HotelsList /></Layout>} />
                 <Route path="/transports" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><TransportsPage /></Layout>} />
