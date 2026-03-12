@@ -1,130 +1,192 @@
 # Deployment Guide for Render
 
-## Memory Optimization for 512MB Limit
+## ⚠️ IMPORTANT: Memory Requirements
 
-This application has been optimized to run within Render's free tier 512MB memory limit.
+**This application requires 1GB+ RAM to build successfully.**
 
-### Key Optimizations Applied
+The build process (Vite bundling + esbuild server compilation) needs approximately 1-1.5GB of memory due to the large number of dependencies (4300+ modules).
 
-1. **Build Process Memory Limit**
-   - Set `NODE_OPTIONS='--max-old-space-size=460'` to limit Node.js heap to 460MB
-   - This leaves ~50MB for system overhead
+### Deployment Options
 
-2. **Vite Build Optimizations**
-   - Changed from `terser` to `esbuild` minification (faster, less memory)
-   - Disabled sourcemaps in production
-   - Added `maxParallelFileOps: 2` to limit concurrent file operations
-   - Better code splitting with separate chunks for large libraries
+#### Option 1: Render Starter Plan (Recommended - $7/month)
 
-3. **TypeScript Configuration**
-   - Enabled `skipLibCheck` to skip type checking of declaration files
-   - Added `isolatedModules` for faster compilation
-   - Excluded test files from compilation
+The simplest solution is to use Render's Starter plan which provides 1GB RAM:
 
-4. **NPM Configuration (.npmrc)**
-   - Disabled audit and fund checks during install
-   - Enabled prefer-offline to reduce network overhead
-   - Disabled progress output to save memory
+```yaml
+# render.yaml
+services:
+  - type: web
+    name: explorenow
+    env: node
+    plan: starter  # 1GB RAM - required for build
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+```
 
-### Deployment Steps
+#### Option 2: Pre-built Deployment (Free Tier Workaround)
 
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Optimize for Render deployment"
-   git push origin clean-master
-   ```
+If you must use the free tier, build locally and commit the `dist/` folder:
 
-2. **Connect to Render**
-   - Go to https://dashboard.render.com
-   - Click "New +" → "Web Service"
-   - Connect your GitHub repository
-   - Select the `clean-master` branch
+**Step 1: Build locally with sufficient memory**
+```bash
+# Build on your machine (needs 1GB+ RAM locally)
+npm install
+npm run build
+```
 
-3. **Configure Build Settings**
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Environment Variables**:
-     ```
-     NODE_ENV=production
-     NODE_OPTIONS=--max-old-space-size=460
-     DATABASE_URL=<your-neon-db-url>
-     JWT_SECRET=<generate-random-string>
-     GROQ_API_KEY=<your-groq-key>
-     GEMINI_API_KEY=<your-gemini-key>
-     CURRENCY_API_KEY=<your-currency-key>
-     ```
+**Step 2: Commit the build artifacts**
+```bash
+# Add dist/ to git (normally ignored, but needed for free tier)
+git add dist/ -f
+git commit -m "Add pre-built dist for deployment"
+git push
+```
 
-4. **Health Check**
-   - Set health check path to `/api/health`
-   - This ensures Render knows when your app is ready
+**Step 3: Update render.yaml for pre-built deployment**
+```yaml
+services:
+  - type: web
+    name: explorenow
+    env: node
+    plan: free
+    buildCommand: echo "Using pre-built dist/ folder"
+    startCommand: npm start
+```
 
-### Monitoring Memory Usage
+**Step 4: Add a postinstall script to package.json**
+```json
+{
+  "scripts": {
+    "postinstall": "if [ ! -d dist ]; then echo 'Warning: dist/ folder missing. Run npm run build locally first'; fi"
+  }
+}
+```
 
-After deployment, monitor memory usage in Render dashboard:
-- If memory usage is consistently above 450MB, consider:
-  - Upgrading to a paid plan with more memory
-  - Further optimizing code splitting
-  - Lazy loading more components
+## Configuration Files
+
+### render.yaml
+
+```yaml
+services:
+  - type: web
+    name: explorenow
+    env: node
+    region: oregon
+    plan: starter  # Minimum 1GB RAM required
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=768 --gc-interval=100
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CURRENCY_API_KEY
+        sync: false
+    healthCheckPath: /api/health
+```
+
+### Environment Variables
+
+Required environment variables:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string (Neon) | ✅ |
+| `JWT_SECRET` | Secret for JWT signing | ✅ |
+| `GROQ_API_KEY` | Groq API for AI features | ✅ |
+| `GEMINI_API_KEY` | Google Gemini API | ✅ |
+| `CURRENCY_API_KEY` | Currency conversion API | ✅ |
+| `STRIPE_SECRET_KEY` | Stripe payment processing | ❌ |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe client key | ❌ |
+
+### Build Process
+
+The build consists of two phases:
+
+1. **Frontend Build (Vite)**
+   - Bundles React app with 4300+ modules
+   - Outputs to `dist/public/`
+   - Requires ~1GB RAM
+
+2. **Server Build (esbuild)**
+   - Compiles Express server to `dist/index.js`
+   - Requires ~512MB RAM
+
+### Memory Optimizations Applied
+
+1. **Vite Config**:
+   - `minify: 'esbuild'` (faster, less memory than terser)
+   - `sourcemap: false` (saves memory)
+   - `reportCompressedSize: false` (saves memory)
+   - `cssCodeSplit: false` (reduces memory)
+   - `maxParallelFileOps: 1` (limits concurrent operations)
+   - `treeshake: false` (trade-off: larger bundle, less memory)
+
+2. **Build Server**:
+   - Uses esbuild with memory limits
+   - Minifies server bundle
+   - Disables code splitting for server
+
+3. **Runtime**:
+   - Database pool limited to 3 connections
+   - No sourcemaps in production
+   - Optimized chunk loading
 
 ### Troubleshooting
 
-**Build fails with "Out of memory":**
-- Check that `NODE_OPTIONS` is set correctly
-- Verify `.npmrc` file is committed
-- Try reducing `max-old-space-size` to 400MB
+**Build fails with "JavaScript heap out of memory"**:
+- The free tier (512MB) is insufficient for building
+- Upgrade to Starter plan (1GB) OR use pre-built deployment method
 
-**Runtime memory issues:**
+**"Could not find the build directory" error**:
+- This was a path issue in `server/vite.ts` - now fixed
+- The static files path now correctly points to `dist/public/`
+
+**Runtime memory issues**:
+- Monitor database connections
 - Check for memory leaks in cron jobs
-- Ensure database connections are properly closed
-- Monitor the prediction update job
+- The prediction update job is disabled by default for memory optimization
 
-**403 Errors in Development:**
-- These are proxy-related and won't occur in production
-- In production, the built frontend is served directly by Express
-- No Vite proxy is involved in production
+**Health check fails**:
+- Verify `/api/health` endpoint is accessible
+- Check that all required env vars are set
+- Review Render logs for startup errors
 
 ### Production vs Development
 
-**Development** (separate servers):
-- Vite dev server on port 5173
-- Express API server on port 5000
-- Vite proxies API requests to Express
+**Development**:
+```bash
+npm run dev  # Starts Vite dev server + Express API separately
+```
+- Vite on port 5173
+- Express on port 5000
+- Hot module replacement enabled
 
-**Production** (single server):
-- Express serves both API and static frontend files
-- No proxy needed
-- All requests go directly to Express on port 5000
-
-### Additional Optimizations
-
-If you still face memory issues, consider:
-
-1. **Remove unused dependencies**
-   ```bash
-   npm prune --production
-   ```
-
-2. **Use dynamic imports for large components**
-   ```typescript
-   const HeavyComponent = lazy(() => import('./HeavyComponent'));
-   ```
-
-3. **Optimize images**
-   - Use WebP format
-   - Compress images before deployment
-   - Consider using a CDN
-
-4. **Database connection pooling**
-   - Limit max connections in Drizzle config
-   - Close connections after use
+**Production**:
+```bash
+npm run build  # Build frontend + server
+npm start      # Start production server
+```
+- Single Express server on port 10000
+- Serves static files from `dist/public/`
+- API routes at `/api/*`
 
 ### Success Indicators
 
 Your deployment is successful when:
 - ✅ Build completes without memory errors
 - ✅ Health check endpoint returns 200
-- ✅ Memory usage stays below 450MB
+- ✅ Memory usage stays below 800MB (Starter plan)
 - ✅ Application loads and functions correctly
 - ✅ API endpoints respond properly
 
@@ -132,6 +194,6 @@ Your deployment is successful when:
 
 If issues persist:
 1. Check Render logs for specific errors
-2. Review the build output for warnings
-3. Test the build locally: `npm run build && npm start`
-4. Verify all environment variables are set correctly
+2. Test build locally: `npm run build && npm start`
+3. Verify all environment variables are set
+4. Consider upgrading to higher memory plan if needed

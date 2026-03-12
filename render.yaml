@@ -3,14 +3,18 @@ services:
     name: explorenow
     env: node
     region: oregon
-    plan: free
+    # IMPORTANT: This project requires 1GB+ memory to build
+    # Options:
+    # 1. Use Render's Starter plan ($7/month) which has 1GB memory
+    # 2. Build locally and commit the dist/ folder (see DEPLOYMENT.md)
+    plan: starter # Minimum 1GB RAM required for build
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=256 --gc-interval=100
+        value: --max-old-space-size=512 --gc-interval=100
       - key: PORT
         value: 10000
       - key: DATABASE_URL

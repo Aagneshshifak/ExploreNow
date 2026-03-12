@@ -104,29 +104,22 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       // Use esbuild for faster, more memory-efficient minification
       minify: 'esbuild',
       // Reduce memory usage during build
-      chunkSizeWarningLimit: 2000,
+      chunkSizeWarningLimit: 3000,
       // Optimize for memory efficiency
       target: 'es2020',
       sourcemap: false, // Disable sourcemaps in production to save memory
+      // Aggressive memory optimizations for Render's 512MB limit
+      reportCompressedSize: false, // Disable compressed size reporting to save memory
+      // Disable CSS code splitting to reduce memory
+      cssCodeSplit: false,
       rollupOptions: {
-        // Reduce memory usage during build
-        maxParallelFileOps: 1, // Reduced from 2 to 1 for lower memory usage
+        // Reduce memory usage during build - set to 1 for minimal memory usage
+        maxParallelFileOps: 1,
+        // Disable treeshake to reduce memory (trade-off: slightly larger bundle)
+        treeshake: false,
         output: {
-          // Better manual chunking to separate vendor libs and large icon/UX libs
-          manualChunks(id: string) {
-            if (id.includes('node_modules')) {
-              // Split large libraries into separate chunks
-              if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
-              if (id.includes('lucide-react')) return 'vendor-icons';
-              if (id.includes('recharts')) return 'vendor-charts';
-              if (id.includes('leaflet')) return 'vendor-maps';
-              if (id.includes('@radix-ui')) return 'vendor-radix';
-              if (id.includes('framer-motion')) return 'vendor-motion';
-              if (id.includes('react-router')) return 'vendor-router';
-              if (id.includes('@tanstack')) return 'vendor-query';
-              return 'vendor';
-            }
-          }
+          // No manual chunking - let rollup handle it automatically
+          // This uses less memory than manual chunk configuration
         }
       },
     },
