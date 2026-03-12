@@ -96,18 +96,29 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
-      // Use terser to avoid invoking esbuild for minification on some platforms
-      minify: 'terser',
-      // Raise warning threshold for large chunks
+      // Use esbuild for faster, more memory-efficient minification
+      minify: 'esbuild',
+      // Reduce memory usage during build
       chunkSizeWarningLimit: 2000,
+      // Optimize for memory efficiency
+      target: 'es2020',
+      sourcemap: false, // Disable sourcemaps in production to save memory
       rollupOptions: {
+        // Reduce memory usage during build
+        maxParallelFileOps: 2,
         output: {
           // Better manual chunking to separate vendor libs and large icon/UX libs
           manualChunks(id: string) {
             if (id.includes('node_modules')) {
+              // Split large libraries into separate chunks
               if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
               if (id.includes('lucide-react')) return 'vendor-icons';
-              if (id.includes('tailwindcss') || id.includes('postcss')) return 'vendor-css';
+              if (id.includes('recharts')) return 'vendor-charts';
+              if (id.includes('leaflet')) return 'vendor-maps';
+              if (id.includes('@radix-ui')) return 'vendor-radix';
+              if (id.includes('framer-motion')) return 'vendor-motion';
+              if (id.includes('react-router')) return 'vendor-router';
+              if (id.includes('@tanstack')) return 'vendor-query';
               return 'vendor';
             }
           }
