@@ -82,52 +82,57 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-  // Add debugging middleware to log all requests
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path} - User-Agent: ${req.headers['user-agent']}`);
-    
-    // Handle 403 errors more gracefully
-    if (req.path.includes('.tsx') || req.path.includes('.ts') || req.path.includes('.jsx') || req.path.includes('.js')) {
-      console.log(`Static file request: ${req.path}`);
-    }
-    
-    next();
-  });
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+  // Add debugging middleware to log all requests (only in development)
+  if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+      console.log(`${req.method} ${req.path} - User-Agent: ${req.headers['user-agent']}`);
+      
+      // Handle 403 errors more gracefully
+      if (req.path.includes('.tsx') || req.path.includes('.ts') || req.path.includes('.jsx') || req.path.includes('.js')) {
+        console.log(`Static file request: ${req.path}`);
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  // Log 403 errors for debugging
-  if (res.statusCode === 403) {
-    console.log(`403 Error: ${req.method} ${req.path} - ${req.headers['user-agent']}`);
+      
+      next();
+    });
   }
 
-  next();
-});
+// Simplified request logging for production (memory optimization)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        log(logLine);
+      }
+    });
+
+    // Log 403 errors for debugging
+    if (res.statusCode === 403) {
+      console.log(`403 Error: ${req.method} ${req.path} - ${req.headers['user-agent']}`);
+    }
+
+    next();
+  });
+}
 
 (async () => {
   try {
@@ -210,13 +215,14 @@ app.use((req, res, next) => {
       }
       
       // Start prediction update job after server is listening
-      try {
-        startPredictionUpdateJob();
-        console.log('✅ Prediction update job started');
-      } catch (jobError) {
-        console.error('⚠️  Failed to start prediction update job:', jobError);
-        // Don't exit - this is not critical for basic functionality
-      }
+      // Temporarily disabled for memory optimization on Render free tier
+      // try {
+      //   startPredictionUpdateJob();
+      //   console.log('✅ Prediction update job started');
+      // } catch (jobError) {
+      //   console.error('⚠️  Failed to start prediction update job:', jobError);
+      //   // Don't exit - this is not critical for basic functionality
+      // }
     });
 
     // Add error handlers for the server

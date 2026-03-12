@@ -110,7 +110,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       sourcemap: false, // Disable sourcemaps in production to save memory
       rollupOptions: {
         // Reduce memory usage during build
-        maxParallelFileOps: 2,
+        maxParallelFileOps: 1, // Reduced from 2 to 1 for lower memory usage
         output: {
           // Better manual chunking to separate vendor libs and large icon/UX libs
           manualChunks(id: string) {
