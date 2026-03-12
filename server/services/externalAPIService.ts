@@ -346,7 +346,9 @@ export class ExternalAPIService {
     const now = new Date();
     let cleared = 0;
 
-    for (const [key, value] of this.cache.entries()) {
+    // Convert to array to avoid iterator issues
+    const entries = Array.from(this.cache.entries());
+    for (const [key, value] of entries) {
       if (now > value.expiresAt) {
         this.cache.delete(key);
         cleared++;
@@ -368,7 +370,9 @@ export class ExternalAPIService {
     let expired = 0;
     let valid = 0;
 
-    for (const value of this.cache.values()) {
+    // Convert to array to avoid iterator issues
+    const values = Array.from(this.cache.values());
+    for (const value of values) {
       if (now > value.expiresAt) {
         expired++;
       } else {
