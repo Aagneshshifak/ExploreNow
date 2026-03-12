@@ -14,7 +14,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=512 --gc-interval=100
+        value: --max-old-space-size=400 --gc-interval=50 --optimize-for-size
       - key: PORT
         value: 10000
       - key: DATABASE_URL
