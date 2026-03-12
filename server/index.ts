@@ -13,6 +13,24 @@ import { startPredictionUpdateJob } from "./jobs/updatePredictions";
 
 const app = express();
 
+// Add startup logging
+console.log('🚀 Starting ExploreNow server...');
+console.log('📊 Environment:', process.env.NODE_ENV || 'development');
+console.log('🔧 Node version:', process.version);
+console.log('📦 Platform:', process.platform);
+
+// Check critical environment variables
+const requiredEnvVars = ['DATABASE_URL'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars);
+  console.error('   Please set these environment variables and restart the server');
+  process.exit(1);
+}
+
+console.log('✅ Environment variables check passed');
+
 // CORS configuration for frontend compatibility
 // Important: credentials: true is required for cookie-based authentication
 const corsOptions = {
@@ -88,68 +106,96 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Use translation routes BEFORE registerRoutes to avoid conflicts
-  app.use('/api', translateRoutes);
-  
-  const server = await registerRoutes(app);
-  
-  // Setup GraphQL - must be before Vite setup
-  // Use middleware wrapper to properly pass Express req/res with cookies
-  app.use('/graphql', yogaMiddleware);
-
-  // Add a simple test route to verify server is working
-  app.get('/api/test', (req, res) => {
-    res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
-  });
-
-  app.use(errorHandler);
-
-
-
-  // Check if we're running in integrated mode (Vite + Express together)
-  const isIntegratedMode = process.env.INTEGRATED_MODE === 'true';
-  
-  if (app.get("env") === "development" && isIntegratedMode) {
-    console.log('Setting up Vite development server in integrated mode...');
-    await setupVite(app, server);
-  } else if (app.get("env") === "development") {
-    console.log('Running in separate mode - Vite dev server should be running on port 5173');
-    // Serve static files for development when running separately
-    app.use(express.static(path.resolve(import.meta.dirname, '..', 'client', 'public')));
-  } else {
-    console.log('Setting up static file serving for production...');
-    serveStatic(app);
-  }
-
-  // Serve the app on a configurable port (defaults to 5000)
-  // This allows running the server on an alternate port if 5000 is in use.
-  const port = process.env.PORT ? Number(process.env.PORT) : 5000;
-  server.listen(port, "localhost", () => {
-    log(`serving on port ${port}`);
-    if (app.get("env") === "development") {
-      console.log('\n🚀 Development servers running:');
-      console.log('   Frontend (Vite): http://localhost:5173/');
-      console.log('   Backend (API):   http://localhost:5000/');
-      console.log('   GraphQL:         http://localhost:5000/graphql');
-      console.log('   Test endpoint:   http://localhost:5000/test');
-      console.log('\n💡 Use http://localhost:5173/ for the main application\n');
-    }
+  try {
+    console.log('🔧 Setting up routes...');
+    // Use translation routes BEFORE registerRoutes to avoid conflicts
+    app.use('/api', translateRoutes);
     
-    // Start prediction update job after server is listening
-    startPredictionUpdateJob();
-  });
+    const server = await registerRoutes(app);
+    console.log('✅ Routes registered successfully');
+    
+    // Setup GraphQL - must be before Vite setup
+    // Use middleware wrapper to properly pass Express req/res with cookies
+    app.use('/graphql', yogaMiddleware);
+    console.log('✅ GraphQL middleware configured');
 
-  // Add error handlers for the server
-  server.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EADDRINUSE') {
-      console.error(`❌ Port ${port} is already in use. Please stop the other server or use a different port.`);
-      console.error(`   Try: lsof -ti:${port} | xargs kill -9`);
+    // Add a simple test route to verify server is working
+    app.get('/api/test', (req, res) => {
+      res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
+    });
+
+    app.use(errorHandler);
+
+    // Check if we're running in integrated mode (Vite + Express together)
+    const isIntegratedMode = process.env.INTEGRATED_MODE === 'true';
+    
+    if (app.get("env") === "development" && isIntegratedMode) {
+      console.log('🔧 Setting up Vite development server in integrated mode...');
+      await setupVite(app, server);
+    } else if (app.get("env") === "development") {
+      console.log('🔧 Running in separate mode - Vite dev server should be running on port 5173');
+      // Serve static files for development when running separately
+      app.use(express.static(path.resolve(import.meta.dirname, '..', 'client', 'public')));
     } else {
-      console.error('❌ Server error:', error);
+      console.log('🔧 Setting up static file serving for production...');
+      try {
+        serveStatic(app);
+        console.log('✅ Static file serving configured');
+      } catch (staticError) {
+        console.error('❌ Failed to setup static file serving:', staticError);
+        throw staticError;
+      }
     }
+
+    // Serve the app on a configurable port (defaults to 5000)
+    // This allows running the server on an alternate port if 5000 is in use.
+    const port = process.env.PORT ? Number(process.env.PORT) : 5000;
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+    
+    console.log(`🚀 Starting server on ${host}:${port}...`);
+    
+    server.listen(port, host, () => {
+      log(`serving on ${host}:${port}`);
+      if (app.get("env") === "development") {
+        console.log('\n🚀 Development servers running:');
+        console.log('   Frontend (Vite): http://localhost:5173/');
+        console.log('   Backend (API):   http://localhost:5000/');
+        console.log('   GraphQL:         http://localhost:5000/graphql');
+        console.log('   Test endpoint:   http://localhost:5000/test');
+        console.log('\n💡 Use http://localhost:5173/ for the main application\n');
+      } else {
+        console.log(`🚀 Production server running on ${host}:${port}`);
+        console.log('✅ Server startup completed successfully');
+      }
+      
+      // Start prediction update job after server is listening
+      try {
+        startPredictionUpdateJob();
+        console.log('✅ Prediction update job started');
+      } catch (jobError) {
+        console.error('⚠️  Failed to start prediction update job:', jobError);
+        // Don't exit - this is not critical for basic functionality
+      }
+    });
+
+    // Add error handlers for the server
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use. Please stop the other server or use a different port.`);
+        console.error(`   Try: lsof -ti:${port} | xargs kill -9`);
+      } else {
+        console.error('❌ Server error:', error);
+      }
+      process.exit(1);
+    });
+    
+  } catch (setupError) {
+    console.error('❌ Failed during server setup:', setupError);
+    console.error('Stack trace:', setupError instanceof Error ? setupError.stack : setupError);
     process.exit(1);
-  });
+  }
 })().catch((error) => {
   console.error('❌ Failed to start server:', error);
+  console.error('Stack trace:', error instanceof Error ? error.stack : error);
   process.exit(1);
 });
