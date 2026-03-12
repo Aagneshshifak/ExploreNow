@@ -23,6 +23,11 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       port: 5173,
       host: '0.0.0.0', // Allow connections from localhost, 127.0.0.1, and network
       strictPort: false,
+      allowedHosts: [
+        'localhost',
+        '.onrender.com', // Allow all Render subdomains
+        '.render.com',
+      ],
       hmr: {
         overlay: false
       },
