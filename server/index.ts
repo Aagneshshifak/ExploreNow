@@ -31,6 +31,30 @@ if (missingEnvVars.length > 0) {
 
 console.log('✅ Environment variables check passed');
 
+// Add process monitoring for Render debugging
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+  console.log('📡 Received SIGTERM signal, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('📡 Received SIGINT signal, shutting down gracefully...');
+  process.exit(0);
+});
+
+console.log('✅ Process monitoring configured');
+
 // CORS configuration for frontend compatibility
 // Important: credentials: true is required for cookie-based authentication
 const corsOptions = {
@@ -124,6 +148,16 @@ app.use((req, res, next) => {
       res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
     });
 
+    // Health check endpoint for Render
+    app.get('/api/health', (req, res) => {
+      res.status(200).json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development'
+      });
+    });
+
     app.use(errorHandler);
 
     // Check if we're running in integrated mode (Vite + Express together)
@@ -147,12 +181,19 @@ app.use((req, res, next) => {
       }
     }
 
-    // Serve the app on a configurable port (defaults to 5000)
-    // This allows running the server on an alternate port if 5000 is in use.
-    const port = process.env.PORT ? Number(process.env.PORT) : 5000;
+    // Serve the app on a configurable port (defaults to 10000 for Render, 5000 for local)
+    // Render requires port 10000 by default, but allows custom PORT env var
+    const port = process.env.PORT ? Number(process.env.PORT) : (process.env.NODE_ENV === 'production' ? 10000 : 5000);
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
     
     console.log(`🚀 Starting server on ${host}:${port}...`);
+    console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔧 PORT env var: ${process.env.PORT || 'not set'}`);
+    
+    // Configure server timeouts for Render (prevents WORKER TIMEOUT errors)
+    server.keepAliveTimeout = 120000; // 120 seconds
+    server.headersTimeout = 120000; // 120 seconds
+    console.log('⏱️  Server timeouts configured: keepAlive=120s, headers=120s');
     
     server.listen(port, host, () => {
       log(`serving on ${host}:${port}`);

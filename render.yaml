@@ -4,13 +4,15 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build:render
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_OPTIONS
-        value: --max-old-space-size=460
+        value: --max-old-space-size=400
+      - key: PORT
+        value: 10000
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
