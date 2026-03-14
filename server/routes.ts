@@ -1414,6 +1414,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Delete booking - DELETE /api/bookings/:id
+  app.delete("/api/bookings/:id", requireUser, async (req, res) => {
+    try {
+      console.log(`[DELETE /api/bookings/:id] Route handler called`);
+      const bookingId = req.params.id;
+      const userId = req.user!.id;
+      
+      console.log(`[DELETE /api/bookings/:id] Deleting booking ${bookingId} for user ${userId}`);
+      
+      if (!bookingId || bookingId.trim() === '') {
+        console.error(`[DELETE /api/bookings/:id] Invalid booking ID: ${bookingId}`);
+        return res.status(400).json(createResponse(false, null, "Booking ID is required"));
+      }
+      
+      // Get the booking first to verify ownership
+      const booking = await storage.getBooking(bookingId);
+      
+      if (!booking) {
+        console.error(`[DELETE /api/bookings/:id] Booking not found: ${bookingId}`);
+        return res.status(404).json(createResponse(false, null, "Booking not found"));
+      }
+      
+      // Verify the booking belongs to the user
+      if (booking.userId !== userId) {
+        console.error(`[DELETE /api/bookings/:id] User ${userId} does not own booking ${bookingId} (owner: ${booking.userId})`);
+        return res.status(403).json(createResponse(false, null, "You can only delete your own bookings"));
+      }
+      
+      // Delete the booking completely
+      const deleted = await storage.deleteBooking(bookingId);
+      
+      if (!deleted) {
+        console.error(`[DELETE /api/bookings/:id] Failed to delete booking`);
+        return res.status(500).json(createResponse(false, null, "Failed to delete booking"));
+      }
+      
+      console.log(`[DELETE /api/bookings/:id] Successfully deleted booking ${bookingId}`);
+      res.json(createResponse(true, { id: bookingId }, "Booking deleted successfully"));
+    } catch (error: any) {
+      console.error(`[DELETE /api/bookings/:id] Error:`, error);
+      res.status(500).json(createResponse(false, null, `Failed to delete booking: ${error.message || 'Unknown error'}`));
+    }
+  });
+  
+  // Update booking status - PUT /api/bookings/:id/status
+  app.put("/api/bookings/:id/status", requireUser, async (req, res) => {
+    try {
+      console.log(`[PUT /api/bookings/:id/status] Route handler called`);
+      const bookingId = req.params.id;
+      const userId = req.user!.id;
+      const { status } = req.body;
+      
+      console.log(`[PUT /api/bookings/:id/status] Updating booking ${bookingId} status to ${status} for user ${userId}`);
+      
+      if (!bookingId || bookingId.trim() === '') {
+        console.error(`[PUT /api/bookings/:id/status] Invalid booking ID: ${bookingId}`);
+        return res.status(400).json(createResponse(false, null, "Booking ID is required"));
+      }
+      
+      if (!status || !['confirmed', 'cancelled', 'completed', 'pending'].includes(status)) {
+        console.error(`[PUT /api/bookings/:id/status] Invalid status: ${status}`);
+        return res.status(400).json(createResponse(false, null, "Valid status is required (confirmed, cancelled, completed, pending)"));
+      }
+      
+      // Get the booking first to verify ownership
+      const booking = await storage.getBooking(bookingId);
+      
+      if (!booking) {
+        console.error(`[PUT /api/bookings/:id/status] Booking not found: ${bookingId}`);
+        return res.status(404).json(createResponse(false, null, "Booking not found"));
+      }
+      
+      // Verify the booking belongs to the user
+      if (booking.userId !== userId) {
+        console.error(`[PUT /api/bookings/:id/status] User ${userId} does not own booking ${bookingId} (owner: ${booking.userId})`);
+        return res.status(403).json(createResponse(false, null, "You can only update your own bookings"));
+      }
+      
+      // Update the booking status
+      const updatedBooking = await storage.updateBookingStatus(bookingId, status);
+      
+      if (!updatedBooking) {
+        console.error(`[PUT /api/bookings/:id/status] Failed to update booking status`);
+        return res.status(500).json(createResponse(false, null, "Failed to update booking status"));
+      }
+      
+      console.log(`[PUT /api/bookings/:id/status] Successfully updated booking ${bookingId} status to ${status}`);
+      res.json(createResponse(true, updatedBooking, `Booking status updated to ${status}`));
+    } catch (error: any) {
+      console.error(`[PUT /api/bookings/:id/status] Error:`, error);
+      res.status(500).json(createResponse(false, null, `Failed to update booking status: ${error.message || 'Unknown error'}`));
+    }
+  });
+  
   // Catch-all for unmatched booking routes (for debugging)
   // This should never be hit if routes are registered correctly
   app.use('/api/bookings', (req, res, next) => {

@@ -249,6 +249,17 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  // Delete booking completely
+  async deleteBooking(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(bookings).where(eq(bookings.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      return false;
+    }
+  }
+
   // Review methods
   async getReviews(type?: 'trip' | 'hotel', itemId?: number): Promise<Review[]> {
     if (type && itemId) {

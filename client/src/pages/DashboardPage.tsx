@@ -48,6 +48,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
@@ -237,6 +250,9 @@ const useDashboardData = () => {
 // Components
 
 const BookingCard = ({ booking }: { booking: Booking }) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const statusColors = {
     confirmed: 'bg-blue-600',
     completed: 'bg-green-600',
@@ -250,6 +266,41 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
     cancelled: XCircle,
     pending: Clock,
   };
+
+  // Cancel booking mutation - now deletes the booking completely
+  const cancelBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete booking');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch dashboard data
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings/dashboard'] });
+      toast({
+        title: "Booking Deleted",
+        description: "Your booking has been successfully deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Deletion Failed",
+        description: error.message || "Failed to delete booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const StatusIcon = statusIcons[booking.status as keyof typeof statusIcons] || Clock;
 
@@ -374,9 +425,42 @@ const BookingCard = ({ booking }: { booking: Booking }) => {
           )}
           <div className="flex items-center justify-between">
             <span className="text-xl font-bold text-foreground">${typeof booking.amount === 'string' ? parseFloat(booking.amount) : booking.amount}</span>
-            <Button size="sm" variant="outline" className="border-border text-foreground hover:bg-accent">
-              View Details
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="border-border text-foreground hover:bg-accent">
+                View Details
+              </Button>
+              {booking.status === 'confirmed' && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-destructive text-destructive hover:bg-destructive/10"
+                      disabled={cancelBookingMutation.isPending}
+                    >
+                      {cancelBookingMutation.isPending ? 'Deleting...' : 'Cancel'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Booking</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this booking for "{title}"? This will permanently remove the booking from your account and cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>No, Keep Booking</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => cancelBookingMutation.mutate(booking.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Yes, Delete Booking
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
