@@ -73,16 +73,7 @@ const tools: Tool[] = [
   },
 
 
-  {
-    id: 'tourist-crowd-map',
-    title: 'Tourist & Crowd Map',
-    description: 'Navigate popular destinations with real-time crowd insights and perfect timing',
-    path: '/tools/tourist-crowd-map',
-    icon: MapPin,
-    category: 'navigation',
-    tag: 'Local Insights',
-    comingSoon: true
-  },
+  
 
   {
     id: 'trip-recommender',
