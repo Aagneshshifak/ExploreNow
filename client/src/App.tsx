@@ -79,6 +79,57 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('App Error Boundary caught an error:', error, errorInfo);
+    
+    // Check if it's a chunk loading error
+    if (error.message?.includes('Loading chunk') || 
+        error.message?.includes('Cannot access') ||
+        error.message?.includes('before initialization')) {
+      console.error('Chunk loading error detected, reloading page...');
+      // Reload the page to clear any stale chunks
+      setTimeout(() => window.location.reload(), 100);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+          <div className="text-center p-8">
+            <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+            <p className="text-muted-foreground mb-4">
+              We're sorry, but something unexpected happened. Please try refreshing the page.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 
 const queryClient = new QueryClient();
 
@@ -113,18 +164,19 @@ const App = () => {
   };
 
   return (
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <CurrencyProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-            <div className="min-h-screen bg-background text-foreground">
-              <PageTransition>
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Routes>
+    <ErrorBoundary>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <CurrencyProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+              <div className="min-h-screen bg-background text-foreground">
+                <PageTransition>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
                 {/* Routes without navigation */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -246,16 +298,17 @@ const App = () => {
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-                </Suspense>
-              </PageTransition>
-              <ScrollToTop />
-            </div>
-          </BrowserRouter>
-            </TooltipProvider>
-          </CurrencyProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
+                  </Suspense>
+                </PageTransition>
+                <ScrollToTop />
+              </div>
+            </BrowserRouter>
+              </TooltipProvider>
+            </CurrencyProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
+    </ErrorBoundary>
   );
 };
 
