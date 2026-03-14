@@ -6,11 +6,17 @@ const getApiUrl = () => {
   // In Vite, environment variables are prefixed with VITE_
   const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL;
   
-  if (apiUrl && apiUrl.trim() !== '') {
+  // If environment variable is set and not localhost, use it
+  if (apiUrl && apiUrl.trim() !== '' && !apiUrl.includes('localhost')) {
     return apiUrl;
   }
   
-  // Always use absolute URL for development
+  // In production, use current domain
+  if (import.meta.env.PROD) {
+    return window.location.origin;
+  }
+  
+  // Development fallback
   return 'http://localhost:5000';
 };
 
@@ -26,6 +32,29 @@ export const graphqlClient = new GraphQLClient(`${baseUrl}/graphql`, {
   credentials: 'include', // Include cookies for authentication
   headers: {
     'Content-Type': 'application/json',
+  },
+  fetch: (url, options = {}) => {
+    // Log request details for debugging
+    console.log('GraphQL fetch request (lib/graphql.ts):', {
+      url,
+      method: options.method || 'POST',
+      credentials: options.credentials,
+      environment: import.meta.env.MODE,
+      isProduction: import.meta.env.PROD,
+    });
+    
+    // Ensure cookies are sent
+    return fetch(url, {
+      ...options,
+      credentials: 'include',
+    }).catch((error) => {
+      console.error('GraphQL fetch error (lib/graphql.ts):', {
+        url,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    });
   },
 });
 
