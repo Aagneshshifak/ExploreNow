@@ -126,6 +126,8 @@ export class TouristSpotService {
     limit: number = 20
   ): Promise<PaginatedSpotsResult> {
     try {
+      console.log(`Fetching spots for ${city}, ${country} - page ${page}, limit ${limit}`);
+      
       // Build the where conditions
       const conditions = [
         eq(touristSpots.country, country),
@@ -134,6 +136,7 @@ export class TouristSpotService {
 
       if (category) {
         conditions.push(eq(touristSpots.category, category));
+        console.log(`Filtering by category: ${category}`);
       }
 
       // Get total count for pagination
@@ -143,6 +146,7 @@ export class TouristSpotService {
         .where(and(...conditions));
       
       const total = Number(countResult[0]?.count || 0);
+      console.log(`Found ${total} total spots matching criteria`);
 
       // Calculate offset for pagination
       const offset = (page - 1) * limit;
@@ -154,6 +158,8 @@ export class TouristSpotService {
         .where(and(...conditions))
         .limit(limit)
         .offset(offset);
+
+      console.log(`Retrieved ${spots.length} spots for page ${page}`);
 
       // TODO: Add current crowd level to each spot
       // This will be implemented when CrowdPredictionService is available
@@ -167,6 +173,7 @@ export class TouristSpotService {
         const filtered = spotsWithCrowdLevel.filter(
           spot => spot.currentCrowdLevel === crowdLevel
         );
+        console.log(`Filtered to ${filtered.length} spots with crowd level: ${crowdLevel}`);
         return {
           spots: filtered,
           total: filtered.length
@@ -179,7 +186,8 @@ export class TouristSpotService {
       };
     } catch (error) {
       console.error('Error fetching spots by location:', error);
-      throw new Error('Failed to fetch tourist spots');
+      console.error('Query parameters:', { country, city, category, crowdLevel, page, limit });
+      throw new Error(`Failed to fetch tourist spots: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

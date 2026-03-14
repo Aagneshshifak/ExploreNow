@@ -268,6 +268,25 @@ export default function BookingFlow() {
   };
 
   const handleInputChange = (field: keyof BookingDetails, value: string | number) => {
+    // Validation logic for string fields
+    if (typeof value === 'string') {
+      if (field === 'customerPhone' || field === 'emergencyPhone') {
+        // Only allow numbers, spaces, hyphens, parentheses, and plus sign for phone numbers
+        const phoneRegex = /^[0-9\s\-\(\)\+]*$/;
+        if (!phoneRegex.test(value)) {
+          return; // Don't update state if invalid characters
+        }
+      }
+      
+      if (field === 'customerName' || field === 'emergencyContact') {
+        // Only allow letters, spaces, apostrophes, and hyphens for names
+        const nameRegex = /^[a-zA-Z\s\'\-]*$/;
+        if (!nameRegex.test(value)) {
+          return; // Don't update state if invalid characters
+        }
+      }
+    }
+    
     setBookingDetails(prev => ({ ...prev, [field]: value }));
   };
 

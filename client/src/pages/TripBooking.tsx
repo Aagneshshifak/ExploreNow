@@ -36,9 +36,13 @@ const bookingSchema = z.object({
   tripId: z.number().optional(),
   hotelId: z.number().optional(),
   transportType: z.enum(['bus', 'train', 'flight']),
-  customerName: z.string().min(2, 'Name must be at least 2 characters'),
+  customerName: z.string()
+    .min(2, 'Name must be at least 2 characters')
+    .regex(/^[a-zA-Z\s\'\-]+$/, 'Name can only contain letters, spaces, apostrophes, and hyphens'),
   customerEmail: z.string().email('Please enter a valid email'),
-  customerPhone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  customerPhone: z.string()
+    .min(10, 'Phone number must be at least 10 digits')
+    .regex(/^[0-9\s\-\(\)\+]+$/, 'Phone number can only contain numbers, spaces, hyphens, parentheses, and plus sign'),
   checkIn: z.string().min(1, 'Check-in date is required'),
   checkOut: z.string().min(1, 'Check-out date is required'),
   guests: z.number().min(1, 'At least 1 guest is required').max(10, 'Maximum 10 guests allowed'),

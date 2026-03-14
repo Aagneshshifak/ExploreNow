@@ -16,6 +16,18 @@ export default function Home() {
   // Fetch trips from API
   const { data: trips, isLoading: tripsLoading } = useQuery({
     queryKey: ['/api/trips'],
+    queryFn: async () => {
+      const response = await fetch('/api/trips', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
   });
 
   // Map API trips to Featured Destinations format

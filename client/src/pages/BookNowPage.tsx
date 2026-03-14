@@ -192,6 +192,24 @@ export default function BookNowPage({ trip: propTrip, hotel: propHotel }: BookNo
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Validation logic
+    if (name === 'phone') {
+      // Only allow numbers, spaces, hyphens, parentheses, and plus sign for phone numbers
+      const phoneRegex = /^[0-9\s\-\(\)\+]*$/;
+      if (!phoneRegex.test(value)) {
+        return; // Don't update state if invalid characters
+      }
+    }
+    
+    if (name === 'customerName') {
+      // Only allow letters, spaces, apostrophes, and hyphens for names
+      const nameRegex = /^[a-zA-Z\s\'\-]*$/;
+      if (!nameRegex.test(value)) {
+        return; // Don't update state if invalid characters
+      }
+    }
+    
     setBookingDetails(prev => ({
       ...prev,
       [name]: name === 'guests' ? parseInt(value) : value
