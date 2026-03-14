@@ -103,23 +103,106 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       emptyOutDir: true,
       // Use esbuild for faster, more memory-efficient minification
       minify: 'esbuild',
-      // Reduce memory usage during build
-      chunkSizeWarningLimit: 3000,
+      // Increase chunk size warning limit to 1MB (1000 kB)
+      chunkSizeWarningLimit: 1000,
       // Optimize for memory efficiency
       target: 'es2020',
       sourcemap: false, // Disable sourcemaps in production to save memory
       // Aggressive memory optimizations for Render's 512MB limit
       reportCompressedSize: false, // Disable compressed size reporting to save memory
-      // Disable CSS code splitting to reduce memory
-      cssCodeSplit: false,
+      // Enable CSS code splitting for better caching
+      cssCodeSplit: true,
       rollupOptions: {
         // Reduce memory usage during build - set to 1 for minimal memory usage
         maxParallelFileOps: 1,
-        // Disable treeshake to reduce memory (trade-off: slightly larger bundle)
-        treeshake: false,
+        // Enable treeshake for smaller bundles
+        treeshake: true,
         output: {
-          // No manual chunking - let rollup handle it automatically
-          // This uses less memory than manual chunk configuration
+          // Manual chunking for better code splitting
+          manualChunks: (id) => {
+            // Vendor chunks for large third-party libraries
+            if (id.includes('node_modules')) {
+              if (id.includes('react') && !id.includes('react-hook-form')) {
+                return 'vendor-react';
+              }
+              if (id.includes('@radix-ui')) {
+                return 'vendor-ui';
+              }
+              if (id.includes('@tanstack/react-query')) {
+                return 'vendor-query';
+              }
+              if (id.includes('react-hook-form') || id.includes('zod')) {
+                return 'vendor-form';
+              }
+              if (id.includes('framer-motion')) {
+                return 'vendor-animation';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+              if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('date-fns')) {
+                return 'vendor-utils';
+              }
+              if (id.includes('lottie-web') || id.includes('chart') || id.includes('recharts')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('helmet') || id.includes('router')) {
+                return 'vendor-routing';
+              }
+              // Other vendor libraries
+              return 'vendor-misc';
+            }
+            
+            // Component-based chunking for better separation
+            if (id.includes('/components/ui/')) {
+              return 'components-ui';
+            }
+            
+            // Page-based chunking with better separation
+            if (id.includes('/pages/')) {
+              const fileName = id.split('/').pop() || '';
+              
+              if (fileName.includes('Login') || fileName.includes('Signup') || fileName.includes('Admin')) {
+                return 'pages-auth';
+              }
+              if (fileName.includes('Book') || fileName.includes('Payment') || fileName.includes('Confirmation')) {
+                return 'pages-booking';
+              }
+              if (fileName.includes('Dashboard')) {
+                return 'pages-dashboard';
+              }
+              if (fileName.includes('Tools') || fileName.includes('Expense') || fileName.includes('Visa') || 
+                  fileName.includes('Travel') || fileName.includes('Route') || fileName.includes('Text') || 
+                  fileName.includes('Translation')) {
+                return 'pages-tools';
+              }
+              if (fileName.includes('Tourist') || fileName.includes('Local') || fileName.includes('Explorer')) {
+                return 'pages-tourist-map';
+              }
+              if (fileName.includes('Trip') || fileName.includes('Hotel') || fileName.includes('Transport')) {
+                return 'pages-content';
+              }
+            }
+            
+            // Default chunk for other files
+            return undefined;
+          },
+          // Optimize chunk file names for better caching
+          chunkFileNames: (chunkInfo) => {
+            return `assets/[name]-[hash].js`;
+          },
+          // Optimize asset file names
+          assetFileNames: (assetInfo) => {
+            const info = assetInfo.name?.split('.') || [];
+            const ext = info[info.length - 1];
+            if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext || '')) {
+              return `assets/images/[name]-[hash].[ext]`;
+            }
+            if (/woff2?|eot|ttf|otf/i.test(ext || '')) {
+              return `assets/fonts/[name]-[hash].[ext]`;
+            }
+            return `assets/[name]-[hash].[ext]`;
+          }
         }
       },
     },

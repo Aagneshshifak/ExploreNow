@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,50 +13,71 @@ import { AuthProvider } from './hooks/use-auth';
 import { ProtectedRoute } from './components/ui/protected-route';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import Layout from './components/Layout';
+
+// Eager load critical pages
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import AdminLogin from "./pages/AdminLogin";
-import AdminSignup from "./pages/AdminSignup";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
-import ExpenseEstimator from "./pages/ExpenseEstimator";
-import VisaChecker from "./pages/VisaChecker";
-import TravelCompass from "./pages/TravelCompass";
-import RouteFinder from "./pages/RouteFinder";
-import DocumentWallet from "./pages/DocumentWallet";
-import AdminDashboard from "./pages/AdminDashboard";
-import Tools from "./pages/Tools";
-import TouristCrowdMap from "./pages/TouristCrowdMap";
-import TouristMap from "./pages/TouristMap";
-import HotelSubmission from "./pages/HotelSubmission";
-import TripSubmission from "./pages/TripSubmission";
-import TripSuggestionByBudget from "./pages/TripSuggestionByBudget";
-import TextTranslator from "./pages/TextTranslator";
-import ExploreGuide from "./pages/ExploreGuide";
-import TripRecommender from "./pages/TripRecommender";
-import LocalExplorer from "./pages/LocalExplorer";
-import AdminUploadDashboard from "./pages/AdminUploadDashboard";
-import SearchFilter from "./pages/SearchFilter";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
-import DashboardPage from "./pages/DashboardPage";
-import TripsList from "./pages/TripsList";
-import ExpenseConverter from "./pages/ExpenseConverter";
-import ReviewsPage from "./pages/ReviewsPage";
-import BookingFlow from "./pages/BookingFlow";
-import TripBooking from "./pages/TripBooking";
-import TranslationPage from "./pages/TranslationPage";
-import TripDetails from "./pages/TripDetails";
-import HotelDetails from "./pages/HotelDetails";
-import HotelsList from "./pages/HotelsList";
-import HotelsPage from "./pages/HotelsPage";
-import TransportsPage from "./pages/TransportsPage";
-import RewardsPage from "./pages/RewardsPage";
-import AIAssistant from "./pages/AIAssistant";
-import BookNowPage from "./pages/BookNowPage";
-import BookingConfirmation from "./pages/BookingConfirmation";
-import PaymentPage from "./pages/PaymentPage";
+
+// Lazy load non-critical pages
+const Login = React.lazy(() => import("./pages/Login"));
+const Signup = React.lazy(() => import("./pages/Signup"));
+const AdminLogin = React.lazy(() => import("./pages/AdminLogin"));
+const AdminSignup = React.lazy(() => import("./pages/AdminSignup"));
+
+// Tools pages
+const Tools = React.lazy(() => import("./pages/Tools"));
+const ExpenseEstimator = React.lazy(() => import("./pages/ExpenseEstimator"));
+const VisaChecker = React.lazy(() => import("./pages/VisaChecker"));
+const TravelCompass = React.lazy(() => import("./pages/TravelCompass"));
+const RouteFinder = React.lazy(() => import("./pages/RouteFinder"));
+const DocumentWallet = React.lazy(() => import("./pages/DocumentWallet"));
+const TouristCrowdMap = React.lazy(() => import("./pages/TouristCrowdMap"));
+const TouristMap = React.lazy(() => import("./pages/TouristMap"));
+const TripSuggestionByBudget = React.lazy(() => import("./pages/TripSuggestionByBudget"));
+const TextTranslator = React.lazy(() => import("./pages/TextTranslator"));
+const ExploreGuide = React.lazy(() => import("./pages/ExploreGuide"));
+const TripRecommender = React.lazy(() => import("./pages/TripRecommender"));
+const LocalExplorer = React.lazy(() => import("./pages/LocalExplorer"));
+const ExpenseConverter = React.lazy(() => import("./pages/ExpenseConverter"));
+const TranslationPage = React.lazy(() => import("./pages/TranslationPage"));
+
+// Admin pages
+const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
+const AdminUploadDashboard = React.lazy(() => import("./pages/AdminUploadDashboard"));
+const HotelSubmission = React.lazy(() => import("./pages/HotelSubmission"));
+const TripSubmission = React.lazy(() => import("./pages/TripSubmission"));
+
+// Booking pages
+const BookingFlow = React.lazy(() => import("./pages/BookingFlow"));
+const TripBooking = React.lazy(() => import("./pages/TripBooking"));
+const BookNowPage = React.lazy(() => import("./pages/BookNowPage"));
+const BookingConfirmation = React.lazy(() => import("./pages/BookingConfirmation"));
+const PaymentPage = React.lazy(() => import("./pages/PaymentPage"));
+
+// Dashboard pages
+const Profile = React.lazy(() => import("./pages/Profile"));
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
+
+// Content pages
+const TripsList = React.lazy(() => import("./pages/TripsList"));
+const TripDetails = React.lazy(() => import("./pages/TripDetails"));
+const HotelDetails = React.lazy(() => import("./pages/HotelDetails"));
+const HotelsList = React.lazy(() => import("./pages/HotelsList"));
+const HotelsPage = React.lazy(() => import("./pages/HotelsPage"));
+const TransportsPage = React.lazy(() => import("./pages/TransportsPage"));
+const ReviewsPage = React.lazy(() => import("./pages/ReviewsPage"));
+const RewardsPage = React.lazy(() => import("./pages/RewardsPage"));
+const AIAssistant = React.lazy(() => import("./pages/AIAssistant"));
+const SearchFilter = React.lazy(() => import("./pages/SearchFilter"));
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 
 const queryClient = new QueryClient();
@@ -102,7 +123,8 @@ const App = () => {
               <BrowserRouter>
             <div className="min-h-screen bg-background text-foreground">
               <PageTransition>
-                <Routes>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
                 {/* Routes without navigation */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
@@ -224,6 +246,7 @@ const App = () => {
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+                </Suspense>
               </PageTransition>
               <ScrollToTop />
             </div>
