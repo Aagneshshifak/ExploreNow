@@ -8,6 +8,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { errorHandler } from "./middleware";
 import translateRoutes from "./routes/translate";
+import googleAuthRoutes, { configuredPassport } from "./routes/googleAuth";
 import { yogaMiddleware } from "./graphql";
 import { startPredictionUpdateJob } from "./jobs/updatePredictions";
 
@@ -82,6 +83,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+// Initialize Passport (required for Google OAuth redirect flow)
+app.use(configuredPassport.initialize());
+
   // Add debugging middleware to log all requests (only in development)
   if (process.env.NODE_ENV !== 'production') {
     app.use((req, res, next) => {
@@ -139,6 +143,8 @@ if (process.env.NODE_ENV !== 'production') {
     console.log('🔧 Setting up routes...');
     // Use translation routes BEFORE registerRoutes to avoid conflicts
     app.use('/api', translateRoutes);
+    // Google OAuth routes
+    app.use('/api/auth', googleAuthRoutes);
     
     const server = await registerRoutes(app);
     console.log('✅ Routes registered successfully');
@@ -188,7 +194,7 @@ if (process.env.NODE_ENV !== 'production') {
 
     // Serve the app on a configurable port (defaults to 10000 for Render, 5000 for local)
     // Render requires port 10000 by default, but allows custom PORT env var
-    const port = process.env.PORT ? Number(process.env.PORT) : (process.env.NODE_ENV === 'production' ? 10000 : 5000);
+    const port = process.env.PORT ? Number(process.env.PORT) : (process.env.NODE_ENV === 'production' ? 10000 : 5001);
     const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
     
     console.log(`🚀 Starting server on ${host}:${port}...`);
@@ -205,9 +211,9 @@ if (process.env.NODE_ENV !== 'production') {
       if (app.get("env") === "development") {
         console.log('\n🚀 Development servers running:');
         console.log('   Frontend (Vite): http://localhost:5173/');
-        console.log('   Backend (API):   http://localhost:5000/');
-        console.log('   GraphQL:         http://localhost:5000/graphql');
-        console.log('   Test endpoint:   http://localhost:5000/test');
+        console.log('   Backend (API):   http://localhost:5001/');
+        console.log('   GraphQL:         http://localhost:5001/graphql');
+        console.log('   Test endpoint:   http://localhost:5001/test');
         console.log('\n💡 Use http://localhost:5173/ for the main application\n');
       } else {
         console.log(`🚀 Production server running on ${host}:${port}`);

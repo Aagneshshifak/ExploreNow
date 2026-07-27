@@ -11,6 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => void;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -125,6 +126,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const user = userData || null;
+
+  // Detect Google OAuth success redirect (?oauth=success in URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('oauth') === 'success') {
+      // Remove the query param without a page reload
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+      // Refresh user data — the cookie was set by the server
+      refetchUser();
+    }
+  }, [refetchUser]);
+
+  /** Redirect the browser to Google's consent page via the backend */
+  const loginWithGoogle = useCallback(() => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+    window.location.href = `${backendUrl}/api/auth/google`;
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
@@ -296,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextType = {
     user,
     login,
+    loginWithGoogle,
     register,
     logout,
     isLoading,
