@@ -1,10 +1,12 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { logger } from '../../utils/logger.util';
 import { config } from '../../config/env.config';
 import { NotificationService } from '../../application/services/notification.service';
 import { OfflineQueueService } from '../../application/services/offline.queue.service';
+import { redisDB } from '../../infrastructure/redis/redis.client';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -22,6 +24,14 @@ export class SocketManager {
   ) {
     this.io = new SocketIOServer(server, {
       cors: { origin: '*' }
+    });
+
+    const pubClient = redisDB.client.duplicate();
+    const subClient = pubClient.duplicate();
+
+    Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+      this.io.adapter(createAdapter(pubClient, subClient));
+      logger.info('✅ Redis Adapter initialized for Socket.io');
     });
 
     this.setupMiddleware();
