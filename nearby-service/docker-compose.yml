@@ -55,6 +55,7 @@ services:
     image: redis:7-alpine
     container_name: nearby_service_cache
     restart: always
+    command: redis-server --save 300 100 --appendonly no
     ports:
       - "6379:6379"
     volumes:
