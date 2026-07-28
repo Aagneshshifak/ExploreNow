@@ -22,6 +22,7 @@ export const pingLocation = async (userId: string, lat: number, lng: number) => 
   const res = await fetch(`${NEARBY_API}/location/ping`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ userId, latitude: lat, longitude: lng })
   });
   if (!res.ok) throw new Error('Failed to ping location');
@@ -32,7 +33,9 @@ export const pingLocation = async (userId: string, lat: number, lng: number) => 
  * Fetches nearby candidates using the H3 grid algorithm
  */
 export const getNearbyUsers = async (userId: string, lat: number, lng: number, radius = 2000): Promise<NearbyCandidate[]> => {
-  const res = await fetch(`${NEARBY_API}/nearby?userId=${userId}&lat=${lat}&lng=${lng}&radius=${radius}`);
+  const res = await fetch(`${NEARBY_API}/nearby?userId=${userId}&lat=${lat}&lng=${lng}&radius=${radius}`, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error('Failed to fetch nearby users');
   const json = await res.json();
   return json.data;
@@ -66,6 +69,7 @@ export function useSendConnectionRequest() {
       const res = await fetch(`${NEARBY_API}/connections/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ senderId, receiverId })
       });
       if (!res.ok) throw new Error('Request failed');
@@ -82,6 +86,7 @@ export function useRespondToRequest() {
       const res = await fetch(`${NEARBY_API}/connections/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ responderId, senderId, status })
       });
       if (!res.ok) throw new Error('Response failed');
