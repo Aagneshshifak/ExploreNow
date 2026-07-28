@@ -3,6 +3,7 @@ import { config } from './config/env.config';
 import { logger } from './utils/logger.util';
 import { prisma } from './infrastructure/database/prisma.client';
 import { redisDB } from './infrastructure/redis/redis.client';
+import { startGrpcServer } from './interfaces/rpc/grpc.server';
 
 const startServer = async () => {
   try {
@@ -10,15 +11,18 @@ const startServer = async () => {
     await prisma.connect();
     await redisDB.connect();
 
-    // 2. Setup Express App
+    // 2. Start gRPC Server (Internal Microservice Traffic)
+    startGrpcServer();
+
+    // 3. Setup Express App
     const app = createApp();
 
-    // 3. Start HTTP Server
+    // 4. Start HTTP Server (External REST Traffic / Debugging)
     const server = app.listen(config.PORT, () => {
       logger.info(`🚀 Nearby HTTP Service running on port ${config.PORT}`);
     });
 
-    // 4. Graceful Shutdown handlers
+    // 5. Graceful Shutdown handlers
     const shutdown = async () => {
       logger.info('SIGINT/SIGTERM received. Shutting down gracefully...');
       server.close(() => {
