@@ -1,26 +1,40 @@
 import * as grpc from '@grpc/grpc-js';
-import { authenticateGrpcRequest } from '../interceptors/auth.interceptor';
+import { handleGrpcError } from '../interceptors/error.interceptor';
 import { logger } from '../../../utils/logger.util';
+import { NotificationService } from '../../../application/services/notification.service';
+import { eventDispatcher } from '../../../infrastructure/redis/redis.event.dispatcher';
+
+// Instantiate the NotificationService
+const notificationService = new NotificationService(eventDispatcher);
 
 export const notificationHandlers = {
   SubscribeToMatches: (call: grpc.ServerWritableStream<any, any>) => {
-    // For server-streaming, authentication happens right as the connection is established
-    authenticateGrpcRequest(call.metadata, (err, serverId) => {
-      if (err) {
-        call.emit('error', err);
-        return;
-      }
-      
-      logger.info(`Tourist Backend instance [${serverId}] subscribed to Match Events`);
-      
-      // TODO: Hook this stream up to the RedisEventDispatcher
-      // When Redis receives an event on 'channel:location_updated', write it to this stream
-      // example: call.write({ user_id_a: "A", user_id_b: "B", match_type: "ENTERED", timestamp: Date.now() });
+    try {
+      const { server_id } = call.request;
+      logger.info(`Server ${server_id} subscribed to the global MatchEvent firehose`);
 
-      call.on('cancelled', () => {
-        logger.info(`Tourist Backend instance [${serverId}] cancelled subscription`);
-        // TODO: Clean up Redis Pub/Sub listener for this stream
+      // Register listener on the NotificationService
+      const cleanup = notificationService.registerStreamListener((event) => {
+        // Write the protobuf MatchEvent to the gRPC stream
+        call.write(event);
       });
-    });
+
+      // Handle client disconnect (e.g., API Gateway restarts)
+      call.on('cancelled', () => {
+        logger.warn(`Server ${server_id} cancelled the MatchEvent stream`);
+        cleanup();
+        call.end();
+      });
+
+      call.on('error', (error) => {
+        logger.error(`Stream error for server ${server_id}`, error);
+        cleanup();
+        call.end();
+      });
+
+    } catch (error) {
+      logger.error('Failed to initialize MatchEvent stream', error);
+      call.end();
+    }
   }
 };

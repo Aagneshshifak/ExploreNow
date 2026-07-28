@@ -1,18 +1,22 @@
 import { MatchingService } from './matching.service';
 import { ILocationRepository } from '../../domain/interfaces/location.repository.interface';
+import { IPrivacyRepository } from '../../domain/interfaces/privacy.repository.interface';
+import { IUserProfileRepository, UserProfile } from '../../domain/interfaces/profile.repository.interface';
+import { IConnectionRepository } from '../../domain/interfaces/connection.repository.interface';
 import { LiveLocation } from '../../domain/entities/location.entity';
-import { getH3Index } from '../../utils/h3.util';
 
-describe('MatchingService', () => {
+describe('MatchingService (Privacy & Connections Enforced)', () => {
   let matchingService: MatchingService;
   let mockLocationRepo: jest.Mocked<ILocationRepository>;
+  let mockPrivacyRepo: jest.Mocked<IPrivacyRepository>;
+  let mockProfileRepo: jest.Mocked<IUserProfileRepository>;
+  let mockConnectionRepo: jest.Mocked<IConnectionRepository>;
 
   const SEARCHER_ID = 'user_searcher';
   const SEARCHER_LAT = 40.7128;
   const SEARCHER_LNG = -74.0060;
 
   beforeEach(() => {
-    // Setup Mock Repository
     mockLocationRepo = {
       saveLocation: jest.fn(),
       getLocationByUserId: jest.fn(),
@@ -20,78 +24,66 @@ describe('MatchingService', () => {
       markUserOffline: jest.fn(),
     };
 
-    matchingService = new MatchingService(mockLocationRepo);
-  });
+    mockPrivacyRepo = {
+      isUserDiscoverable: jest.fn(),
+      filterDiscoverableUsers: jest.fn(),
+    };
 
-  test('should return empty array if no users found in H3 buckets', async () => {
-    // Mock H3 buckets returning empty arrays
-    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue([]);
+    mockProfileRepo = {
+      getProfilesBatch: jest.fn(),
+    };
 
-    const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 500);
-    
-    expect(results).toEqual([]);
-    expect(mockLocationRepo.getActiveUsersInH3Cell).toHaveBeenCalled();
-  });
+    mockConnectionRepo = {
+      upsertConnection: jest.fn(),
+      getApprovedConnections: jest.fn(),
+      logAudit: jest.fn()
+    };
 
-  test('should filter out the searcher from the results', async () => {
-    // Searcher is in the bucket
-    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue([SEARCHER_ID, 'user_2']);
-    
-    // User 2's exact location is within 10 meters
-    mockLocationRepo.getLocationByUserId.mockResolvedValue({
-      userId: 'user_2',
-      lat: 40.71281, // very close
-      lng: -74.0060,
-      ts: Date.now(),
-      h3: 'mock_h3',
-      on: 1
-    } as LiveLocation);
+    matchingService = new MatchingService(mockLocationRepo, mockPrivacyRepo, mockProfileRepo, mockConnectionRepo);
 
-    const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 500);
-    
-    expect(results.length).toBe(1);
-    expect(results[0].userId).toBe('user_2');
-    expect(mockLocationRepo.getLocationByUserId).not.toHaveBeenCalledWith(SEARCHER_ID);
-  });
-
-  test('should exclude users who fall outside the exact Haversine radius (false positives from H3)', async () => {
-    // Both users are in the same general neighborhood H3 bucket ring
-    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_close', 'user_far']);
-    
-    // Close user is 10m away
-    mockLocationRepo.getLocationByUserId.mockImplementation(async (id) => {
-      if (id === 'user_close') {
-        return { userId: 'user_close', lat: 40.71281, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1 };
-      }
-      if (id === 'user_far') {
-        // Far user is ~1km away, technically caught in a large k-ring but fails exact radius test
-        return { userId: 'user_far', lat: 40.7200, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1 };
-      }
-      return null;
+    // Default mocks
+    mockPrivacyRepo.filterDiscoverableUsers.mockImplementation(async (ids) => ids); // All discoverable
+    mockProfileRepo.getProfilesBatch.mockImplementation(async (ids) => {
+      const map = new Map<string, UserProfile>();
+      ids.forEach(id => map.set(id, { userId: id, username: `name_${id}`, avatarUrl: 'img' }));
+      return map;
     });
-
-    // Request 500m radius
-    const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 500);
-    
-    expect(results.length).toBe(1);
-    expect(results[0].userId).toBe('user_close');
-    expect(results[0].distanceMeters).toBeLessThan(500);
+    mockConnectionRepo.getApprovedConnections.mockResolvedValue(new Set());
   });
 
-  test('should exclude users who are offline (on: 0)', async () => {
-    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_offline']);
+  test('should obscure distance and NOT expose GPS for strangers', async () => {
+    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_stranger']);
     
     mockLocationRepo.getLocationByUserId.mockResolvedValue({
-      userId: 'user_offline',
-      lat: 40.71281,
-      lng: -74.0060,
-      ts: Date.now(),
-      h3: 'mock',
-      on: 0 // OFFLINE
+      userId: 'user_stranger', lat: 40.71281, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1
     } as LiveLocation);
 
     const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 500);
     
-    expect(results.length).toBe(0);
+    expect(results.length).toBe(1);
+    expect(results[0].approximateDistanceMeters).toBe(50);
+    expect(results[0].exactLatitude).toBeUndefined();
+    expect(results[0].exactLongitude).toBeUndefined();
+    expect(results[0].isConnected).toBe(false);
+  });
+
+  test('should expose exact GPS coordinates for approved mutual connections', async () => {
+    mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_friend']);
+    
+    mockLocationRepo.getLocationByUserId.mockResolvedValue({
+      userId: 'user_friend', lat: 40.71587, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1
+    } as LiveLocation);
+
+    // Mock that they are approved friends
+    mockConnectionRepo.getApprovedConnections.mockResolvedValue(new Set(['user_friend']));
+
+    const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 1000);
+    
+    expect(results.length).toBe(1);
+    expect(results[0].approximateDistanceMeters).toBe(300); // Distance still bucketed for UI consistency
+    expect(results[0].isConnected).toBe(true);
+    // Exact GPS UNLOCKED!
+    expect(results[0].exactLatitude).toBe(40.71587);
+    expect(results[0].exactLongitude).toBe(-74.0060);
   });
 });

@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger.util';
 export class PostgresPrivacyRepository implements IPrivacyRepository {
   async isUserDiscoverable(userId: string): Promise<boolean> {
     try {
-      const settings = await prisma.privacySettings.findUnique({
+      const settings = await prisma.client.privacySettings.findUnique({
         where: { userId },
         select: { isDiscoverable: true }
       });
@@ -26,7 +26,7 @@ export class PostgresPrivacyRepository implements IPrivacyRepository {
     
     try {
       // Find all users in the list who explicitly have isDiscoverable = false
-      const hiddenUsers = await prisma.privacySettings.findMany({
+      const hiddenUsers = await prisma.client.privacySettings.findMany({
         where: {
           userId: { in: userIds },
           isDiscoverable: false
@@ -34,7 +34,7 @@ export class PostgresPrivacyRepository implements IPrivacyRepository {
         select: { userId: true }
       });
 
-      const hiddenIds = new Set(hiddenUsers.map(u => u.userId));
+      const hiddenIds = new Set(hiddenUsers.map((u: { userId: string }) => u.userId));
       
       // Return the original list minus the hidden users
       return userIds.filter(id => !hiddenIds.has(id));

@@ -14,7 +14,7 @@ export const errorMiddleware = (
     res.status(400).json({
       success: false,
       message: 'Validation failed',
-      errors: err.errors,
+      errors: (err as ZodError).issues,
     });
     return;
   }

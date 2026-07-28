@@ -6,6 +6,7 @@ import { config } from '../../config/env.config';
 import { locationHandlers } from './handlers/location.handler';
 import { matchingHandlers } from './handlers/matching.handler';
 import { notificationHandlers } from './handlers/notification.handler';
+import { connectionHandlers } from './handlers/connection.handler';
 
 const PROTO_PATH = path.join(__dirname, './proto/nearby.proto');
 
@@ -27,6 +28,7 @@ export const startGrpcServer = (): void => {
   server.addService(nearbyProto.LocationService.service, locationHandlers);
   server.addService(nearbyProto.MatchingService.service, matchingHandlers);
   server.addService(nearbyProto.NotificationService.service, notificationHandlers);
+  server.addService(nearbyProto.ConnectionService.service, connectionHandlers);
 
   const address = `0.0.0.0:${config.GRPC_PORT}`;
 

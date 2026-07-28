@@ -1,6 +1,7 @@
 import { ILocationRepository } from '../../domain/interfaces/location.repository.interface';
 import { IPrivacyRepository } from '../../domain/interfaces/privacy.repository.interface';
 import { IUserProfileRepository } from '../../domain/interfaces/profile.repository.interface';
+import { IConnectionRepository } from '../../domain/interfaces/connection.repository.interface';
 import { getH3Index, getNeighboringCells, calculateRingSize, calculateHaversineDistance, DEFAULT_H3_RESOLUTION } from '../../utils/h3.util';
 import { LiveLocation } from '../../domain/entities/location.entity';
 import { logger } from '../../utils/logger.util';
@@ -10,13 +11,17 @@ export interface NearbyCandidate {
   username: string;
   avatarUrl: string;
   approximateDistanceMeters: number;
+  exactLatitude?: number;
+  exactLongitude?: number;
+  isConnected: boolean;
 }
 
 export class MatchingService {
   constructor(
     private readonly locationRepo: ILocationRepository,
     private readonly privacyRepo: IPrivacyRepository,
-    private readonly profileRepo: IUserProfileRepository
+    private readonly profileRepo: IUserProfileRepository,
+    private readonly connectionRepo: IConnectionRepository
   ) {}
 
   /**
@@ -25,7 +30,6 @@ export class MatchingService {
   private bucketDistance(distance: number): number {
     if (distance < 50) return 50;
     if (distance < 100) return 100;
-    // Round to nearest 100m
     return Math.round(distance / 100) * 100;
   }
 
@@ -58,37 +62,54 @@ export class MatchingService {
     const locationPromises = Array.from(uniqueUserIds).map(id => this.locationRepo.getLocationByUserId(id));
     const rawLocations = await Promise.all(locationPromises);
 
-    const validCandidateIds: { id: string, exactDist: number }[] = [];
+    const validCandidateLocations: LiveLocation[] = [];
 
     for (const loc of rawLocations) {
       if (!loc || loc.on === 0) continue; 
       const distance = calculateHaversineDistance(lat, lng, loc.lat, loc.lng);
       if (distance <= radiusMeters) {
-        validCandidateIds.push({ id: loc.userId, exactDist: distance });
+        // Temporarily store exact distance in the 'spd' field for mapping, as we need the full loc object later
+        loc.spd = distance;
+        validCandidateLocations.push(loc);
       }
     }
 
-    if (validCandidateIds.length === 0) return [];
+    if (validCandidateLocations.length === 0) return [];
 
-    // Privacy Filter
-    const discoverableIds = await this.privacyRepo.filterDiscoverableUsers(validCandidateIds.map(c => c.id));
+    // Privacy Filter (Global Ghost Mode Check)
+    const candidateIds = validCandidateLocations.map(c => c.userId);
+    const discoverableIds = await this.privacyRepo.filterDiscoverableUsers(candidateIds);
     const discoverableSet = new Set(discoverableIds);
-    const finalCandidates = validCandidateIds.filter(c => discoverableSet.has(c.id));
-
-    if (finalCandidates.length === 0) return [];
+    
+    // Fetch Mutual Connections (The Permission Layer)
+    const approvedConnections = await this.connectionRepo.getApprovedConnections(searcherId);
 
     // PHASE 3: Profile Enrichment & Distance Obfuscation
-    const profileMap = await this.profileRepo.getProfilesBatch(finalCandidates.map(c => c.id));
+    const profileMap = await this.profileRepo.getProfilesBatch(candidateIds);
     const enrichedCandidates: NearbyCandidate[] = [];
 
-    for (const candidate of finalCandidates) {
-      const profile = profileMap.get(candidate.id);
-      enrichedCandidates.push({
-        userId: candidate.id,
+    for (const loc of validCandidateLocations) {
+      if (!discoverableSet.has(loc.userId)) continue;
+
+      const profile = profileMap.get(loc.userId);
+      const isConnected = approvedConnections.has(loc.userId);
+      const distance = loc.spd || 0; // The exact distance we stored earlier
+
+      const candidate: NearbyCandidate = {
+        userId: loc.userId,
         username: profile?.username || 'Unknown Tourist',
         avatarUrl: profile?.avatarUrl || '',
-        approximateDistanceMeters: this.bucketDistance(candidate.exactDist)
-      });
+        approximateDistanceMeters: this.bucketDistance(distance),
+        isConnected
+      };
+
+      // EXACT GPS UNLOCK: Only inject coordinates if they are mutual friends
+      if (isConnected) {
+        candidate.exactLatitude = loc.lat;
+        candidate.exactLongitude = loc.lng;
+      }
+
+      enrichedCandidates.push(candidate);
     }
 
     // Sort by approximate distance
