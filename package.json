@@ -24,6 +24,8 @@
     "@google/genai": "^1.14.0",
     "@google/generative-ai": "^0.24.1",
     "@graphql-tools/schema": "^10.0.25",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",

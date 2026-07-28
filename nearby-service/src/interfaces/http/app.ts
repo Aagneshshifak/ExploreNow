@@ -17,6 +17,15 @@ export const createApp = (): Application => {
   // Custom Middlewares
   app.use(requestLoggerMiddleware);
 
+  // Health Check Endpoint (For Render and Docker)
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  });
+
   // Routes
   app.use('/api', apiRouter);
 

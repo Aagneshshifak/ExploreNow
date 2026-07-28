@@ -33,7 +33,10 @@ COPY --from=builder /app/dist ./dist
 ENV NODE_ENV=production
 
 # Expose HTTP and gRPC ports
-EXPOSE 3000
+EXPOSE 10000
 EXPOSE 50051
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:10000/api/health || exit 1
 
 CMD ["npm", "start"]

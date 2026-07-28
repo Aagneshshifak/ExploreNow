@@ -28,3 +28,23 @@ services:
       - key: CURRENCY_API_KEY
         sync: false
     healthCheckPath: /api/health
+
+  - type: web
+    name: nearby-service
+    env: docker
+    region: oregon
+    plan: starter
+    dockerfilePath: nearby-service/Dockerfile
+    dockerContext: nearby-service
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: GRPC_PORT
+        value: 50051
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+    healthCheckPath: /api/health

@@ -1,10 +1,12 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { logger } from '../../utils/logger.util';
 import { config } from '../../config/env.config';
 import { NotificationService } from '../../application/services/notification.service';
 import { OfflineQueueService } from '../../application/services/offline.queue.service';
+import { redisDB } from '../../infrastructure/redis/redis.client';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -24,6 +26,14 @@ export class SocketManager {
       cors: { origin: '*' }
     });
 
+    const pubClient = redisDB.client.duplicate();
+    const subClient = pubClient.duplicate();
+
+    Promise.all([pubClient.connect(), subClient.connect()]).then(() => {
+      this.io.adapter(createAdapter(pubClient, subClient));
+      logger.info('✅ Redis Adapter initialized for Socket.io');
+    });
+
     this.setupMiddleware();
     this.setupListeners();
     this.bindNotificationBridge();
@@ -31,16 +41,19 @@ export class SocketManager {
 
   private setupMiddleware() {
     this.io.use((socket, next) => {
-      const userId = socket.handshake.auth?.userId;
+      const token = socket.handshake.auth?.token || socket.handshake.headers['authorization'];
       
-      if (!userId) {
-        return next(new Error('Authentication error: Missing userId in auth payload'));
+      if (!token) {
+        return next(new Error('Authentication error: Missing token'));
       }
 
-      // For this MVP, since the main app uses cookie-sessions and we are a separate microservice,
-      // we trust the frontend to pass the user's ID. In production, we'd verify a shared signed token.
-      (socket as AuthenticatedSocket).userId = userId.toString();
-      next();
+      try {
+        const decoded = jwt.verify(token.replace('Bearer ', ''), config.JWT_SECRET) as any;
+        (socket as AuthenticatedSocket).userId = decoded.userId;
+        next();
+      } catch (err) {
+        return next(new Error('Authentication error: Invalid token'));
+      }
     });
   }
 

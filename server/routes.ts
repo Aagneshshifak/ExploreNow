@@ -32,12 +32,25 @@ import {
 import { eq, desc, sql as drizzleSql, and, or, isNotNull, ne } from "drizzle-orm";
 import touristMapRoutes from "./routes/touristMapRoutes";
 
+import jwt from "jsonwebtoken";
+import nearbyRoutes from "./routes/nearbyRoutes";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // ============================================
   // HEALTH CHECK & DEBUG ROUTES
   // ============================================
   
+  // JWT Token bridge for WebSocket client
+  app.get("/api/auth/token", requireUser, (req, res) => {
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+    const token = jwt.sign({ userId: req.user!.id.toString() }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ success: true, token });
+  });
+
+  // Mount Nearby Gateway Routes
+  app.use("/api/nearby", nearbyRoutes);
+
   // Health check endpoint - verify server and routes are working
   app.get("/api/health", (req, res) => {
     res.json({
