@@ -1,9 +1,9 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from './use-auth';
 
-const NEARBY_API = import.meta.env.VITE_NEARBY_SERVICE_URL 
-  ? `${import.meta.env.VITE_NEARBY_SERVICE_URL}/api/v1` 
-  : 'http://localhost:50051/api/v1';
+const NEARBY_API = import.meta.env.VITE_BACKEND_URL 
+  ? `${import.meta.env.VITE_BACKEND_URL}/api/nearby` 
+  : '/api/nearby';
 
 export interface NearbyCandidate {
   userId: string;

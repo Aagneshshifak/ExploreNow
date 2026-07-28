@@ -13,52 +13,67 @@ export function useNearbySocket() {
   useEffect(() => {
     if (!user) return;
 
-    const socket = io(NEARBY_SERVICE_URL, {
-      auth: { userId: user.id.toString() }
-    });
+    let socket: Socket | null = null;
 
-    socketRef.current = socket;
+    const connectSocket = async () => {
+      try {
+        // Fetch bridged JWT token from our Gateway
+        const res = await fetch('/api/auth/token');
+        const data = await res.json();
+        if (!data.success || !data.token) {
+          console.error("Failed to fetch nearby token");
+          return;
+        }
 
-    socket.on('connect', () => {
-      console.log('Connected to Nearby WebSocket Gateway');
-      setIsConnected(true);
-    });
+        socket = io(NEARBY_SERVICE_URL, {
+          auth: { token: data.token }
+        });
 
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
+        socketRef.current = socket;
 
-    // Handle real-time notifications
-    socket.on('CONNECTION_REQUESTED', (data) => {
-      toast({
-        title: "New Connection Request!",
-        description: `User ${data.senderId} wants to share their precise location with you.`,
-        action: (
-          <button className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm">
-            View
-          </button>
-        )
-      });
-      // Optionally invalidate React Query cache here
-    });
+        socket.on('connect', () => {
+          console.log('Connected to Nearby WebSocket Gateway');
+          setIsConnected(true);
+        });
 
-    socket.on('CONNECTION_ACCEPTED', (data) => {
-      toast({
-        title: "Connection Accepted!",
-        description: `You can now see the exact location of user ${data.withUser}.`,
-      });
-    });
+        socket.on('disconnect', () => {
+          setIsConnected(false);
+        });
 
-    socket.on('CONNECTION_REJECTED', (data) => {
-      toast({
-        title: "Connection Rejected",
-        description: `User ${data.byUser} declined your request.`,
-        variant: "destructive"
-      });
-    });
+        // Handle real-time notifications
+        socket.on('CONNECTION_REQUESTED', (reqData) => {
+          toast({
+            title: "New Connection Request!",
+            description: `User ${reqData.senderId} wants to share their precise location with you.`,
+          });
+        });
+
+        socket.on('CONNECTION_ACCEPTED', (reqData) => {
+          toast({
+            title: "Connection Accepted!",
+            description: `You can now see the exact location of user ${reqData.withUser}.`,
+          });
+        });
+
+        socket.on('CONNECTION_REJECTED', (reqData) => {
+          toast({
+            title: "Connection Rejected",
+            description: `User ${reqData.byUser} declined your request.`,
+            variant: "destructive"
+          });
+        });
+
+      } catch (err) {
+        console.error("Socket connection failed", err);
+      }
+    };
+
+    connectSocket();
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [user]);
 
