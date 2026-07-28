@@ -1,11 +1,13 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["nearby"]
 }
 
 enum RequestStatus {
@@ -13,6 +15,8 @@ enum RequestStatus {
   ACCEPTED
   REJECTED
   BLOCKED
+
+  @@schema("nearby")
 }
 
 model PrivacySettings {
@@ -20,6 +24,8 @@ model PrivacySettings {
   isDiscoverable Boolean  @default(false)
   searchRadius   Int      @default(500) // In meters
   updatedAt      DateTime @updatedAt
+
+  @@schema("nearby")
 }
 
 model ConnectionRequest {
@@ -33,6 +39,7 @@ model ConnectionRequest {
   @@unique([senderId, receiverId])
   @@index([receiverId, status])
   @@index([senderId])
+  @@schema("nearby")
 }
 
 model MeetingHistory {
@@ -46,6 +53,7 @@ model MeetingHistory {
 
   @@index([userAId])
   @@index([userBId])
+  @@schema("nearby")
 }
 
 model AuditLog {
@@ -57,4 +65,5 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@schema("nearby")
 }

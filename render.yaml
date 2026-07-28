@@ -20,12 +20,14 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: CURRENCY_API_KEY
+        sync: false
+      - key: NEARBY_SERVICE_GRPC_URL
         sync: false
     healthCheckPath: /api/health
 
@@ -41,6 +43,8 @@ services:
         value: 10000
       - key: GRPC_PORT
         value: 50051
+      - key: NODE_ENV
+        value: production
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
