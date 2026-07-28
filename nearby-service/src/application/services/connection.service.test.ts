@@ -1,11 +1,15 @@
 import { ConnectionService } from './connection.service';
 import { IConnectionRepository } from '../../domain/interfaces/connection.repository.interface';
 import { IEventDispatcher } from '../../domain/interfaces/event.dispatcher.interface';
+import { OfflineQueueService } from './offline.queue.service';
+import { IOfflineQueueRepository } from '../../domain/interfaces/offline.queue.repository.interface';
 
 describe('ConnectionService', () => {
   let connectionService: ConnectionService;
   let mockConnectionRepo: jest.Mocked<IConnectionRepository>;
   let mockEventDispatcher: jest.Mocked<IEventDispatcher>;
+  let mockOfflineQueueRepo: jest.Mocked<IOfflineQueueRepository>;
+  let offlineQueueService: OfflineQueueService;
 
   beforeEach(() => {
     mockConnectionRepo = {
@@ -17,7 +21,13 @@ describe('ConnectionService', () => {
       publish: jest.fn(),
       subscribe: jest.fn()
     };
-    connectionService = new ConnectionService(mockConnectionRepo, mockEventDispatcher);
+    mockOfflineQueueRepo = {
+      pushMessage: jest.fn(),
+      getAndClearMessages: jest.fn()
+    };
+    
+    offlineQueueService = new OfflineQueueService(mockOfflineQueueRepo);
+    connectionService = new ConnectionService(mockConnectionRepo, mockEventDispatcher, offlineQueueService);
   });
 
   test('should upsert PENDING connection and log audit when sending request', async () => {

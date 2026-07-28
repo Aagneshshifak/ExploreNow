@@ -3,10 +3,14 @@ import { authenticateGrpcRequest } from '../interceptors/auth.interceptor';
 import { handleGrpcError } from '../interceptors/error.interceptor';
 import { ConnectionService } from '../../../application/services/connection.service';
 import { PostgresConnectionRepository } from '../../../infrastructure/repositories/postgres.connection.repository';
+import { RedisOfflineQueueRepository } from '../../../infrastructure/repositories/redis.offline.queue.repository';
+import { OfflineQueueService } from '../../../application/services/offline.queue.service';
 import { eventDispatcher } from '../../../infrastructure/redis/redis.event.dispatcher';
 
 const connectionRepo = new PostgresConnectionRepository();
-const connectionService = new ConnectionService(connectionRepo, eventDispatcher);
+const offlineQueueRepo = new RedisOfflineQueueRepository();
+const offlineQueueService = new OfflineQueueService(offlineQueueRepo);
+const connectionService = new ConnectionService(connectionRepo, eventDispatcher, offlineQueueService);
 
 export const connectionHandlers = {
   SendRequest: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) => {
