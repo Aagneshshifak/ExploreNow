@@ -45,8 +45,8 @@ export const getAuthMetadata = (userId: string): grpc.Metadata => {
 // Wrappers for Promise-based execution
 export const grpcPingLocation = (userId: string, latitude: number, longitude: number): Promise<void> => {
   return new Promise((resolve, reject) => {
-    locationClient.PingLocation(
-      { userId, latitude, longitude },
+    locationClient.UpdateLocation(
+      { user_id: userId, latitude, longitude, speed: 0, direction: 0 },
       getAuthMetadata(userId),
       (error: any, response: any) => {
         if (error) return reject(error);
@@ -60,7 +60,7 @@ export const grpcPingLocation = (userId: string, latitude: number, longitude: nu
 export const grpcFindNearby = (userId: string, latitude: number, longitude: number, radiusMeters: number): Promise<any[]> => {
   return new Promise((resolve, reject) => {
     matchingClient.FindNearby(
-      { userId, latitude, longitude, radiusMeters },
+      { user_id: userId, radius_meters: radiusMeters },
       getAuthMetadata(userId),
       (error: any, response: any) => {
         if (error) return reject(error);
@@ -72,8 +72,8 @@ export const grpcFindNearby = (userId: string, latitude: number, longitude: numb
 
 export const grpcSendConnectionRequest = (senderId: string, receiverId: string): Promise<void> => {
   return new Promise((resolve, reject) => {
-    connectionClient.SendConnectionRequest(
-      { senderId, receiverId },
+    connectionClient.SendRequest(
+      { target_user_id: receiverId },
       getAuthMetadata(senderId),
       (error: any, response: any) => {
         if (error) return reject(error);
@@ -86,8 +86,8 @@ export const grpcSendConnectionRequest = (senderId: string, receiverId: string):
 
 export const grpcRespondToConnection = (responderId: string, senderId: string, status: 'ACCEPTED' | 'REJECTED'): Promise<void> => {
   return new Promise((resolve, reject) => {
-    connectionClient.RespondToConnection(
-      { responderId, senderId, status },
+    connectionClient.RespondToRequest(
+      { target_user_id: senderId, status },
       getAuthMetadata(responderId),
       (error: any, response: any) => {
         if (error) return reject(error);
