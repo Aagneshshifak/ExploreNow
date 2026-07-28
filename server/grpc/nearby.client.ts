@@ -19,19 +19,23 @@ const GRPC_URL = process.env.NEARBY_SERVICE_GRPC_URL || 'localhost:50051';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Instantiate the clients
+// If the URL ends with 443 (default HTTPS port), use SSL. Otherwise, use insecure (for local dev or internal network).
+const isSecure = GRPC_URL.endsWith(':443');
+const credentials = isSecure ? grpc.credentials.createSsl() : grpc.credentials.createInsecure();
+
 export const locationClient = new nearbyProto.LocationService(
   GRPC_URL,
-  grpc.credentials.createInsecure()
+  credentials
 );
 
 export const matchingClient = new nearbyProto.MatchingService(
   GRPC_URL,
-  grpc.credentials.createInsecure()
+  credentials
 );
 
 export const connectionClient = new nearbyProto.ConnectionService(
   GRPC_URL,
-  grpc.credentials.createInsecure()
+  credentials
 );
 
 // Helper to create authenticated metadata
