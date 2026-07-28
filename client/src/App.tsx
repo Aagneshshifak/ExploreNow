@@ -13,6 +13,7 @@ import { AuthProvider } from './hooks/use-auth';
 import { ProtectedRoute } from './components/ui/protected-route';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import Layout from './components/Layout';
+import { ConnectionRequestsOverlay } from './components/ConnectionRequestsOverlay';
 
 // Eager load critical pages
 import Home from "./pages/Home";
@@ -47,6 +48,9 @@ const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const AdminUploadDashboard = React.lazy(() => import("./pages/AdminUploadDashboard"));
 const HotelSubmission = React.lazy(() => import("./pages/HotelSubmission"));
 const TripSubmission = React.lazy(() => import("./pages/TripSubmission"));
+
+// New Nearby Feature
+const NearbyUsers = React.lazy(() => import("./pages/NearbyUsers"));
 
 // Booking pages
 const BookingFlow = React.lazy(() => import("./pages/BookingFlow"));
@@ -172,6 +176,8 @@ const App = () => {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
+                
+                <ConnectionRequestsOverlay />
                 <BrowserRouter>
               <div className="min-h-screen bg-background text-foreground">
                 <PageTransition>
@@ -182,6 +188,13 @@ const App = () => {
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin/signup" element={<AdminSignup />} />
+                <Route path="/nearby" element={
+                  <ProtectedRoute>
+                    <Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
+                      <NearbyUsers />
+                    </Layout>
+                  </ProtectedRoute>
+                } />
                 
                 {/* Routes with navigation */}
                 <Route path="/" element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode}><Home /></Layout>} />

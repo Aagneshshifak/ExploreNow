@@ -4,6 +4,11 @@ import { logger } from './utils/logger.util';
 import { prisma } from './infrastructure/database/prisma.client';
 import { redisDB } from './infrastructure/redis/redis.client';
 import { startGrpcServer } from './interfaces/rpc/grpc.server';
+import { SocketManager } from './interfaces/ws/socket.manager';
+import { NotificationService } from './application/services/notification.service';
+import { eventDispatcher } from './infrastructure/redis/redis.event.dispatcher';
+import { OfflineQueueService } from './application/services/offline.queue.service';
+import { RedisOfflineQueueRepository } from './infrastructure/repositories/redis.offline.queue.repository';
 
 const startServer = async () => {
   try {
@@ -21,6 +26,12 @@ const startServer = async () => {
     const server = app.listen(config.PORT, () => {
       logger.info(`🚀 Nearby HTTP Service running on port ${config.PORT}`);
     });
+
+    // 5. Initialize WebSocket Gateway
+    const offlineQueueRepo = new RedisOfflineQueueRepository();
+    const offlineQueueService = new OfflineQueueService(offlineQueueRepo);
+    const notificationService = new NotificationService(eventDispatcher);
+    const socketManager = new SocketManager(server, notificationService, offlineQueueService);
 
     // 5. Graceful Shutdown handlers
     const shutdown = async () => {

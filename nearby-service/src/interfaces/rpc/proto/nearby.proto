@@ -46,12 +46,38 @@ message NearbyRequest {
 
 message NearbyUser {
   string user_id = 1;
-  double latitude = 2;
-  double longitude = 3;
+  string username = 2;
+  string avatar_url = 3;
+  int32 approximate_distance_meters = 4;
+  
+  // Exact coordinates only populated if mutually connected
+  optional double exact_latitude = 5;
+  optional double exact_longitude = 6;
+  bool is_connected = 7;
 }
 
 message NearbyResponse {
   repeated NearbyUser users = 1;
+}
+
+// --- CONNECTION SERVICE ---
+service ConnectionService {
+  rpc SendRequest (ConnectionPayload) returns (ConnectionResponse);
+  rpc RespondToRequest (ConnectionResponsePayload) returns (ConnectionResponse);
+}
+
+message ConnectionPayload {
+  string target_user_id = 1;
+}
+
+message ConnectionResponsePayload {
+  string target_user_id = 1;
+  string status = 2; // "ACCEPTED", "REJECTED", "BLOCKED"
+}
+
+message ConnectionResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 // --- NOTIFICATION SERVICE ---

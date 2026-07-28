@@ -9,6 +9,7 @@ const envSchema = z.object({
   GRPC_PORT: z.string().default('50051'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  JWT_SECRET: z.string().default('your-super-secret-jwt-key'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

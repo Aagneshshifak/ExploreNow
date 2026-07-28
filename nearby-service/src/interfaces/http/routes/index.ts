@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import nearbyRoutes from './nearby.routes';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Future API routes will be mounted here
-// e.g., router.use('/v1/locations', locationRoutes);
+// Mount Nearby REST API
+router.use('/v1', nearbyRoutes);
 
 export default router;
