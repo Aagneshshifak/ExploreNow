@@ -432,3 +432,17 @@ export type DataSource = z.infer<typeof dataSourceSchema>;
 export type ApiName = z.infer<typeof apiNameSchema>;
 export type TouristSpotFilterData = z.infer<typeof touristSpotFilterSchema>;
 export type CrowdReportSubmissionData = z.infer<typeof crowdReportSubmissionSchema>;
+
+// Augment Express User globally to resolve TypeScript errors across the backend
+declare global {
+  namespace Express {
+    interface User {
+      id: number;
+      name: string;
+      email: string;
+      password?: string;
+      role?: string;
+    }
+  }
+}
+
