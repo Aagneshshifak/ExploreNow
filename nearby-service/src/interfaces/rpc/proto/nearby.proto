@@ -46,8 +46,9 @@ message NearbyRequest {
 
 message NearbyUser {
   string user_id = 1;
-  double latitude = 2;
-  double longitude = 3;
+  string username = 2;
+  string avatar_url = 3;
+  int32 approximate_distance_meters = 4;
 }
 
 message NearbyResponse {
