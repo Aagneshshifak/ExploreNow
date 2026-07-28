@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  nearby-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nearby_service_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "50051:50051"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - GRPC_PORT=50051
+      - DATABASE_URL=postgresql://postgres:postgres@nearby_postgres:5432/nearby_db?schema=public
+      - REDIS_URL=redis://nearby_redis:6379
+    depends_on:
+      nearby_postgres:
+        condition: service_healthy
+      nearby_redis:
+        condition: service_healthy
+    networks:
+      - nearby_network
+    healthcheck:
+      # Simple check to see if Node is responding. Once we build the REST endpoints, we can ping /health
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  nearby_postgres:
+    image: postgres:15-alpine
+    container_name: nearby_service_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nearby_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - nearby_pg_data:/var/lib/postgresql/data
+    networks:
+      - nearby_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nearby_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nearby_redis:
+    image: redis:7-alpine
+    container_name: nearby_service_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - nearby_redis_data:/data
+    networks:
+      - nearby_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  nearby_network:
+    driver: bridge
+
+volumes:
+  nearby_pg_data:
+  nearby_redis_data:
