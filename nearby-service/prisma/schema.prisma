@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
@@ -8,11 +8,53 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Dummy model to allow Prisma Client generation
-model UserLocation {
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+model PrivacySettings {
+  userId         String   @id // External ID from tourist-backend
+  isDiscoverable Boolean  @default(false)
+  searchRadius   Int      @default(500) // In meters
+  updatedAt      DateTime @updatedAt
+}
+
+model ConnectionRequest {
+  id         String        @id @default(uuid())
+  senderId   String        // External ID
+  receiverId String        // External ID
+  status     RequestStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId])
+}
+
+model MeetingHistory {
+  id          String   @id @default(uuid())
+  userAId     String   // External ID (always sort alphabetically before insert to avoid A->B vs B->A duplicates)
+  userBId     String   // External ID
+  latitude    Float?   // Optional: generalized coordinate for privacy
+  longitude   Float?   // Optional: generalized coordinate for privacy
+  meetingTime DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model AuditLog {
   id        String   @id @default(uuid())
-  userId    String   @unique
-  latitude  Float
-  longitude Float
-  updatedAt DateTime @updatedAt
+  userId    String   // External ID
+  action    String   // e.g., "PRIVACY_OPT_IN", "CONNECTION_ACCEPTED"
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
