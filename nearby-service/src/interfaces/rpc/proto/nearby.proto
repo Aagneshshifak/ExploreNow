@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package nearby;
+
+// --- COMMON MESSAGES ---
+message Empty {}
+
+// --- ERROR MESSAGES ---
+// Standardized JSON Error format to be sent in the gRPC Details/Metadata
+message JsonErrorDetails {
+  string json_body = 1; // e.g., '{"success":false,"error":"VALIDATION_FAILED","fields":["lat"]}'
+}
+
+// --- LOCATION SERVICE ---
+service LocationService {
+  // Unary Call: Simple location update
+  rpc UpdateLocation (LocationRequest) returns (LocationResponse);
+  
+  // Client Streaming Call: Efficiently stream live location over a single TCP connection
+  rpc StreamLocation (stream LocationRequest) returns (LocationResponse);
+}
+
+message LocationRequest {
+  string user_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+  double speed = 4;
+  double direction = 5;
+}
+
+message LocationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// --- MATCHING SERVICE ---
+service MatchingService {
+  // Unary Call: Discover nearby active users
+  rpc FindNearby (NearbyRequest) returns (NearbyResponse);
+}
+
+message NearbyRequest {
+  string user_id = 1;
+  int32 radius_meters = 2;
+}
+
+message NearbyUser {
+  string user_id = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message NearbyResponse {
+  repeated NearbyUser users = 1;
+}
+
+// --- NOTIFICATION SERVICE ---
+service NotificationService {
+  // Server Streaming Call: nearby-service streams match events back to the tourist-backend (for WebSockets)
+  rpc SubscribeToMatches (MatchSubscriptionRequest) returns (stream MatchEvent);
+}
+
+message MatchSubscriptionRequest {
+  string server_id = 1; // ID of the tourist-backend instance subscribing
+}
+
+message MatchEvent {
+  string user_id_a = 1;
+  string user_id_b = 2;
+  string match_type = 3; // e.g., "ENTERED_RADIUS"
+  int64 timestamp = 4;
+}
