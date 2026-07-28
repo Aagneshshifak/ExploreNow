@@ -26,7 +26,7 @@ COPY prisma ./prisma/
 RUN npm ci --only=production
 RUN npx prisma generate
 
-# Copy built code from builder
+# Copy built code from builder (includes proto files via build script)
 COPY --from=builder /app/dist ./dist
 
 # Set env to production
@@ -39,4 +39,5 @@ EXPOSE 50051
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:10000/api/health || exit 1
 
-CMD ["npm", "start"]
+# Push schema to DB then start the server
+CMD npx prisma db push --skip-generate && npm start

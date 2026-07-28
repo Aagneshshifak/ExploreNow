@@ -2,9 +2,9 @@ import { Router, Request, Response } from 'express';
 import { LocationService } from '../../../application/services/location.service';
 import { MatchingService } from '../../../application/services/matching.service';
 import { ConnectionService } from '../../../application/services/connection.service';
-import { PostgresLocationRepository } from '../../../infrastructure/repositories/postgres.location.repository';
+import { RedisLocationRepository } from '../../../infrastructure/repositories/redis.location.repository';
 import { PostgresPrivacyRepository } from '../../../infrastructure/repositories/postgres.privacy.repository';
-import { ApiProfileRepository } from '../../../infrastructure/repositories/api.profile.repository';
+import { HttpProfileRepository } from '../../../infrastructure/repositories/http.profile.repository';
 import { PostgresConnectionRepository } from '../../../infrastructure/repositories/postgres.connection.repository';
 import { RedisEventDispatcher } from '../../../infrastructure/redis/redis.event.dispatcher';
 import { OfflineQueueService } from '../../../application/services/offline.queue.service';
@@ -14,9 +14,9 @@ import { eventDispatcher } from '../../../infrastructure/redis/redis.event.dispa
 const router = Router();
 
 // Instantiate Services for HTTP controllers
-const locationRepo = new PostgresLocationRepository();
+const locationRepo = new RedisLocationRepository();
 const privacyRepo = new PostgresPrivacyRepository();
-const profileRepo = new ApiProfileRepository();
+const profileRepo = new HttpProfileRepository();
 const connectionRepo = new PostgresConnectionRepository();
 const offlineQueueRepo = new RedisOfflineQueueRepository();
 const offlineQueueService = new OfflineQueueService(offlineQueueRepo);
@@ -29,7 +29,7 @@ const matchingService = new MatchingService(locationRepo, privacyRepo, profileRe
 router.post('/location/ping', async (req: Request, res: Response) => {
   try {
     const { userId, latitude, longitude } = req.body;
-    await locationService.pingLocation(userId, latitude, longitude);
+    await locationService.updateLocation(userId, { latitude, longitude });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

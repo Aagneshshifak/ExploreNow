@@ -4,11 +4,12 @@
   "description": "Nearby Service for Tourist Platform",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/interfaces/rpc/proto dist/interfaces/rpc/proto",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
