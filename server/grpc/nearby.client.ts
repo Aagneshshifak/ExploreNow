@@ -68,7 +68,7 @@ export const grpcFindNearby = (userId: string, latitude: number, longitude: numb
       getAuthMetadata(userId),
       (error: any, response: any) => {
         if (error) return reject(error);
-        resolve(response.candidates || []);
+        resolve(response.users || []);
       }
     );
   });
