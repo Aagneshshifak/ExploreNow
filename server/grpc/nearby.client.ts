@@ -64,7 +64,7 @@ export const grpcPingLocation = (userId: string, latitude: number, longitude: nu
 export const grpcFindNearby = (userId: string, latitude: number, longitude: number, radiusMeters: number): Promise<any[]> => {
   return new Promise((resolve, reject) => {
     matchingClient.FindNearby(
-      { user_id: userId, radius_meters: radiusMeters },
+      { user_id: userId, radius_meters: radiusMeters, latitude, longitude },
       getAuthMetadata(userId),
       (error: any, response: any) => {
         if (error) return reject(error);

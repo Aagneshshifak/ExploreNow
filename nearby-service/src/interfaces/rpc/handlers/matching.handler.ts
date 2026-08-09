@@ -22,22 +22,30 @@ export const matchingHandlers = {
       if (!userId) return callback({ code: grpc.status.INTERNAL }, null);
       
       try {
-        const { radius_meters } = call.request;
+        const { radius_meters, latitude, longitude } = call.request;
         
-        // 1. Get searcher's own location
-        const searcherLocation = await locationRepo.getLocationByUserId(userId);
-        if (!searcherLocation) {
-           return callback(
-             { code: grpc.status.FAILED_PRECONDITION, details: 'Searcher location not found' }, 
-             null
-           );
+        // Prefer coordinates from the request (sent by the gateway)
+        // Fall back to Redis-stored location only if request doesn't include them
+        let searchLat = latitude;
+        let searchLng = longitude;
+
+        if (!searchLat || !searchLng) {
+          const searcherLocation = await locationRepo.getLocationByUserId(userId);
+          if (!searcherLocation) {
+            return callback(
+              { code: grpc.status.FAILED_PRECONDITION, details: 'Searcher location not found. Please enable location services and try again.' }, 
+              null
+            );
+          }
+          searchLat = searcherLocation.lat;
+          searchLng = searcherLocation.lng;
         }
 
         // 2. Discover candidates
         const candidates = await matchingService.findNearbyCandidates(
           userId, 
-          searcherLocation.lat, 
-          searcherLocation.lng, 
+          searchLat, 
+          searchLng, 
           radius_meters
         );
 

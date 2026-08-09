@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from './use-auth';
 
 const NEARBY_API = import.meta.env.VITE_BACKEND_URL 
@@ -64,6 +64,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 export function useNearbyUsers(latitude: number | null, longitude: number | null) {
   const { user } = useAuth();
   const lastPingRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
+  const [hasPinged, setHasPinged] = useState(false);
 
   const pingMutation = useMutation({
     mutationFn: ({ userId, lat, lng }: { userId: string; lat: number; lng: number }) =>
@@ -89,8 +90,15 @@ export function useNearbyUsers(latitude: number | null, longitude: number | null
 
     // Fire the ping and record it
     lastPingRef.current = { lat: latitude, lng: longitude, ts: now };
-    pingMutation.mutate({ userId: user.id.toString(), lat: latitude, lng: longitude });
-  }, [user, latitude, longitude, pingMutation]);
+    pingMutation.mutate(
+      { userId: user.id.toString(), lat: latitude, lng: longitude },
+      {
+        onSuccess: () => {
+          if (!hasPinged) setHasPinged(true);
+        }
+      }
+    );
+  }, [user, latitude, longitude, pingMutation, hasPinged]);
 
   useEffect(() => {
     debouncedPing();
@@ -99,7 +107,7 @@ export function useNearbyUsers(latitude: number | null, longitude: number | null
   return useQuery({
     queryKey: ['nearbyUsers', user?.id, latitude, longitude],
     queryFn: () => getNearbyUsers(user!.id.toString(), latitude!, longitude!),
-    enabled: !!user && latitude !== null && longitude !== null,
+    enabled: !!user && latitude !== null && longitude !== null && hasPinged,
     refetchInterval: 30000, // Poll every 30s
   });
 }
