@@ -29,12 +29,23 @@ router.get('/', requireUser, async (req, res) => {
     const userId = req.user!.id.toString();
     const { lat, lng, radius } = req.query;
     
-    const candidates = await grpcFindNearby(
+    const rawCandidates = await grpcFindNearby(
       userId, 
       parseFloat(lat as string), 
       parseFloat(lng as string), 
       parseInt(radius as string) || 2000
     );
+    
+    // Map snake_case gRPC fields to camelCase for the frontend
+    const candidates = rawCandidates.map((c: any) => ({
+      userId: c.user_id,
+      username: c.username,
+      avatarUrl: c.avatar_url,
+      approximateDistanceMeters: c.approximate_distance_meters,
+      exactLatitude: c.exact_latitude || undefined,
+      exactLongitude: c.exact_longitude || undefined,
+      isConnected: c.is_connected,
+    }));
     
     res.json({ success: true, data: candidates });
   } catch (err: any) {

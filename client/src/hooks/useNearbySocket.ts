@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from './use-auth';
 import { toast } from '@/hooks/use-toast';
 
-const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || 'http://localhost:50051';
+const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || 'http://localhost:10000';
 
 export function useNearbySocket() {
   const { user } = useAuth();

@@ -2,6 +2,9 @@ import * as grpc from '@grpc/grpc-js';
 import { createJsonError } from './error.interceptor';
 import { logger } from '../../../utils/logger.util';
 
+import jwt from 'jsonwebtoken';
+import { config } from '../../../config/env.config';
+
 /**
  * Middleware-like function to validate JWT tokens from gRPC Metadata
  */
@@ -23,9 +26,11 @@ export function authenticateGrpcRequest(
 
   const token = authHeader[0].toString().replace('Bearer ', '');
   
-  // TODO: Verify JWT token using jsonwebtoken library and shared secret
-  // For now, we simulate a successful decoding
-  if (token === 'invalid') {
+  try {
+    const decoded = jwt.verify(token, config.JWT_SECRET) as { userId: string };
+    callback(null, decoded.userId);
+  } catch (error) {
+    logger.warn('gRPC Auth Failed: Invalid Token', error);
     const err = createJsonError(grpc.status.UNAUTHENTICATED, 'Invalid Token', {
       success: false,
       code: 'UNAUTHENTICATED',
@@ -33,8 +38,4 @@ export function authenticateGrpcRequest(
     });
     return callback(err);
   }
-
-  // Simulated decoded user ID
-  const decodedUserId = "simulated_user_id";
-  callback(null, decodedUserId);
 }
