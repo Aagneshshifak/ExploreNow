@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,6 +7,7 @@ import { useNearbySocket } from '../hooks/useNearbySocket';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../hooks/use-auth';
+import MapRouting from '../components/MapRouting';
 
 // Fix Leaflet's default icon path issues with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -16,23 +17,21 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom icons
-const exactIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+// Robust inline SVG icons to prevent broken image links
+const exactIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#22c55e" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px; filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.3));"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>`,
+  className: 'bg-transparent border-0',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32]
 });
 
-const strangerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+const strangerIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#94a3b8" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px; filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.3));"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="white"/></svg>`,
+  className: 'bg-transparent border-0',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32]
 });
 
 export default function NearbyUsers() {
@@ -121,35 +120,51 @@ export default function NearbyUsers() {
               ? [candidate.exactLatitude, candidate.exactLongitude] as [number, number]
               : getFuzzyCoordinate(position[0], position[1], candidate.approximateDistanceMeters);
 
+            const fallbackAvatar = `https://api.dicebear.com/9.x/avataaars/svg?seed=${candidate.userId}`;
+
             return (
-              <Marker key={candidate.userId} position={markerPos} icon={isFriend ? exactIcon : strangerIcon}>
-                <Popup className="min-w-[200px]">
-                  <div className="flex flex-col items-center gap-3">
-                    <img 
-                      src={candidate.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + candidate.userId} 
-                      alt="Avatar" 
-                      className="w-16 h-16 rounded-full border shadow"
-                    />
-                    <div className="text-center">
-                      <strong className="block text-lg">{candidate.username || `User ${candidate.userId}`}</strong>
-                      <span className="text-sm text-gray-500">
-                        {isFriend ? 'Exact Match 📍' : `~${candidate.approximateDistanceMeters}m away`}
-                      </span>
+              <React.Fragment key={candidate.userId}>
+                <Marker position={markerPos} icon={isFriend ? exactIcon : strangerIcon}>
+                  <Popup className="min-w-[200px]">
+                    <div className="flex flex-col items-center gap-3">
+                      <img 
+                        src={candidate.avatarUrl || fallbackAvatar} 
+                        alt="Avatar" 
+                        onError={(e) => {
+                          // Prevent infinite loop if fallback also fails
+                          const target = e.target as HTMLImageElement;
+                          if (target.src !== fallbackAvatar) {
+                            target.src = fallbackAvatar;
+                          }
+                        }}
+                        className="w-16 h-16 rounded-full border shadow object-cover"
+                      />
+                      <div className="text-center">
+                        <strong className="block text-lg">{candidate.username || `User ${candidate.userId}`}</strong>
+                        <span className="text-sm text-gray-500">
+                          {isFriend ? 'Exact Match 📍' : `~${candidate.approximateDistanceMeters}m away`}
+                        </span>
+                      </div>
+                      
+                      {!isFriend && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleConnect(candidate.userId)}
+                          disabled={isSendingRequest}
+                          className="w-full mt-2"
+                        >
+                          Send Request
+                        </Button>
+                      )}
                     </div>
-                    
-                    {!isFriend && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleConnect(candidate.userId)}
-                        disabled={isSendingRequest}
-                        className="w-full mt-2"
-                      >
-                        Send Request
-                      </Button>
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
+                  </Popup>
+                </Marker>
+                
+                {/* Draw Directions Route if Friend */}
+                {isFriend && (
+                  <MapRouting source={position} destination={markerPos} />
+                )}
+              </React.Fragment>
             );
           })}
         </MapContainer>
