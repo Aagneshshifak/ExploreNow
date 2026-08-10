@@ -15,6 +15,7 @@ const startServer = async () => {
     // 1. Initialize Databases & Caches
     await prisma.connect();
     await redisDB.connect();
+    await eventDispatcher.connect();
 
     // 2. Start gRPC Server (Internal Microservice Traffic)
     startGrpcServer();
