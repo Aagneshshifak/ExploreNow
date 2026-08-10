@@ -1,13 +1,28 @@
 import { Router } from "express";
 import { requireUser } from "../middleware";
-import { 
-  grpcPingLocation, 
-  grpcFindNearby, 
-  grpcSendConnectionRequest, 
-  grpcRespondToConnection 
-} from "../grpc/nearby.client";
 
 const router = Router();
+
+// Use the nearby-service's public HTTP URL instead of gRPC
+// gRPC requires a separate port (50051) which Render web services can't expose
+const NEARBY_SERVICE_URL = process.env.NEARBY_SERVICE_URL || 'http://localhost:10000';
+
+// Helper to make HTTP requests to the nearby-service REST API
+async function nearbyFetch(path: string, options: RequestInit = {}) {
+  const url = `${NEARBY_SERVICE_URL}/api/v1${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `Nearby service request failed: ${res.status}`);
+  }
+  return data;
+}
 
 // 1. Ping Location
 router.post('/location/ping', requireUser, async (req, res) => {
@@ -16,7 +31,10 @@ router.post('/location/ping', requireUser, async (req, res) => {
     // req.user exists because of requireUser middleware
     const userId = req.user!.id.toString(); 
     
-    await grpcPingLocation(userId, latitude, longitude);
+    await nearbyFetch('/location/ping', {
+      method: 'POST',
+      body: JSON.stringify({ userId, latitude, longitude }),
+    });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -29,22 +47,19 @@ router.get('/', requireUser, async (req, res) => {
     const userId = req.user!.id.toString();
     const { lat, lng, radius } = req.query;
     
-    const rawCandidates = await grpcFindNearby(
-      userId, 
-      parseFloat(lat as string), 
-      parseFloat(lng as string), 
-      parseInt(radius as string) || 2000
+    const data = await nearbyFetch(
+      `/nearby?userId=${userId}&lat=${lat}&lng=${lng}&radius=${radius || 2000}`
     );
     
-    // Map snake_case gRPC fields to camelCase for the frontend
-    const candidates = rawCandidates.map((c: any) => ({
-      userId: c.user_id,
+    // The REST API already returns camelCase, but normalize just in case
+    const candidates = (data.data || []).map((c: any) => ({
+      userId: c.userId || c.user_id,
       username: c.username,
-      avatarUrl: c.avatar_url,
-      approximateDistanceMeters: c.approximate_distance_meters,
-      exactLatitude: c.exact_latitude || undefined,
-      exactLongitude: c.exact_longitude || undefined,
-      isConnected: c.is_connected,
+      avatarUrl: c.avatarUrl || c.avatar_url,
+      approximateDistanceMeters: c.approximateDistanceMeters || c.approximate_distance_meters,
+      exactLatitude: c.exactLatitude || c.exact_latitude || undefined,
+      exactLongitude: c.exactLongitude || c.exact_longitude || undefined,
+      isConnected: c.isConnected || c.is_connected,
     }));
     
     res.json({ success: true, data: candidates });
@@ -59,7 +74,10 @@ router.post('/connections/request', requireUser, async (req, res) => {
     const senderId = req.user!.id.toString();
     const { receiverId } = req.body;
     
-    await grpcSendConnectionRequest(senderId, receiverId);
+    await nearbyFetch('/connections/request', {
+      method: 'POST',
+      body: JSON.stringify({ senderId, receiverId }),
+    });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -72,7 +90,10 @@ router.post('/connections/respond', requireUser, async (req, res) => {
     const responderId = req.user!.id.toString();
     const { senderId, status } = req.body;
     
-    await grpcRespondToConnection(responderId, senderId, status);
+    await nearbyFetch('/connections/respond', {
+      method: 'POST',
+      body: JSON.stringify({ responderId, senderId, status }),
+    });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -80,3 +101,4 @@ router.post('/connections/respond', requireUser, async (req, res) => {
 });
 
 export default router;
+
