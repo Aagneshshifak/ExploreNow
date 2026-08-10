@@ -3,7 +3,10 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from './use-auth';
 import { toast } from '@/hooks/use-toast';
 
-const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || 'http://localhost:10000';
+// Dynamically determine the URL to handle cases where the env var wasn't injected during build
+const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const defaultUrl = isLocal ? 'http://localhost:10000' : 'https://explorenow-hhwh.onrender.com';
+const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || defaultUrl;
 
 export function useNearbySocket() {
   const { user } = useAuth();
