@@ -8,8 +8,19 @@ export class RedisEventDispatcher implements IEventDispatcher {
   private subscriber: RedisClientType;
 
   constructor() {
-    this.publisher = createClient({ url: config.REDIS_URL });
-    this.subscriber = createClient({ url: config.REDIS_URL });
+    const isTls = config.REDIS_URL?.startsWith('rediss://');
+    const redisOptions = {
+      url: config.REDIS_URL,
+      ...(isTls && {
+        socket: {
+          tls: true,
+          rejectUnauthorized: false
+        }
+      })
+    };
+
+    this.publisher = createClient(redisOptions);
+    this.subscriber = createClient(redisOptions);
 
     this.publisher.on('error', (err) => logger.error('Redis Publisher Error', err));
     this.subscriber.on('error', (err) => logger.error('Redis Subscriber Error', err));

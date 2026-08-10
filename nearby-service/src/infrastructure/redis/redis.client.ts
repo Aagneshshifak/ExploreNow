@@ -6,8 +6,15 @@ class RedisDatabase {
   public client: RedisClientType;
 
   constructor() {
+    const isTls = config.REDIS_URL?.startsWith('rediss://');
     this.client = createClient({
       url: config.REDIS_URL,
+      ...(isTls && {
+        socket: {
+          tls: true,
+          rejectUnauthorized: false
+        }
+      })
     });
 
     this.client.on('error', (err) => {
