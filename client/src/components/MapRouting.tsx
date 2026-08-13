@@ -15,12 +15,19 @@ export default function MapRouting({ source, destination }: MapRoutingProps) {
   useEffect(() => {
     if (!map) return;
 
+    // Create a plan with custom marker suppression (we have our own markers)
+    const plan = L.Routing.plan([
+      L.latLng(source[0], source[1]),
+      L.latLng(destination[0], destination[1])
+    ], {
+      createMarker: () => false,
+      draggableWaypoints: false,
+      addWaypoints: false,
+    });
+
     // Create a routing control instance
     const routingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(source[0], source[1]),
-        L.latLng(destination[0], destination[1])
-      ],
+      plan,
       routeWhileDragging: false,
       addWaypoints: false, // Don't let users drag to add new waypoints
       fitSelectedRoutes: true,
@@ -32,8 +39,6 @@ export default function MapRouting({ source, destination }: MapRoutingProps) {
       },
       // Disable the text directions panel for a cleaner UI (Google Maps style overview)
       show: false,
-      // Hide the default markers added by routing machine (we have our own markers)
-      createMarker: () => null 
     }).addTo(map);
 
     // Clean up routing control on unmount or when points change
