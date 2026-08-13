@@ -58,6 +58,8 @@ export default function TripsList() {
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   const filteredTrips = (Array.isArray(trips) ? trips : []).filter(trip => {

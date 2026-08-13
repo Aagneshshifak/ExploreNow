@@ -58,11 +58,9 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
               12
             );
 
+            const emailPrefix = email.split("@")[0];
             user = await storage.createUser({
-              name:
-                profile.displayName ||
-                `${profile.name?.givenName ?? ""} ${profile.name?.familyName ?? ""}`.trim() ||
-                email.split("@")[0],
+              name: emailPrefix,
               email,
               password: randomPassword,
               role: "user",
@@ -138,7 +136,7 @@ router.get(
       res.cookie("token", token, {
         httpOnly: true,
         secure: isProduction,
-        sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
+        sameSite: "lax" as "none" | "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 h
         path: "/",
       });
@@ -151,7 +149,7 @@ router.get(
           ? process.env.FRONTEND_URL || ""
           : "http://localhost:5173";
 
-      res.redirect(`${frontendUrl}/?oauth=success&token=${encodeURIComponent(token)}`);
+      res.redirect(`${frontendUrl}/?oauth=success`);
     } catch (err) {
       console.error("[Google OAuth] Callback error:", err);
       res.redirect("/login?error=google_auth_failed");

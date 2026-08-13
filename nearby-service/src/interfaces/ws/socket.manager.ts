@@ -83,6 +83,16 @@ export class SocketManager {
         logger.error(`Failed to flush offline queue for ${userId}`, err);
       }
 
+      // 3. Chat Message handler
+      socket.on('CHAT_MESSAGE', (data: { to: string, text: string }) => {
+        logger.info(`Chat message from ${userId} to ${data.to}`);
+        this.io.to(`user:${data.to}`).emit('CHAT_MESSAGE', {
+          from: userId,
+          text: data.text,
+          timestamp: Date.now()
+        });
+      });
+
       // 3. Disconnect handler
       socket.on('disconnect', () => {
         logger.info(`WebSocket disconnected for user ${userId} [${socket.id}]`);
