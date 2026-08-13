@@ -1,4 +1,5 @@
 import { Router } from "express";
+import express from "express";
 import { requireUser } from "../middleware";
 
 const router = Router();
@@ -34,6 +35,30 @@ router.post('/location/ping', requireUser, async (req, res) => {
     await nearbyFetch('/location/ping', {
       method: 'POST',
       body: JSON.stringify({ userId, latitude, longitude }),
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// 1b. Go Offline (tab close / sendBeacon)
+router.post('/location/offline', express.text({ type: '*/*' }), async (req, res) => {
+  try {
+    // sendBeacon sends as text/plain, so we parse the JSON body ourselves
+    let body: any;
+    if (typeof req.body === 'string') {
+      body = JSON.parse(req.body);
+    } else {
+      body = req.body;
+    }
+    const userId = body?.userId;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    await nearbyFetch('/location/offline', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
     });
     res.json({ success: true });
   } catch (err: any) {

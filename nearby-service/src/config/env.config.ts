@@ -10,6 +10,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   JWT_SECRET: z.string().default('your-super-secret-jwt-key'),
+  MONOLITH_URL: z.string().default('http://localhost:5001'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

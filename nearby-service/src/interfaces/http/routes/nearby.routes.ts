@@ -36,6 +36,20 @@ router.post('/location/ping', async (req: Request, res: Response) => {
   }
 });
 
+// 1b. Go Offline (called via sendBeacon when tab closes)
+router.post('/location/offline', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+    await locationService.markUserOffline(userId);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 2. Find Nearby
 router.get('/nearby', async (req: Request, res: Response) => {
   try {
