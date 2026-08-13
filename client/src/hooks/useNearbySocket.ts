@@ -11,7 +11,7 @@ const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || defaultUrl
 export function useNearbySocket() {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
-  const [messages, setMessages] = useState<{from: string, text: string, timestamp: number}[]>([]);
+  const [messages, setMessages] = useState<{from: string, to: string, text: string, timestamp: number}[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -93,7 +93,7 @@ export function useNearbySocket() {
     if (socketRef.current && isConnected) {
       socketRef.current.emit('CHAT_MESSAGE', { to: toUserId, text });
       // Optimistically add to UI
-      setMessages(prev => [...prev, { from: user!.id.toString(), text, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, { from: user!.id.toString(), to: toUserId, text, timestamp: Date.now() }]);
     }
   };
 

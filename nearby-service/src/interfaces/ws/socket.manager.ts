@@ -88,6 +88,7 @@ export class SocketManager {
         logger.info(`Chat message from ${userId} to ${data.to}`);
         this.io.to(`user:${data.to}`).emit('CHAT_MESSAGE', {
           from: userId,
+          to: data.to,
           text: data.text,
           timestamp: Date.now()
         });
