@@ -151,7 +151,7 @@ router.get(
           ? process.env.FRONTEND_URL || ""
           : "http://localhost:5173";
 
-      res.redirect(`${frontendUrl}/?oauth=success`);
+      res.redirect(`${frontendUrl}/?oauth=success&token=${encodeURIComponent(token)}`);
     } catch (err) {
       console.error("[Google OAuth] Callback error:", err);
       res.redirect("/login?error=google_auth_failed");

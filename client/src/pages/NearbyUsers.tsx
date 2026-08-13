@@ -41,24 +41,41 @@ export default function NearbyUsers() {
   // Real-time WS connection
   useNearbySocket();
   
-  const [position, setPosition] = useState<[number, number] | null>(null);
+  // Initialize from sessionStorage cache for instant render on reload
+  const [position, setPosition] = useState<[number, number] | null>(() => {
+    const cached = sessionStorage.getItem('lastKnownPosition');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch { /* ignore */ }
+    }
+    return null;
+  });
   const [geoError, setGeoError] = useState<string | null>(null);
   
   // Data fetching
   const { data: nearbyUsers, isLoading } = useNearbyUsers(position?.[0] ?? null, position?.[1] ?? null);
   const { mutate: sendRequest, isPending: isSendingRequest } = useSendConnectionRequest();
 
+  // Use watchPosition for continuous GPS updates (prompted only once per session)
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeoError('Geolocation is not supported by your browser');
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setPosition(newPos);
+        // Cache for instant reload
+        sessionStorage.setItem('lastKnownPosition', JSON.stringify(newPos));
+      },
       (err) => setGeoError(err.message),
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 27000 }
     );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   const handleConnect = (candidateId: string) => {
@@ -120,27 +137,43 @@ export default function NearbyUsers() {
               ? [candidate.exactLatitude, candidate.exactLongitude] as [number, number]
               : getFuzzyCoordinate(position[0], position[1], candidate.approximateDistanceMeters);
 
-            const fallbackAvatar = `https://api.dicebear.com/9.x/avataaars/svg?seed=${candidate.userId}`;
+            const displayName = candidate.username || 'Unknown Tourist';
+            const firstLetter = displayName.charAt(0).toUpperCase();
+            // Generate a consistent color from the username
+            const hue = displayName.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 360;
+            const avatarBgColor = `hsl(${hue}, 55%, 50%)`;
+            const hasAvatar = candidate.avatarUrl && candidate.avatarUrl.length > 0;
 
             return (
               <React.Fragment key={candidate.userId}>
                 <Marker position={markerPos} icon={isFriend ? exactIcon : strangerIcon}>
                   <Popup className="min-w-[200px]">
                     <div className="flex flex-col items-center gap-3">
-                      <img 
-                        src={candidate.avatarUrl || fallbackAvatar} 
-                        alt="Avatar" 
-                        onError={(e) => {
-                          // Prevent infinite loop if fallback also fails
-                          const target = e.target as HTMLImageElement;
-                          if (target.src !== fallbackAvatar) {
-                            target.src = fallbackAvatar;
-                          }
+                      {hasAvatar ? (
+                        <img 
+                          src={candidate.avatarUrl} 
+                          alt={displayName}
+                          onError={(e) => {
+                            // Hide broken image — the fallback letter will show via parent
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const fallback = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          className="w-16 h-16 rounded-full border shadow object-cover"
+                        />
+                      ) : null}
+                      {/* First-letter avatar fallback (shown when no avatarUrl or image fails) */}
+                      <div 
+                        className="w-16 h-16 rounded-full border shadow flex items-center justify-center text-white text-2xl font-bold"
+                        style={{ 
+                          backgroundColor: avatarBgColor,
+                          display: hasAvatar ? 'none' : 'flex'
                         }}
-                        className="w-16 h-16 rounded-full border shadow object-cover"
-                      />
+                      >
+                        {firstLetter}
+                      </div>
                       <div className="text-center">
-                        <strong className="block text-lg">{candidate.username || `User ${candidate.userId}`}</strong>
+                        <strong className="block text-lg">{displayName}</strong>
                         <span className="text-sm text-gray-500">
                           {isFriend ? 'Exact Match 📍' : `~${candidate.approximateDistanceMeters}m away`}
                         </span>

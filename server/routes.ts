@@ -51,6 +51,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount Nearby Gateway Routes
   app.use("/api/nearby", nearbyRoutes);
 
+  // ============================================
+  // INTERNAL SERVICE-TO-SERVICE ROUTES
+  // ============================================
+
+  // Batch fetch user profiles — used by nearby-service to resolve real usernames/avatars
+  app.post("/api/internal/users/batch", async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'userIds array is required' });
+      }
+
+      // Convert string IDs to numbers for DB lookup
+      const numericIds = userIds.map((id: string) => parseInt(id, 10)).filter((id: number) => !isNaN(id));
+      
+      if (numericIds.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const { users: usersTable } = await import("@shared/schema");
+      const { inArray } = await import("drizzle-orm");
+
+      const foundUsers = await db.select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+      }).from(usersTable).where(inArray(usersTable.id, numericIds));
+
+      const profiles = foundUsers.map(u => ({
+        userId: u.id.toString(),
+        username: u.name,
+        avatarUrl: '', // No avatar column yet; frontend handles first-letter fallback
+      }));
+
+      res.json({ success: true, data: profiles });
+    } catch (error: any) {
+      console.error("[Internal] Batch user fetch error:", error.message);
+      res.status(500).json({ success: false, error: 'Failed to fetch user profiles' });
+    }
+  });
+
   // Health check endpoint - verify server and routes are working
   app.get("/api/health", (req, res) => {
     res.json({

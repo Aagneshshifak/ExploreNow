@@ -47,21 +47,21 @@ export function useNearbySocket() {
         socket.on('CONNECTION_REQUESTED', (reqData) => {
           toast({
             title: "New Connection Request!",
-            description: `User ${reqData.senderId} wants to share their precise location with you.`,
+            description: `${reqData.senderName || 'Someone'} wants to share their precise location with you.`,
           });
         });
 
         socket.on('CONNECTION_ACCEPTED', (reqData) => {
           toast({
             title: "Connection Accepted!",
-            description: `You can now see the exact location of user ${reqData.withUser}.`,
+            description: `You can now see the exact location of ${reqData.withUserName || 'your connection'}.`,
           });
         });
 
         socket.on('CONNECTION_REJECTED', (reqData) => {
           toast({
             title: "Connection Rejected",
-            description: `User ${reqData.byUser} declined your request.`,
+            description: `${reqData.byUserName || 'The user'} declined your request.`,
             variant: "destructive"
           });
         });

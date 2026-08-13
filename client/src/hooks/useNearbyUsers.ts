@@ -104,6 +104,21 @@ export function useNearbyUsers(latitude: number | null, longitude: number | null
     debouncedPing();
   }, [debouncedPing]);
 
+  // Send "going offline" beacon when the tab/window is closing
+  useEffect(() => {
+    if (!user) return;
+
+    const handleBeforeUnload = () => {
+      const payload = JSON.stringify({ userId: user.id.toString() });
+      navigator.sendBeacon(`${NEARBY_API}/location/offline`, payload);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
+
   return useQuery({
     queryKey: ['nearbyUsers', user?.id, latitude, longitude],
     queryFn: () => getNearbyUsers(user!.id.toString(), latitude!, longitude!),
