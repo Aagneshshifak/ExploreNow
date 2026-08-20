@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { User, Settings, LogOut, Crown, Activity } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,10 +18,19 @@ interface AvatarMenuProps {
     email: string;
     role: 'user' | 'admin';
   } | null;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
 }
 
 export function AvatarMenu({ user, onLogout }: AvatarMenuProps) {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    if (onLogout) {
+      await onLogout();
+    }
+    navigate('/login', { replace: true });
+  };
+
   if (!user) {
     return (
       <DropdownMenu>
@@ -92,7 +101,7 @@ export function AvatarMenu({ user, onLogout }: AvatarMenuProps) {
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onLogout} className="cursor-pointer text-destructive">
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           Sign Out
         </DropdownMenuItem>
