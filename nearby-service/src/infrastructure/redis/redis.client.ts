@@ -44,7 +44,15 @@ class RedisDatabase {
 
   public async connect(): Promise<void> {
     if (!this.client.isOpen) {
-      await this.client.connect();
+      try {
+        await this.client.connect();
+      } catch (error) {
+        // Log but don't crash — a Redis failure at startup should not prevent
+        // the HTTP and gRPC servers from coming up. The reconnectStrategy above
+        // handles permanent errors (e.g. Upstash max_requests_limit) by stopping
+        // the retry loop instead of looping forever.
+        logger.error('❌ Redis connect failed — service will start without Redis cache', error);
+      }
     }
   }
 
