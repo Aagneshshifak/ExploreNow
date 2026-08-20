@@ -33,7 +33,7 @@ export const pingLocation = async (userId: string, lat: number, lng: number) => 
 /**
  * Fetches nearby candidates using the H3 grid algorithm
  */
-export const getNearbyUsers = async (userId: string, lat: number, lng: number, radius = 2000): Promise<NearbyCandidate[]> => {
+export const getNearbyUsers = async (userId: string, lat: number, lng: number, radius = 15000): Promise<NearbyCandidate[]> => {
   const res = await fetch(`${NEARBY_API}?userId=${userId}&lat=${lat}&lng=${lng}&radius=${radius}`, {
     credentials: 'include',
   });

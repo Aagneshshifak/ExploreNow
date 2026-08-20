@@ -163,8 +163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isProduction = process.env.NODE_ENV === "production";
       res.cookie("token", token, {
         httpOnly: true,
-        secure: isProduction, // Must be true when sameSite is "none"
-        sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+        secure: isProduction,
+        sameSite: "lax" as "none" | "lax" | "strict",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         path: "/" // Explicitly set path
       });
@@ -295,8 +295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isProduction = process.env.NODE_ENV === "production";
         const cookieOptions = {
           httpOnly: true,
-          secure: isProduction, // Must be true when sameSite is "none"
-          sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+          secure: isProduction,
+          sameSite: "lax" as "none" | "lax" | "strict",
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
           path: "/" // Explicitly set path
         };
@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.clearCookie("token", {
       httpOnly: true,
       secure: isProduction,
-      sameSite: (isProduction ? "none" : "lax") as "none" | "lax" | "strict",
+      sameSite: "lax" as "none" | "lax" | "strict",
       path: "/"
     });
     res.json(createResponse(true, null, "Logged out successfully"));

@@ -11,6 +11,7 @@ const NEARBY_SERVICE_URL = import.meta.env.VITE_NEARBY_SERVICE_URL || defaultUrl
 export function useNearbySocket() {
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [messages, setMessages] = useState<{from: string, to: string, text: string, timestamp: number}[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,14 @@ export function useNearbySocket() {
           });
         });
 
+        socket.on('CHAT_MESSAGE', (msg) => {
+          setMessages(prev => [...prev, msg]);
+          toast({
+            title: "New Message",
+            description: msg.text,
+          });
+        });
+
       } catch (err) {
         console.error("Socket connection failed", err);
       }
@@ -80,5 +89,13 @@ export function useNearbySocket() {
     };
   }, [user]);
 
-  return { isConnected, socket: socketRef.current };
+  const sendMessage = (toUserId: string, text: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('CHAT_MESSAGE', { to: toUserId, text });
+      // Optimistically add to UI
+      setMessages(prev => [...prev, { from: user!.id.toString(), to: toUserId, text, timestamp: Date.now() }]);
+    }
+  };
+
+  return { isConnected, socket: socketRef.current, messages, sendMessage };
 }

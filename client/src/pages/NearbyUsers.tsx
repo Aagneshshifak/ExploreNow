@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../hooks/use-auth';
 import MapRouting from '../components/MapRouting';
+import { X, Send, MessageCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 // Fix Leaflet's default icon path issues with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -39,7 +41,9 @@ export default function NearbyUsers() {
   const { toast } = useToast();
   
   // Real-time WS connection
-  useNearbySocket();
+  const { isConnected, sendMessage, messages } = useNearbySocket();
+  const [activeChatUser, setActiveChatUser] = useState<NearbyCandidate | null>(null);
+  const [chatInput, setChatInput] = useState('');
   
   // Initialize from sessionStorage cache for instant render on reload
   const [position, setPosition] = useState<[number, number] | null>(() => {
@@ -100,6 +104,13 @@ export default function NearbyUsers() {
       lat + (offset * Math.cos(angle)),
       lng + (offset * Math.sin(angle))
     ];
+  };
+
+  const handleSendChat = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!chatInput.trim() || !activeChatUser) return;
+    sendMessage(activeChatUser.userId, chatInput);
+    setChatInput('');
   };
 
   if (geoError) return <div className="p-8 text-center text-red-500">Error: {geoError}</div>;
@@ -189,6 +200,17 @@ export default function NearbyUsers() {
                           Send Request
                         </Button>
                       )}
+                      
+                      {isFriend && (
+                        <Button
+                          size="sm"
+                          onClick={() => setActiveChatUser(candidate)}
+                          className="w-full mt-2"
+                        >
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Chat
+                        </Button>
+                      )}
                     </div>
                   </Popup>
                 </Marker>
@@ -202,6 +224,57 @@ export default function NearbyUsers() {
           })}
         </MapContainer>
       </div>
+
+      {/* Floating Chat Modal */}
+      {activeChatUser && (
+        <div className="absolute bottom-4 right-4 w-80 h-96 bg-background border rounded-lg shadow-2xl flex flex-col z-[1000] overflow-hidden">
+          {/* Header */}
+          <div className="bg-primary text-primary-foreground p-3 flex justify-between items-center">
+            <div className="font-semibold flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400"></div>
+              {activeChatUser.username || 'Unknown Tourist'}
+            </div>
+            <button onClick={() => setActiveChatUser(null)} className="hover:bg-primary-foreground/20 p-1 rounded">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-muted/20">
+            {messages.filter(m => m.from === activeChatUser.userId || m.from === user?.id.toString()).length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground my-auto">
+                No messages yet. Say hi!
+              </div>
+            ) : (
+              messages
+                .filter(m => m.from === activeChatUser.userId || m.to === activeChatUser.userId || (m.from === user?.id.toString() && !m.to)) // Handle simple logic
+                .map((msg, i) => {
+                  const isMe = msg.from === user?.id.toString();
+                  return (
+                    <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] p-2 rounded-lg text-sm ${isMe ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-muted rounded-bl-none'}`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+          
+          {/* Input */}
+          <form onSubmit={handleSendChat} className="p-3 bg-background border-t flex gap-2">
+            <Input 
+              value={chatInput} 
+              onChange={e => setChatInput(e.target.value)}
+              placeholder="Type a message..." 
+              className="flex-1 text-sm"
+            />
+            <Button type="submit" size="icon" disabled={!chatInput.trim()}>
+              <Send className="w-4 h-4" />
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

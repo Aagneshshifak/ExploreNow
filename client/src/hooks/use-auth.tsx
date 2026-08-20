@@ -46,20 +46,9 @@ const userMemoryStore = {
     }
     return null;
   },
-  setToken: (token: string | null) => {
-    if (token) {
-      localStorage.setItem('auth_token', token);
-    } else {
-      localStorage.removeItem('auth_token');
-    }
-  },
-  getToken: (): string | null => {
-    return localStorage.getItem('auth_token');
-  },
   clear: () => {
     userMemoryStore.user = null;
     localStorage.removeItem('user');
-    localStorage.removeItem('auth_token');
   }
 };
 
@@ -84,16 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[AUTH] Fetching user from /api/auth/me...');
       
       try {
-        // Build headers with Authorization fallback from localStorage
-        const headers: Record<string, string> = {};
-        const savedToken = userMemoryStore.getToken();
-        if (savedToken) {
-          headers['Authorization'] = `Bearer ${savedToken}`;
-        }
-
         const response = await fetch('/api/auth/me', {
           credentials: 'include',
-          headers,
         });
         
         console.log('[AUTH] /api/auth/me response:', {
@@ -106,8 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (!response.ok) {
           console.error('[AUTH] /api/auth/me failed with status:', response.status);
-          // Clear memory store on auth failure
-          userMemoryStore.clear();
+          // Only clear memory store on explicit auth failure (401/403)
+          // Do not clear on 5xx (server sleeping/error) or network errors
+          if (response.status === 401 || response.status === 403) {
+            userMemoryStore.clear();
+          }
           throw new Error('Authentication failed');
         }
         
@@ -131,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       } catch (error) {
         console.error('[AUTH] Error fetching user:', error);
-        userMemoryStore.clear();
+        // Do not clear store here on generic fetch errors (e.g. network failure)
         throw error;
       }
     },
@@ -146,20 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user = userData || null;
 
-  // Detect Google OAuth success redirect (?oauth=success&token=XXX in URL)
+  // Detect Google OAuth success redirect (?oauth=success in URL)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('oauth') === 'success') {
-      // Extract and persist the JWT token from the redirect URL
-      const token = params.get('token');
-      if (token) {
-        userMemoryStore.setToken(token);
-        console.log('[AUTH] OAuth token saved to localStorage');
-      }
       // Remove the query params without a page reload
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, '', cleanUrl);
-      // Refresh user data — the cookie + localStorage token are now set
+      // Refresh user data — the cookie is now set
       refetchUser();
     }
   }, [refetchUser]);
@@ -262,15 +240,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Store in memory store
         userMemoryStore.setUser(loggedInUser);
-        // Persist token for session survival across reloads
-        if (data.data.token) {
-          userMemoryStore.setToken(data.data.token);
-        }
-        console.log('[AUTH] User and token stored in memory store');
+        console.log('[AUTH] User stored in memory store');
         
         // Update React Query cache
         queryClient.setQueryData(['/api/auth/me'], loggedInUser);
         console.log('[AUTH] React Query cache updated');
+        
+        // Invalidate other queries to refetch authenticated data (like trips, hotels, dashboard)
+        // Wait for the queries to invalidate and refetch
+        await queryClient.invalidateQueries();
+        console.log('[AUTH] React Query cache invalidated to fetch fresh data');
         
         // Refetch to ensure consistency
         console.log('[AUTH] Refetching user data for consistency');
@@ -310,6 +289,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userMemoryStore.setUser(registeredUser);
         // Update React Query cache
         queryClient.setQueryData(['/api/auth/me'], registeredUser);
+        
+        // Invalidate other queries to refetch data for the new user
+        await queryClient.invalidateQueries();
+        
         // Refetch to ensure consistency
         await refetchUser();
       } else {
@@ -324,20 +307,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // CLEAR CACHE IMMEDIATELY FOR FAST UI FEEDBACK
+      userMemoryStore.clear();
+      queryClient.setQueryData(['/api/auth/me'], null);
+      queryClient.removeQueries({ queryKey: ['/api/auth/me'] });
+      
+      // Invalidate all queries to clear user-specific data from other screens
+      queryClient.invalidateQueries();
+
+      // Perform backend logout asynchronously without blocking the UI
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      // Clear memory store
-      userMemoryStore.clear();
-      // Clear React Query cache
-      queryClient.setQueryData(['/api/auth/me'], null);
-      queryClient.removeQueries({ queryKey: ['/api/auth/me'] });
-      // Invalidate all queries to clear user-specific data
-      queryClient.invalidateQueries();
     }
   }, [queryClient]);
 
