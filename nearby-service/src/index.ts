@@ -54,4 +54,10 @@ const startServer = async () => {
   }
 };
 
+// Guard against unhandled promise rejections (e.g. stray Redis errors from
+// the node:redis internal reconnect machinery) crashing the whole process.
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled promise rejection (server kept alive)', { reason, promise });
+});
+
 startServer();

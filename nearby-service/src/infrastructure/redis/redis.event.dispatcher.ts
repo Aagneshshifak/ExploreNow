@@ -9,14 +9,32 @@ export class RedisEventDispatcher implements IEventDispatcher {
 
   constructor() {
     const isTls = config.REDIS_URL?.startsWith('rediss://');
+
+    // Stop retrying on permanent errors (e.g. Upstash max_requests_limit).
+    // Returning a non-number / Error from reconnectStrategy tells the client
+    // to give up instead of scheduling another reconnect attempt — which would
+    // otherwise surface as an unhandled promise rejection and crash the process.
+    const reconnectStrategy = (retries: number, cause: Error) => {
+      const isPermanent =
+        cause?.message?.includes('max requests limit exceeded') ||
+        cause?.message?.includes('WRONGPASS') ||
+        cause?.message?.includes('NOAUTH');
+
+      if (isPermanent) {
+        logger.error('Redis permanent error — stopping reconnection', cause.message);
+        return new Error('Permanent Redis error, aborting reconnect');
+      }
+
+      // Exponential back-off capped at 30 s for transient errors
+      return Math.min(retries * 500, 30_000);
+    };
+
     const redisOptions = {
       url: config.REDIS_URL,
-      ...(isTls && {
-        socket: {
-          tls: true,
-          rejectUnauthorized: false
-        }
-      })
+      socket: {
+        ...(isTls ? { tls: true, rejectUnauthorized: false } : {}),
+        reconnectStrategy,
+      },
     };
 
     this.publisher = createClient(redisOptions);
@@ -27,10 +45,17 @@ export class RedisEventDispatcher implements IEventDispatcher {
   }
 
   public async connect(): Promise<void> {
-    await Promise.all([
-      this.publisher.connect(),
-      this.subscriber.connect()
-    ]);
+    try {
+      await Promise.all([
+        this.publisher.connect(),
+        this.subscriber.connect()
+      ]);
+    } catch (error) {
+      // Log but don't crash — the error handler on each client will also fire.
+      // The reconnectStrategy above will prevent infinite retry loops on
+      // permanent errors such as Upstash's max_requests_limit.
+      logger.error('Redis EventDispatcher failed to connect', error);
+    }
   }
 
   public async disconnect(): Promise<void> {
