@@ -42,6 +42,22 @@ export default function TripsList() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Load cached trips from localStorage for instant display
+  const [cachedTrips] = useState<Trip[]>(() => {
+    try {
+      const saved = localStorage.getItem('cached_trips');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+    return [];
+  });
+
   const { data: trips, isLoading, error } = useQuery({
     queryKey: ['/api/trips'],
     queryFn: async () => {
@@ -54,12 +70,26 @@ export default function TripsList() {
       }
       
       const result = await response.json();
-      return result.data as Trip[];
+      const tripsData = result.data as Trip[];
+      
+      // Cache in localStorage for instant display on next visit
+      if (Array.isArray(tripsData) && tripsData.length > 0) {
+        try {
+          localStorage.setItem('cached_trips', JSON.stringify(tripsData));
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+      
+      return tripsData;
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    staleTime: 0, // Always consider data stale so it refetches on every mount
+    gcTime: 1000 * 60 * 10, // Keep in memory for 10 minutes
+    refetchOnMount: 'always', // Always refetch when component mounts
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Use cached trips as placeholder so the page isn't empty while fetching
+    placeholderData: cachedTrips.length > 0 ? cachedTrips : undefined,
   });
 
   const filteredTrips = (Array.isArray(trips) ? trips : []).filter(trip => {

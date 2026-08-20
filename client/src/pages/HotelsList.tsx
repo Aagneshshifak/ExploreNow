@@ -33,6 +33,22 @@ export default function HotelsList() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Load cached hotels from localStorage for instant display
+  const [cachedHotels] = useState<HotelsResponse | null>(() => {
+    try {
+      const saved = localStorage.getItem('cached_hotels');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+    return null;
+  });
+
   const { data: hotelsResponse, isLoading, error } = useQuery<HotelsResponse>({
     queryKey: ['/api/hotels'],
     queryFn: async () => {
@@ -44,12 +60,26 @@ export default function HotelsList() {
         throw new Error('Failed to fetch hotels');
       }
       
-      return response.json();
+      const result = await response.json();
+      
+      // Cache in localStorage for instant display on next visit
+      if (result?.data && Array.isArray(result.data) && result.data.length > 0) {
+        try {
+          localStorage.setItem('cached_hotels', JSON.stringify(result));
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+      
+      return result;
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    staleTime: 0, // Always consider data stale so it refetches on every mount
+    gcTime: 1000 * 60 * 10, // Keep in memory for 10 minutes
+    refetchOnMount: 'always', // Always refetch when component mounts
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Use cached hotels as placeholder so the page isn't empty while fetching
+    placeholderData: cachedHotels ?? undefined,
   });
 
   const hotels = hotelsResponse?.data || [];
