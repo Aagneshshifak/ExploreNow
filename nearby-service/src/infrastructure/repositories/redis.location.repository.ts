@@ -46,16 +46,30 @@ export class RedisLocationRepository implements ILocationRepository {
     }
   }
 
+  /**
+   * Batch-fetch multiple users' locations in ONE Redis round-trip using mGet.
+   * Replaces N individual GET calls with a single command.
+   */
+  async getLocationsByUserIds(userIds: string[]): Promise<(LiveLocation | null)[]> {
+    if (userIds.length === 0) return [];
+    const keys = userIds.map(id => `${this.LOC_KEY_PREFIX}${id}`);
+    const results = await redisDB.client.mGet(keys);
+    return results.map(data => {
+      if (!data) return null;
+      try { return JSON.parse(data) as LiveLocation; }
+      catch { return null; }
+    });
+  }
+
   async getActiveUsersInH3Cell(h3Index: string): Promise<string[]> {
     const h3Key = `${this.H3_KEY_PREFIX}${h3Index}`;
     const now = Date.now();
     const staleThreshold = now - this.EVICTION_TIME_MS;
 
-    // Optional: Evict on read to ensure we don't return stale users if write throughput is low
-    await redisDB.client.zRemRangeByScore(h3Key, '-inf', staleThreshold);
-
-    // Get remaining active users
-    return await redisDB.client.zRange(h3Key, 0, -1);
+    // Use ZRANGEBYSCORE with a min score filter — single command instead of
+    // zRemRangeByScore + zRange (which was 2 commands per cell).
+    // Eviction at write-time in saveLocation already keeps the buckets clean.
+    return await redisDB.client.zRangeByScore(h3Key, staleThreshold, '+inf');
   }
 
   async markUserOffline(userId: string): Promise<void> {

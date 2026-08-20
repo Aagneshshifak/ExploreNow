@@ -12,6 +12,11 @@ export interface ILocationRepository {
   getLocationByUserId(userId: string): Promise<LiveLocation | null>;
 
   /**
+   * Batch-fetch multiple users' locations in a single Redis round-trip (mGet).
+   */
+  getLocationsByUserIds(userIds: string[]): Promise<(LiveLocation | null)[]>;
+
+  /**
    * Get all user IDs currently residing in a specific H3 bucket.
    */
   getActiveUsersInH3Cell(h3Index: string): Promise<string[]>;

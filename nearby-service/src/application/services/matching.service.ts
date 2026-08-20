@@ -2,7 +2,7 @@ import { ILocationRepository } from '../../domain/interfaces/location.repository
 import { IPrivacyRepository } from '../../domain/interfaces/privacy.repository.interface';
 import { IUserProfileRepository } from '../../domain/interfaces/profile.repository.interface';
 import { IConnectionRepository } from '../../domain/interfaces/connection.repository.interface';
-import { getH3Index, getNeighboringCells, calculateRingSize, calculateHaversineDistance, DEFAULT_H3_RESOLUTION } from '../../utils/h3.util';
+import { getH3Index, getNeighboringCells, calculateRingSize, calculateHaversineDistance, DEFAULT_H3_RESOLUTION, resolutionForRadius, MAX_SEARCH_RADIUS_METERS } from '../../utils/h3.util';
 import { LiveLocation } from '../../domain/entities/location.entity';
 import { logger } from '../../utils/logger.util';
 
@@ -41,10 +41,14 @@ export class MatchingService {
   ): Promise<NearbyCandidate[]> {
     logger.debug(`Searching for candidates near [${lat}, ${lng}] within ${radiusMeters}m for user ${searcherId}`);
 
-    // PHASE 1: Geographic Bucketing
-    const centerCell = getH3Index(lat, lng, DEFAULT_H3_RESOLUTION);
-    const ringSize = calculateRingSize(radiusMeters, DEFAULT_H3_RESOLUTION);
+    // PHASE 1: Geographic Bucketing — pick resolution based on radius to keep cell count low
+    const clampedRadius = Math.min(radiusMeters, MAX_SEARCH_RADIUS_METERS);
+    const resolution = resolutionForRadius(clampedRadius);
+    const centerCell = getH3Index(lat, lng, resolution);
+    const ringSize = calculateRingSize(clampedRadius, resolution);
     const cellsToSearch = getNeighboringCells(centerCell, ringSize);
+
+    logger.debug(`H3 search: radius=${clampedRadius}m res=${resolution} ring=${ringSize} cells=${cellsToSearch.length}`);
     
     const cellPromises = cellsToSearch.map(cell => this.locationRepo.getActiveUsersInH3Cell(cell));
     const cellResults = await Promise.all(cellPromises);
@@ -58,9 +62,8 @@ export class MatchingService {
 
     if (uniqueUserIds.size === 0) return [];
 
-    // PHASE 2: Exact Distance Filtering
-    const locationPromises = Array.from(uniqueUserIds).map(id => this.locationRepo.getLocationByUserId(id));
-    const rawLocations = await Promise.all(locationPromises);
+    // PHASE 2: Batch-fetch all locations in ONE Redis call instead of N individual GETs
+    const rawLocations = await this.locationRepo.getLocationsByUserIds(Array.from(uniqueUserIds));
 
     const validCandidateLocations: LiveLocation[] = [];
 
