@@ -4,7 +4,6 @@ import { useAuth } from './use-auth';
 import { toast } from '@/hooks/use-toast';
 
 // Exponential backoff for reconnection
-let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 // Dynamically determine the URL to handle cases where the env var wasn't injected during build
