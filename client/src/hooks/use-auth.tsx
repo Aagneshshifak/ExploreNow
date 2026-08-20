@@ -13,12 +13,15 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => void;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Flag to prevent refetch after logout
+let isLoggingOut = false;
 
 // Memory store for user cache (in addition to React Query cache)
 const userMemoryStore = {
@@ -70,6 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: userData, isLoading, refetch: refetchUser } = useQuery({
     queryKey: ['/api/auth/me'],
     queryFn: async () => {
+      // If we're in the middle of logging out, return null immediately
+      if (isLoggingOut) {
+        return null;
+      }
+
       console.log('[AUTH] Fetching user from /api/auth/me...');
       
       try {
@@ -167,10 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-        headers: {
-          'content-type': response.headers.get('content-type'),
-          'set-cookie': response.headers.get('set-cookie') ? 'present' : 'missing'
-        }
       });
 
       // Check content-type before parsing
@@ -179,37 +183,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Get response text first (can only read body once)
       const responseText = await response.text();
-      console.log('[AUTH] Response text length:', responseText.length);
       
       // Check if response is OK before parsing
       if (!response.ok) {
         console.error('[AUTH] Login failed with status:', response.status);
-        // Try to parse error response, but handle non-JSON gracefully
         let errorMessage = `Login failed: ${response.status} ${response.statusText}`;
         if (isJson && responseText) {
           try {
             const errorData = JSON.parse(responseText);
             errorMessage = errorData.message || errorData.error || errorMessage;
-            console.error('[AUTH] Error response data:', errorData);
           } catch (parseError) {
             console.error('[AUTH] Failed to parse error JSON:', parseError);
-            console.error('[AUTH] Response text:', responseText);
           }
-        } else if (responseText) {
-          console.error('[AUTH] Non-JSON error response:', responseText);
         }
         throw new Error(errorMessage);
       }
 
       // Validate response is not empty
       if (!responseText || responseText.trim() === '') {
-        console.error('[AUTH] Empty response received');
         throw new Error('Server returned empty response');
       }
 
       // Validate content-type for successful responses
       if (!isJson) {
-        console.error('[AUTH] Non-JSON response received:', responseText);
         throw new Error('Server returned non-JSON response');
       }
 
@@ -217,44 +213,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('[AUTH] Parsed response data:', {
-          success: data.success,
-          hasData: !!data.data,
-          hasUser: !!data.data?.user,
-          hasToken: !!data.data?.token,
-          message: data.message
-        });
       } catch (jsonError) {
-        console.error('[AUTH] Failed to parse JSON response:', jsonError);
-        console.error('[AUTH] Response text:', responseText);
         throw new Error('Invalid JSON response from server');
       }
       
       if (data.success && data.data?.user) {
         const loggedInUser = data.data.user;
-        console.log('[AUTH] Login successful, user data:', {
-          id: loggedInUser.id,
-          email: loggedInUser.email,
-          role: loggedInUser.role
+        console.log('[AUTH] Login successful, user:', loggedInUser.email);
+        
+        // Store in memory store immediately
+        userMemoryStore.setUser(loggedInUser);
+        
+        // Update React Query cache directly — this triggers an instant UI re-render
+        queryClient.setQueryData(['/api/auth/me'], loggedInUser);
+        
+        // Invalidate non-auth queries in the background (don't await — let navigation happen fast)
+        // Exclude '/api/auth/me' so we don't refetch the user we just set
+        queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] !== '/api/auth/me',
         });
         
-        // Store in memory store
-        userMemoryStore.setUser(loggedInUser);
-        console.log('[AUTH] User stored in memory store');
-        
-        // Update React Query cache
-        queryClient.setQueryData(['/api/auth/me'], loggedInUser);
-        console.log('[AUTH] React Query cache updated');
-        
-        // Invalidate other queries to refetch authenticated data (like trips, hotels, dashboard)
-        // Wait for the queries to invalidate and refetch
-        await queryClient.invalidateQueries();
-        console.log('[AUTH] React Query cache invalidated to fetch fresh data');
-        
-        // Refetch to ensure consistency
-        console.log('[AUTH] Refetching user data for consistency');
-        await refetchUser();
-        console.log('[AUTH] User refetch completed');
+        console.log('[AUTH] Login complete, UI should update immediately');
       } else {
         console.error('[AUTH] Login response missing user data:', data);
         throw new Error(data.message || 'Login failed');
@@ -262,11 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       console.error('[AUTH] Login error:', errorMessage);
-      console.error('[AUTH] Error details:', error);
       setError(errorMessage);
       throw new Error(errorMessage);
     }
-  }, [queryClient, refetchUser]);
+  }, [queryClient]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     setError(null);
@@ -287,14 +265,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const registeredUser = data.data.user;
         // Store in memory store
         userMemoryStore.setUser(registeredUser);
-        // Update React Query cache
+        // Update React Query cache directly
         queryClient.setQueryData(['/api/auth/me'], registeredUser);
         
-        // Invalidate other queries to refetch data for the new user
-        await queryClient.invalidateQueries();
-        
-        // Refetch to ensure consistency
-        await refetchUser();
+        // Invalidate non-auth queries in the background
+        queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] !== '/api/auth/me',
+        });
       } else {
         throw new Error(data.message || 'Registration failed');
       }
@@ -303,26 +280,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(errorMessage);
       throw new Error(errorMessage);
     }
-  }, [queryClient, refetchUser]);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
+    console.log('[AUTH] Logout started');
+    
+    // Set flag to prevent any refetch from restoring the user
+    isLoggingOut = true;
+    
+    // 1. Clear local state IMMEDIATELY for instant UI feedback
+    userMemoryStore.clear();
+    
+    // 2. Cancel any in-flight queries that might restore the user
+    await queryClient.cancelQueries({ queryKey: ['/api/auth/me'] });
+    
+    // 3. Set cache to null — this triggers the UI re-render to logged-out state
+    queryClient.setQueryData(['/api/auth/me'], null);
+    
+    // 4. Call the server to clear the cookie
     try {
-      // CLEAR CACHE IMMEDIATELY FOR FAST UI FEEDBACK
-      userMemoryStore.clear();
-      queryClient.setQueryData(['/api/auth/me'], null);
-      queryClient.removeQueries({ queryKey: ['/api/auth/me'] });
-      
-      // Invalidate all queries to clear user-specific data from other screens
-      queryClient.invalidateQueries();
-
-      // Perform backend logout asynchronously without blocking the UI
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
+      console.log('[AUTH] Server cookie cleared');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('[AUTH] Logout API error (cookie may not be cleared):', error);
     }
+    
+    // 5. Now that the cookie is cleared, wipe all cached queries
+    // This is safe now — even if queries refetch, they'll get 401 since the cookie is gone
+    queryClient.clear();
+    
+    // 6. Reset the flag
+    isLoggingOut = false;
+    
+    console.log('[AUTH] Logout complete');
   }, [queryClient]);
 
   const value: AuthContextType = {
