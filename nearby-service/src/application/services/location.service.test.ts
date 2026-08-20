@@ -22,6 +22,7 @@ describe('LocationService', () => {
     mockLocationRepo = {
       saveLocation: jest.fn(),
       getLocationByUserId: jest.fn(),
+      getLocationsByUserIds: jest.fn(),
       getActiveUsersInH3Cell: jest.fn(),
       markUserOffline: jest.fn(),
     };

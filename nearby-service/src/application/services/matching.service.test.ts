@@ -20,6 +20,7 @@ describe('MatchingService (Privacy & Connections Enforced)', () => {
     mockLocationRepo = {
       saveLocation: jest.fn(),
       getLocationByUserId: jest.fn(),
+      getLocationsByUserIds: jest.fn(),
       getActiveUsersInH3Cell: jest.fn(),
       markUserOffline: jest.fn(),
     };
@@ -54,9 +55,9 @@ describe('MatchingService (Privacy & Connections Enforced)', () => {
   test('should obscure distance and NOT expose GPS for strangers', async () => {
     mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_stranger']);
     
-    mockLocationRepo.getLocationByUserId.mockResolvedValue({
+    mockLocationRepo.getLocationsByUserIds.mockResolvedValue([{
       userId: 'user_stranger', lat: 40.71281, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1
-    } as LiveLocation);
+    } as LiveLocation]);
 
     const results = await matchingService.findNearbyCandidates(SEARCHER_ID, SEARCHER_LAT, SEARCHER_LNG, 500);
     
@@ -70,9 +71,9 @@ describe('MatchingService (Privacy & Connections Enforced)', () => {
   test('should expose exact GPS coordinates for approved mutual connections', async () => {
     mockLocationRepo.getActiveUsersInH3Cell.mockResolvedValue(['user_friend']);
     
-    mockLocationRepo.getLocationByUserId.mockResolvedValue({
+    mockLocationRepo.getLocationsByUserIds.mockResolvedValue([{
       userId: 'user_friend', lat: 40.71587, lng: -74.0060, ts: Date.now(), h3: 'mock', on: 1
-    } as LiveLocation);
+    } as LiveLocation]);
 
     // Mock that they are approved friends
     mockConnectionRepo.getApprovedConnections.mockResolvedValue(new Set(['user_friend']));
