@@ -17,9 +17,17 @@ export function useNearbySocket() {
   const [messages, setMessages] = useState<{from: string, to: string, text: string, timestamp: number}[]>([]);
   const socketRef = useRef<Socket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Per-instance reconnect counter (not shared across renders)
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
     if (!user) return;
+
+    // Guard: disconnect any stale socket before creating a new one
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
 
     let socket: Socket | null = null;
 
@@ -34,7 +42,7 @@ export function useNearbySocket() {
         }
 
         // Calculate backoff delay
-        const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+        const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
 
         socket = io(NEARBY_SERVICE_URL, {
           auth: { token: data.token },
@@ -51,7 +59,7 @@ export function useNearbySocket() {
         socket.on('connect', () => {
           console.log('✅ Connected to Nearby WebSocket Gateway');
           setIsConnected(true);
-          reconnectAttempts = 0; // Reset on successful connection
+          reconnectAttemptsRef.current = 0; // Reset on successful connection
         });
 
         socket.on('disconnect', (reason) => {
@@ -66,9 +74,9 @@ export function useNearbySocket() {
 
         socket.on('connect_error', (error) => {
           console.error('❌ Socket connection error:', error.message);
-          reconnectAttempts++;
+          reconnectAttemptsRef.current++;
           
-          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
             console.error('Max reconnection attempts reached. Giving up.');
             socket?.disconnect();
             toast({
@@ -116,7 +124,7 @@ export function useNearbySocket() {
 
       } catch (err) {
         console.error("❌ Socket connection failed:", err);
-        reconnectAttempts++;
+        reconnectAttemptsRef.current++;
       }
     };
 
@@ -129,7 +137,6 @@ export function useNearbySocket() {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      reconnectAttempts = 0;
     };
   }, [user]);
 
