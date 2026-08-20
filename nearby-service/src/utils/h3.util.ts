@@ -1,22 +1,10 @@
 import { latLngToCell, gridDisk, getResolution, getHexagonEdgeLengthAvg } from 'h3-js';
 
-export const DEFAULT_H3_RESOLUTION = 9; // ~174m hexagon edge
-export const MAX_SEARCH_RADIUS_METERS = 5000; // 5km — beyond this the cell count explodes
-
-/**
- * Picks an H3 resolution appropriate for the search radius so the number
- * of cells stays manageable (< ~200) regardless of radius.
- *
- * Resolution guide (avg edge length):
- *   r9  ~174 m  → good for  <500 m searches
- *   r8  ~461 m  → good for  <2 km searches
- *   r7  ~1.2 km → good for  <5 km searches
- */
-export function resolutionForRadius(radiusMeters: number): number {
-  if (radiusMeters <= 500)  return 9;
-  if (radiusMeters <= 2000) return 8;
-  return 7; // ≤5 km — ring size stays ≤9 cells at r7
-}
+// Resolution 8: ~461m hex edge — good balance between granularity and cell count.
+// IMPORTANT: this MUST match the resolution used in location saves (location.service.ts).
+// Using different resolutions for save vs search puts data in different Redis buckets.
+export const DEFAULT_H3_RESOLUTION = 8;
+export const MAX_SEARCH_RADIUS_METERS = 2000; // 2km cap keeps cell count ≤ ~91 cells at res 8
 
 /**
  * Converts GPS coordinates to an H3 cell index.

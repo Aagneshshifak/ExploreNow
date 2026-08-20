@@ -2,7 +2,7 @@ import { ILocationRepository } from '../../domain/interfaces/location.repository
 import { IPrivacyRepository } from '../../domain/interfaces/privacy.repository.interface';
 import { IUserProfileRepository } from '../../domain/interfaces/profile.repository.interface';
 import { IConnectionRepository } from '../../domain/interfaces/connection.repository.interface';
-import { getH3Index, getNeighboringCells, calculateRingSize, calculateHaversineDistance, DEFAULT_H3_RESOLUTION, resolutionForRadius, MAX_SEARCH_RADIUS_METERS } from '../../utils/h3.util';
+import { getH3Index, getNeighboringCells, calculateRingSize, calculateHaversineDistance, DEFAULT_H3_RESOLUTION, MAX_SEARCH_RADIUS_METERS } from '../../utils/h3.util';
 import { LiveLocation } from '../../domain/entities/location.entity';
 import { logger } from '../../utils/logger.util';
 
@@ -41,14 +41,13 @@ export class MatchingService {
   ): Promise<NearbyCandidate[]> {
     logger.debug(`Searching for candidates near [${lat}, ${lng}] within ${radiusMeters}m for user ${searcherId}`);
 
-    // PHASE 1: Geographic Bucketing — pick resolution based on radius to keep cell count low
+    // PHASE 1: Geographic Bucketing
     const clampedRadius = Math.min(radiusMeters, MAX_SEARCH_RADIUS_METERS);
-    const resolution = resolutionForRadius(clampedRadius);
-    const centerCell = getH3Index(lat, lng, resolution);
-    const ringSize = calculateRingSize(clampedRadius, resolution);
+    const centerCell = getH3Index(lat, lng, DEFAULT_H3_RESOLUTION);
+    const ringSize = calculateRingSize(clampedRadius, DEFAULT_H3_RESOLUTION);
     const cellsToSearch = getNeighboringCells(centerCell, ringSize);
 
-    logger.debug(`H3 search: radius=${clampedRadius}m res=${resolution} ring=${ringSize} cells=${cellsToSearch.length}`);
+    logger.debug(`H3 search: radius=${clampedRadius}m res=${DEFAULT_H3_RESOLUTION} ring=${ringSize} cells=${cellsToSearch.length}`);
     
     const cellPromises = cellsToSearch.map(cell => this.locationRepo.getActiveUsersInH3Cell(cell));
     const cellResults = await Promise.all(cellPromises);
