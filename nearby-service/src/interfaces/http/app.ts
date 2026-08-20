@@ -9,8 +9,25 @@ import apiRouter from './routes';
 export const createApp = (): Application => {
   const app: Application = express();
 
-  // Basic Middlewares
-  app.use(cors());
+  // CORS Configuration - allow frontend to connect
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : [
+        'https://explorenow.onrender.com',
+        'http://localhost:5173',
+        'http://localhost:5001'
+      ];
+
+  const corsOptions = {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
+    optionsSuccessStatus: 200
+  };
+
+  app.use(cors(corsOptions));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -24,6 +41,11 @@ export const createApp = (): Application => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
+  });
+
+  // Keep-alive ping (prevents Render from sleeping on free tier)
+  app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
   });
 
   // Routes

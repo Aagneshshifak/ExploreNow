@@ -21,7 +21,7 @@ enum RequestStatus {
 
 model PrivacySettings {
   userId         String   @id // External ID from tourist-backend
-  isDiscoverable Boolean  @default(false)
+  isDiscoverable Boolean  @default(true)
   searchRadius   Int      @default(500) // In meters
   updatedAt      DateTime @updatedAt
 

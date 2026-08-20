@@ -98,7 +98,8 @@ export function useNearbyUsers(latitude: number | null, longitude: number | null
         }
       }
     );
-  }, [user, latitude, longitude, pingMutation, hasPinged]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, latitude, longitude, hasPinged]); // pingMutation intentionally omitted — stable mutate ref
 
   useEffect(() => {
     debouncedPing();
@@ -119,8 +120,13 @@ export function useNearbyUsers(latitude: number | null, longitude: number | null
     };
   }, [user]);
 
+  // Round to 4 decimal places (~11m) so GPS micro-drift doesn't create a new
+  // cache entry (and a new HTTP request) on every render.
+  const roundedLat = latitude !== null ? Math.round(latitude * 1e4) / 1e4 : null;
+  const roundedLng = longitude !== null ? Math.round(longitude * 1e4) / 1e4 : null;
+
   return useQuery({
-    queryKey: ['nearbyUsers', user?.id, latitude, longitude],
+    queryKey: ['nearbyUsers', user?.id, roundedLat, roundedLng],
     queryFn: () => getNearbyUsers(user!.id.toString(), latitude!, longitude!),
     enabled: !!user && latitude !== null && longitude !== null && hasPinged,
     refetchInterval: 30000, // Poll every 30s

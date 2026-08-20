@@ -39,8 +39,8 @@ export class PostgresPrivacyRepository implements IPrivacyRepository {
       // Return the original list minus the hidden users
       return userIds.filter(id => !hiddenIds.has(id));
     } catch (error) {
-      logger.error('Failed to filter discoverable users', error);
-      return []; // Fail safe
+      logger.error('Failed to filter discoverable users — returning all as discoverable to avoid silent empty results', error);
+      return userIds; // Fail open: don't silently hide everyone on a DB hiccup
     }
   }
 }

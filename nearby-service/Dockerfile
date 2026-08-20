@@ -38,6 +38,9 @@ COPY --from=builder /app/dist ./dist
 # Set env to production
 ENV NODE_ENV=production
 
+# Cap heap to avoid OOM crashes on memory-constrained instances (Render free tier ~512MB)
+ENV NODE_OPTIONS="--max-old-space-size=400"
+
 # Expose HTTP and gRPC ports
 EXPOSE 10000
 EXPOSE 50051
