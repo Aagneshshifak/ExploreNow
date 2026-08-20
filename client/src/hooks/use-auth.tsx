@@ -152,7 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** Redirect the browser to Google's consent page via the backend */
   const loginWithGoogle = useCallback(() => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+    // Use the current origin so it works in both dev (Vite proxy) and production (same origin)
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || window.location.origin;
     window.location.href = `${backendUrl}/api/auth/google`;
   }, []);
 
@@ -294,7 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 2. Cancel any in-flight queries that might restore the user
     await queryClient.cancelQueries({ queryKey: ['/api/auth/me'] });
     
-    // 3. Set cache to null — this triggers the UI re-render to logged-out state
+    // 3. Set auth cache to null — this triggers the UI re-render to logged-out state
     queryClient.setQueryData(['/api/auth/me'], null);
     
     // 4. Call the server to clear the cookie
@@ -308,9 +309,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[AUTH] Logout API error (cookie may not be cleared):', error);
     }
     
-    // 5. Now that the cookie is cleared, wipe all cached queries
-    // This is safe now — even if queries refetch, they'll get 401 since the cookie is gone
-    queryClient.clear();
+    // 5. Remove all non-auth cached queries (trips, hotels, bookings, etc.)
+    // Do NOT use queryClient.clear() — it destroys mounted observers and breaks React Query
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== '/api/auth/me',
+    });
     
     // 6. Reset the flag
     isLoggingOut = false;
