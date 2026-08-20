@@ -3,6 +3,10 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from './use-auth';
 import { toast } from '@/hooks/use-toast';
 
+// Exponential backoff for reconnection
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
 // Dynamically determine the URL to handle cases where the env var wasn't injected during build
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const defaultUrl = isLocal ? 'http://localhost:10000' : 'https://explorenow-hhwh.onrender.com';
@@ -13,6 +17,7 @@ export function useNearbySocket() {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<{from: string, to: string, text: string, timestamp: number}[]>([]);
   const socketRef = useRef<Socket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -29,19 +34,54 @@ export function useNearbySocket() {
           return;
         }
 
+        // Calculate backoff delay
+        const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+
         socket = io(NEARBY_SERVICE_URL, {
-          auth: { token: data.token }
+          auth: { token: data.token },
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionDelay: backoffDelay,
+          reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+          timeout: 20000,
+          withCredentials: true // Important for CORS with credentials
         });
 
         socketRef.current = socket;
 
         socket.on('connect', () => {
-          console.log('Connected to Nearby WebSocket Gateway');
+          console.log('✅ Connected to Nearby WebSocket Gateway');
           setIsConnected(true);
+          reconnectAttempts = 0; // Reset on successful connection
         });
 
-        socket.on('disconnect', () => {
+        socket.on('disconnect', (reason) => {
+          console.log('❌ Disconnected from Nearby WebSocket:', reason);
           setIsConnected(false);
+          
+          // Don't show toast for intentional disconnects
+          if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+            return;
+          }
+        });
+
+        socket.on('connect_error', (error) => {
+          console.error('❌ Socket connection error:', error.message);
+          reconnectAttempts++;
+          
+          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            console.error('Max reconnection attempts reached. Giving up.');
+            socket?.disconnect();
+            toast({
+              title: "Connection Failed",
+              description: "Unable to connect to nearby service. Please refresh the page.",
+              variant: "destructive"
+            });
+          }
+        });
+
+        socket.on('error', (error) => {
+          console.error('❌ Socket error:', error);
         });
 
         // Handle real-time notifications
@@ -76,7 +116,8 @@ export function useNearbySocket() {
         });
 
       } catch (err) {
-        console.error("Socket connection failed", err);
+        console.error("❌ Socket connection failed:", err);
+        reconnectAttempts++;
       }
     };
 
@@ -86,6 +127,10 @@ export function useNearbySocket() {
       if (socket) {
         socket.disconnect();
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      reconnectAttempts = 0;
     };
   }, [user]);
 
@@ -94,6 +139,12 @@ export function useNearbySocket() {
       socketRef.current.emit('CHAT_MESSAGE', { to: toUserId, text });
       // Optimistically add to UI
       setMessages(prev => [...prev, { from: user!.id.toString(), to: toUserId, text, timestamp: Date.now() }]);
+    } else {
+      toast({
+        title: "Not Connected",
+        description: "Unable to send message. Please check your connection.",
+        variant: "destructive"
+      });
     }
   };
 

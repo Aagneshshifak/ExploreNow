@@ -22,8 +22,26 @@ export class SocketManager {
     private readonly notificationService: NotificationService,
     private readonly offlineQueueService: OfflineQueueService
   ) {
+    // Get allowed origins from environment or use defaults
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      : [
+          'https://explorenow.onrender.com',
+          'http://localhost:5173',
+          'http://localhost:5001'
+        ];
+
     this.io = new SocketIOServer(server, {
-      cors: { origin: '*' }
+      cors: {
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+      },
+      transports: ['websocket', 'polling'],
+      allowEIO3: true,
+      pingTimeout: 60000,
+      pingInterval: 25000
     });
 
     const pubClient = redisDB.client.duplicate();
